@@ -505,6 +505,21 @@ geocode_core <- function(
   # drop geocodebr temp id column
   output_df[, tempidgeocodebr := NULL]
 
+  # # col precisao como ordered factor
+  # ordem_precisao <- c(
+  #   "numero",
+  #   "numero_aproximado",
+  #   "logradouro",
+  #   "cep",
+  #   "localidade",
+  #   "municipio"
+  # )
+  # output_df[, precisao := factor(
+  #   precisao,
+  #   levels = ordem_precisao,
+  #   ordered = TRUE
+  # )]
+
   # Disconnect from DuckDB when done
   duckdb::dbDisconnect(con)
 
