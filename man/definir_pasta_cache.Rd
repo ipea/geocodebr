@@ -9,7 +9,7 @@ definir_pasta_cache(path, verboso = TRUE)
 \arguments{
 \item{path}{Uma string. O caminho para o diretório usado para armazenar os
 dados em cache.  Se \code{NULL}, o pacote usará um diretório versionado salvo
-dentro do diretório retornado por \code{\link[tools:userdir]{tools::R_user_dir()}}.}
+dentro do diretório retornado por \code{\link[tools:R_user_dir]{tools::R_user_dir()}}.}
 
 \item{verboso}{Um valor lógico. Indica se barras de progresso e mensagens
 devem ser exibidas durante o download dos dados do CNEFE e a geocodificação
