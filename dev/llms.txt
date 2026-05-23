@@ -10,13 +10,12 @@ coverage](https://codecov.io/gh/ipeaGIT/geocodebr/branch/main/graph/badge.svg)](
 [![Lifecycle:
 experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html)
 
-O **{geocodebr}** é um pacote computacional para geolocalização de
+O **{geocodebr}** é um pacote computacional para geolicalização de
 endereços Brasileiros. O pacote oferece uma maneira simples e eficiente
-de geolocalizar dados sem limite de número de consultas capaz de
-geolocalizar milhões de endereços em poucos minutos. O pacote é baseado
-em conjuntos de dados espaciais abertos de endereços brasileiros,
-utilizando como fonte principal o Cadastro Nacional de Endereços para
-Fins Estatísticos (CNEFE). O CNEFE é
+de geolocalizar dados sem limite de número de consultas. O pacote é
+baseado em conjuntos de dados espaciais abertos de endereços
+brasileiros, utilizando como fonte principal o Cadastro Nacional de
+Endereços para Fins Estatísticos (CNEFE). O CNEFE é
 [publicado](https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html)
 pelo Instituto Brasileiro de Geografia e Estatística (IBGE). Atualmente,
 o pacote está disponível apenas em R.
@@ -26,6 +25,7 @@ o pacote está disponível apenas em R.
 A última versão estável pode ser baixada do CRAN com o comando:
 
 ``` r
+
 # from CRAN
 install.packages("geocodebr")
 ```
@@ -33,6 +33,7 @@ install.packages("geocodebr")
 Caso prefira, a versão em desenvolvimento:
 
 ``` r
+
 # install.packages("remotes")
 remotes::install_github("ipeaGIT/geocodebr")
 ```
@@ -62,6 +63,7 @@ passos:
     para encontrar as coordenadas geográficas dos endereços de input.
 
 ``` r
+
 library(geocodebr)
 library(sf)
 
@@ -108,6 +110,7 @@ de interesse, como escolas, hospitais, ou locais de acidentes. Aqui um
 exemplo de como usar a função:
 
 ``` r
+
 # amostra de pontos espaciais
 pontos <- readRDS(
    system.file("extdata/pontos.rds", package = "geocodebr")
@@ -134,6 +137,7 @@ permite fazer consultas de CEPs para encontrar endereços associados a
 cada CEP e suas coordenadas espaciais.
 
 ``` r
+
 # amostra de CEPs
 ceps <- c("70390-025", "20071-001")
 
@@ -157,9 +161,8 @@ Além de diversos pesquisadores e empresas que utilizam o {geocodebr}, o
 pacote também tem sido utilizado por algumas instituições públicas no
 planejamento e avaliação de políticas públicas. Entre elas:
 
-- Banco Central do Brasil (BCB)
-- Fundação Oswaldo Cruz (Fiocruz)
 - Instituto Brasileiro de Geografia e Estatistica (IBGE)
+- Banco Central do Brasil (BCB)
 - Ministério do Desenvolvimento Social e Combate à Fome (MDS)
 
 ## Projetos relacionados

@@ -24,6 +24,7 @@ obs. Note que as colunas indicando o `"estado"` e `"município"` são
 obrigatórias.
 
 ``` r
+
 library(geocodebr)
 
 # leitura de amostra de dados
@@ -55,6 +56,7 @@ baixados uma única vez. Mais informações sobre o cache de dados
 [aqui](https://ipeagit.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
 
 ``` r
+
 # geolicalização
 ends_geo <- geocode(
   enderecos = ends, 

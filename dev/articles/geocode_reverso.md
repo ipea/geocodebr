@@ -17,6 +17,7 @@ mais próximo de cada ponto de *input*, onde a coluna
 endereços encontrados.
 
 ``` r
+
 library(geocodebr)
 library(sf)
 #> Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE

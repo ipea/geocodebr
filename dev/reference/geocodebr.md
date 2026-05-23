@@ -29,6 +29,9 @@ Useful links:
 
 Authors:
 
+- Rafael H. M. Pereira <rafa.pereira.br@gmail.com>
+  ([ORCID](https://orcid.org/0000-0003-2125-7465))
+
 - Daniel Herszenhut <dhersz@gmail.com>
   ([ORCID](https://orcid.org/0000-0001-8066-1105))
 
