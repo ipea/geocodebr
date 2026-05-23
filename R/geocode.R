@@ -226,8 +226,7 @@ geocode_core <- function(
     # add empty string to missing cols
     data.table::setDT(enderecos)
     new_colnames <- paste0(names(missing_cols), "tempgeocodebr")
-    enderecos[, (new_colnames) := "" ]
-    # enderecos[, numerotempgeocodebr := NA_integer_ ]
+    enderecos[, (new_colnames) := NA_integer_ ]
 
     # update address fields with fake columns
     campos_endereco[sapply(campos_endereco, is.null)] <- as.list(new_colnames)
