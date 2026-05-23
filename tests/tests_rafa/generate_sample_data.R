@@ -130,6 +130,9 @@ setDT(df)
 df[, id := 1:nrow(df)]
 head(df)
 
+data.table::setindex(df, NULL)
+data.table::setDF(df)
+
 arrow::write_parquet(df, './inst/extdata/large_sample.parquet')
 
 
