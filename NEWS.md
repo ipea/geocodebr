@@ -1,5 +1,3 @@
-# geocodebr (development version)
-
 # geocodebr v0.6.3 dev
 
 ## Correção de bugs (Bug fixes)
@@ -8,6 +6,13 @@
 endereços com apenas alguns campos. Os campos de municio e unidade da federação
 continuam sendo obrigatórios. Encerra [#89](https://github.com/ipeaGIT/geocodebr/issues/89)
 e [#94](https://github.com/ipeaGIT/geocodebr/issues/94)
+
+## Mudanças pequenas (Minor changes)
+
+- A função `geocode_reverso()` teve pequeno ganho de velocidade, com drástica 
+redução no consumo de memória. Na amostra de 1000 pontos, o uso de memória caiu
+de 161MB para 95MB.
+
 
 
 # geocodebr v0.6.2

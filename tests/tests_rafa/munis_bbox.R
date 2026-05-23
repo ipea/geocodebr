@@ -85,11 +85,3 @@ duckspatial::ddbs_write_dataset(
 
 
 
-path <- "//storage6/usuarios/Proj_acess_oport/git_rafa/prep_roger/data/municipality/2022/municipalities_2022_simplified.parquet"
-df <- arrow::open_dataset(path) |>
-  dplyr::select(code_muni, geometry) |>
-  sf::st_as_sf()
-
-arrow::write_parquet(df, "munis_2022.parquet",
-                     compression='zstd',
-                     compression_level = 7)
