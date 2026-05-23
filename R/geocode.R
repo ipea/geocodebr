@@ -210,6 +210,30 @@ geocode_core <- function(
   # systime start 66666 ----------------
   # timer$mark("Start")
 
+  # fix eventual missing fields in input data -------------------------------------------------------
+  # geocodebr requires all address fields to be declared
+  # if one or more fields are empty, we add mock columns with empty strings
+
+  campos_endereco <- assert_and_assign_address_fields(
+    campos_endereco,
+    enderecos
+  )
+
+  # determine which columns are missing, if any
+  missing_cols <- campos_endereco[unlist(lapply(campos_endereco, is.null))]
+
+  if (length(missing_cols)>=1) {
+    # add empty string to missing cols
+    data.table::setDT(enderecos)
+    new_colnames <- paste0(names(missing_cols), "tempgeocodebr")
+    enderecos[, (new_colnames) := "" ]
+    # enderecos[, numerotempgeocodebr := NA_integer_ ]
+
+    # update address fields with fake columns
+    campos_endereco[sapply(campos_endereco, is.null)] <- as.list(new_colnames)
+  }
+
+
   # normalize input data -------------------------------------------------------
   # standardizing the addresses table to increase the chances of finding a match
   # in the CNEFE data
@@ -218,11 +242,6 @@ geocode_core <- function(
     if (verboso) {
       message_standardizing_addresses()
     }
-
-    campos_endereco <- assert_and_assign_address_fields(
-      campos_endereco,
-      enderecos
-    )
 
     input_padrao <- enderecobr::padronizar_enderecos(
       enderecos = enderecos,
@@ -506,6 +525,11 @@ geocode_core <- function(
 
     # systime add h3 66666 ----------------
     # timer$mark("Add H3")
+  }
+
+  # drop eventual mock columns with empty strings
+  if (length(missing_cols)>=1) {
+    output_df[, (new_colnames) := NULL]
   }
 
   # remove data.table class
