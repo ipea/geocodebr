@@ -1,3 +1,20 @@
+# geocodebr v0.6.3 dev
+
+## Correção de bugs (Bug fixes)
+
+- Bug corrigido que agora permite usuários passarem como input tabelas de 
+endereços com apenas alguns campos. Os campos de municio e unidade da federação
+continuam sendo obrigatórios. Encerra [#89](https://github.com/ipeaGIT/geocodebr/issues/89)
+e [#94](https://github.com/ipeaGIT/geocodebr/issues/94)
+
+## Mudanças pequenas (Minor changes)
+
+- A função `geocode_reverso()` teve pequeno ganho de velocidade, com drástica 
+redução no consumo de memória. Na amostra de 1000 pontos, o uso de memória caiu
+de 161MB para 95MB.
+
+
+
 # geocodebr v0.6.2
 
 ## Correção de bugs (Bug fixes)
@@ -7,7 +24,7 @@ data release corrente, e ignora eventuais dados de releases antigos que estejam
 na pasta. [Encerra #90](https://github.com/ipeaGIT/geocodebr/issues/90)
 - A função `geocode()` agora retorna erro informativo quando alguma coluna na tabela 
 de input tem nome com algum caractere não alfanumérico, como . , ? ^ - ! ~. Não 
-há problema com o sublinhado _, como em “name_muni”. Fecha [issue #92](https://github.com/ipeaGIT/geocodebr/issues/92)
+há problema com o barra baixa _, como em “name_muni”. Fecha [issue #92](https://github.com/ipeaGIT/geocodebr/issues/92)
 - Corrigido erro na função de `geocode_reverso()` que impedia usar valores muito
 altos de `dist_max`. [Encerra #88](https://github.com/ipeaGIT/geocodebr/issues/88)
 - Incluido 'Language: pt' na DESCRIPTION

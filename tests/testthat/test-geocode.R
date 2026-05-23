@@ -70,6 +70,72 @@ test_that("expected output", {
 })
 
 
+
+test_that("partial address in the input", {
+
+  df_parcial <- data.frame(
+    uf        = c("PA", "PA"),
+    municipio = c("Santarem", "Santarem"),
+    cep_estab = c("68005000", "68000000"),
+    stringsAsFactors = FALSE
+  )
+
+  campos_parcial <- geocodebr::definir_campos(
+    estado    = "uf",
+    municipio = "municipio",
+    cep       = "cep_estab"
+  )
+
+  testthat::succeed(
+    tester(enderecos = df_parcial, campos_endereco = campos_parcial)
+  )
+
+  # missing critical column uf of muni
+  testthat::expect_error(
+    geocodebr::definir_campos(
+      # estado    = "uf",
+      municipio = "municipio")
+    )
+
+  # quando colunas de dados e campos nao correspondem
+  df_parcial2 <- data.frame(
+     uf        = c("PA", "PA"),
+    municipio = c("Santarem", "Santarem"),
+    #cep_estab = c("68005000", "68000000"),
+    stringsAsFactors = FALSE
+  )
+
+  testthat::expect_error(
+    tester(enderecos = df_parcial2, campos_endereco = campos_parcial)
+  )
+
+
+})
+
+
+test_that("precisao Ipea", {
+
+  df_ipea <- data.frame(
+    uf        = c("DF", "RJ"),
+    municipio = c("Brasilia", "Rio de Janeiro"),
+    cep = c("70390-025", "20071-001"),
+    stringsAsFactors = FALSE
+  )
+
+  campos_ipea <- geocodebr::definir_campos(
+    estado    = "uf",
+    municipio = "municipio",
+    cep       = "cep"
+  )
+
+  out_ipea <- tester(enderecos = df_ipea, campos_endereco = campos_ipea)
+
+  testthat::expect_true(all(out_ipea$desvio_metros < 115))
+
+})
+
+
+
 test_that("argumento padronizar endereco", {
 
   # erro se input nao estiver padronizado

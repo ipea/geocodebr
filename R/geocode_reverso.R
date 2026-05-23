@@ -67,9 +67,6 @@ geocode_reverso <- function(
     )
   }
 
-  # pontos <- sf::st_transform(pontos, 4674)
-
-
   # prep input -------------------------------------------------------
 
   # converte pontos de input para data.frame
@@ -114,24 +111,8 @@ geocode_reverso <- function(
   # limita escopo de busca aos municipios  -------------------------------------------------------
   # determine potential municipalities
   munis <- system.file("extdata/munis_bbox_2022.parquet", package = "geocodebr") |>
-    arrow::open_dataset() |>
-    sf::st_as_sf()
+    duckspatial::ddbs_open_dataset()
 
-  # place holder to use geoarrow becaue:
-  #   Namespace in Imports field not imported from: 'geoarrow'
-  #        All declared Imports should be used.
-  geoarrow::as_geoarrow_vctr("POINT (0 1)")
-
-  # munis_path <- system.file("extdata/munis_2022.parquet", package = "geocodebr")
-  #
-  # query_register_muni <- glue::glue(
-  #   "CREATE OR REPLACE TEMP VIEW munis AS
-  #       SELECT *,
-  #       geometry::GEOMETRY AS geometry
-  #   FROM read_parquet('{munis_path}');"
-  # )
-  #
-  # DBI::dbExecute(conn, query_register_muni)
 
   potential_munis <- duckspatial::ddbs_join(
     x = pontos,
@@ -185,22 +166,28 @@ geocode_reverso <- function(
   # ST_Point(lon, lat)::GEOMETRY('EPSG:4674') AS geom
 
 
-  cnefe_utm_duck <-  duckspatial::ddbs_transform(
+  # converte cnefe para UTM
+  cnefe_utm_duck <- duckspatial::ddbs_transform(
     x = 'cnefe_tb',
-    y = 'EPSG:31983',conn = conn,
+    y = 'EPSG:31983',
+    conn = conn,
     quiet = TRUE
   )
 
-  # input to UTM
-  input_utm_duck <-  duckspatial::ddbs_transform(
+  # converte pontos para UTM
+  input_utm_duck <- duckspatial::ddbs_transform(
     x = pontos,
     y = 'EPSG:31983',
+    conn = conn,
+    name = "pontos_utm",
+    overwrite = T,
     quiet = TRUE
   )
 
-  # buffers around input points
+  # buffer around input points
   buff <- duckspatial::ddbs_buffer(
-    x = input_utm_duck,
+    x = "pontos_utm",
+    conn = conn,
     distance = dist_max,
     quiet = TRUE
   )
@@ -210,28 +197,12 @@ geocode_reverso <- function(
     result <- duckspatial::ddbs_join(
       x = cnefe_utm_duck,
       y = buff,
-      join = "within",
+      join = "intersects", # intersects within
+      conn = conn,
+      name = "join_result",
+      overwrite = T,
       quiet = TRUE
     )
-  )
-
-  # write to connection
-  duckspatial::ddbs_write_table(
-    conn = conn,
-    data = input_utm_duck,
-    name = "pontos_utm",
-    overwrite = T,
-    temp_view = T,
-    quiet = TRUE
-  )
-
-  duckspatial::ddbs_write_table(
-    conn = conn,
-    data = result,
-    name = "join_result",
-    overwrite = T,
-    temp_view = T,
-    quiet = TRUE
   )
 
   # Get column names from both tables
@@ -256,7 +227,7 @@ geocode_reverso <- function(
         ST_Distance(a.geometry, b.geometry) AS distancia_metros,
         ROW_NUMBER() OVER (
           PARTITION BY a.id
-          ORDER BY ST_Distance(a.geometry, b.geometry)
+          ORDER BY distancia_metros
         ) AS rn
       FROM pontos_utm AS a
       JOIN join_result AS b
