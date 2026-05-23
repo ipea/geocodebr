@@ -1,6 +1,6 @@
 devtools::load_all('.')
 library(dplyr)
-library(geoarrow)
+library(sf)
 
 
 # input data
@@ -47,10 +47,12 @@ b5
 
 # # 500 pontos
 #     expression           min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
-#     <bch:expr>        <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int> <dbl>   <bch:tm> <list> <list>
 #   1 duck_filter4       1.54m  1.62m   0.0101    221.5MB  0.0423      5    21      8.28m <NULL> <Rprofmem>
 #   2 duck_filter_loop4  5.35m  6.88m   0.00255    14.5MB  0.00357     5     7      32.7m <NULL> <Rprofmem>
 #   3 hybrid4            2.41m  2.47m   0.00663    34.5MB  0.302       5   228     12.56m <NULL> <Rprofmem>
+#   v0.6.2                2.9s    3.02s     0.330     153MB     1.39     5    21      15.1s <NULL>
+#   0.6.2.9000 duck       4.41s    4.73s     0.175    94.9MB    0.281     5     8      28.5s <NULL>
+
 
 # # 1000 pontos
 #     expression   min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
