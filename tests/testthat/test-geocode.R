@@ -70,6 +70,29 @@ test_that("expected output", {
 })
 
 
+
+test_that("partial address in the input", {
+
+  df_parcial <- data.frame(
+    uf        = c("PA", "PA"),
+    municipio = c("Santarem", "Santarem"),
+    cep_estab = c("68005000", "68000000"),
+    stringsAsFactors = FALSE
+  )
+
+  campos_parcial <- geocodebr::definir_campos(
+    estado    = "uf",
+    municipio = "municipio",
+    cep       = "cep_estab"
+  )
+
+  testthat::succeed(
+    tester(enderecos = df_parcial, campos_endereco = campos_parcial)
+  )
+
+})
+
+
 test_that("argumento padronizar endereco", {
 
   # erro se input nao estiver padronizado
