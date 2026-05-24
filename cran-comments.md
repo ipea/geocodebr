@@ -12,8 +12,8 @@ Duration: 2m 39s
 
 - Fixed a bug that now allows users to pass address tables containing only a 
 subset of address fields as input. Municipality and state fields remain 
-mandatory. Closes [#89](https://github.com/ipeaGIT/geocodebr/issues/89)
-and [#94](https://github.com/ipeaGIT/geocodebr/issues/94)
+mandatory. Closes [#89](https://github.com/ipea/geocodebr/issues/89)
+and [#94](https://github.com/ipea/geocodebr/issues/94)
 
 ## Minor changes
 

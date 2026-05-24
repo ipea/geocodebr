@@ -25,9 +25,9 @@ Description: Método simples e eficiente de geolocalizar dados no Brasil. O
     published by the Instituto Brasileiro de Geografia e Estatística (IBGE), 
     Brazil's official statistics and geography agency.)
 License: MIT + file LICENSE
-URL: https://github.com/ipeaGIT/geocodebr,
-    https://ipeagit.github.io/geocodebr/
-BugReports: https://github.com/ipeaGIT/geocodebr/issues
+URL: https://github.com/ipea/geocodebr,
+    https://ipea.github.io/geocodebr/
+BugReports: https://github.com/ipea/geocodebr/issues
 Depends: 
     R (>= 4.1.0)
 Imports:

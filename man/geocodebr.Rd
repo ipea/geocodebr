@@ -14,9 +14,9 @@ Método simples e eficiente de geolocalizar dados no Brasil. O pacote é baseado
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/ipeaGIT/geocodebr}
-  \item \url{https://ipeagit.github.io/geocodebr/}
-  \item Report bugs at \url{https://github.com/ipeaGIT/geocodebr/issues}
+  \item \url{https://github.com/ipea/geocodebr}
+  \item \url{https://ipea.github.io/geocodebr/}
+  \item Report bugs at \url{https://github.com/ipea/geocodebr/issues}
 }
 
 }
