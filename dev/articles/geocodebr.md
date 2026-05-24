@@ -27,7 +27,7 @@ Caso prefira, a versão em desenvolvimento:
 ``` r
 
 # install.packages("remotes")
-remotes::install_github("ipeaGIT/geocodebr")
+remotes::install_github("ipea/geocodebr")
 ```
 
 ## Utilização
@@ -108,7 +108,7 @@ endereço de input foi encontrado nos dados do CNEFE. s resultados trazem
 ainda uma estimativa da incerteza da localização encontrado como um
 `desvio_metros`. Para mais informações, consulte a documentação da
 função ou a [**vignette
-“geocode”**](https://ipeagit.github.io/geocodebr/articles/geocode.html).
+“geocode”**](https://ipea.github.io/geocodebr/articles/geocode.html).
 
 ### 2. Geolocalização reversa: de coordenadas espaciais para endereços
 
@@ -117,7 +117,7 @@ A função
 por sua vez, permite a geolocalização reversa, ou seja, a busca de
 endereços próximos a um conjunto de coordenadas geográficas. Mais
 detalhes na [**vignette
-“geocode”**](https://ipeagit.github.io/geocodebr/articles/geocode_reverso.html).
+“geocode”**](https://ipea.github.io/geocodebr/articles/geocode_reverso.html).
 
 ``` r
 

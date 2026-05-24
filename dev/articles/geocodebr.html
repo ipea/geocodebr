@@ -45,7 +45,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Pesquisar site" placeholder="Procurar" data-search-index="../search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/ipeaGIT/geocodebr/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/ipea/geocodebr/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Interruptor de luz"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
@@ -68,9 +68,9 @@
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Introdução ao geocodebr</h1>
             
-            <h4 data-toc-skip class="date">2026-05-23</h4>
+            <h4 data-toc-skip class="date">2026-05-24</h4>
       
-      <small class="dont-index">Fonte: <a href="https://github.com/ipeaGIT/geocodebr/blob/main/vignettes/geocodebr.Rmd" class="external-link"><code>vignettes/geocodebr.Rmd</code></a></small>
+      <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocodebr.Rmd" class="external-link"><code>vignettes/geocodebr.Rmd</code></a></small>
       <div class="d-none name"><code>geocodebr.Rmd</code></div>
     </div>
 
@@ -96,7 +96,7 @@ seguir:</p>
 <p>Caso prefira, a versão em desenvolvimento:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"ipeaGIT/geocodebr"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"ipea/geocodebr"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="utilização">Utilização<a class="anchor" aria-label="anchor" href="#utiliza%C3%A7%C3%A3o"></a>
@@ -122,7 +122,7 @@ correspondem a cada campo dos endereços.</li>
 encontrar as coordenadas geográficas dos endereços de input.</li>
 </ol>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ipeaGIT/geocodebr" class="external-link">geocodebr</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ipea/geocodebr" class="external-link">geocodebr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-spatial.github.io/sf/" class="external-link">sf</a></span><span class="op">)</span></span>
 <span><span class="co">#&gt; Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE</span></span>
 <span></span>
@@ -169,7 +169,7 @@ seis categorias gerais de <code>precisao</code>, dependendo do nível de
 exatidão com que cada endereço de input foi encontrado nos dados do
 CNEFE. s resultados trazem ainda uma estimativa da incerteza da
 localização encontrado como um <code>desvio_metros</code>. Para mais
-informações, consulte a documentação da função ou a <a href="https://ipeagit.github.io/geocodebr/articles/geocode.html"><strong>vignette
+informações, consulte a documentação da função ou a <a href="https://ipea.github.io/geocodebr/articles/geocode.html" class="external-link"><strong>vignette
 “geocode”</strong></a>.</p>
 </div>
 <div class="section level3">
@@ -178,7 +178,7 @@ endereços<a class="anchor" aria-label="anchor" href="#geolocaliza%C3%A7%C3%A3o-
 </h3>
 <p>A função <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code>, por sua vez, permite a
 geolocalização reversa, ou seja, a busca de endereços próximos a um
-conjunto de coordenadas geográficas. Mais detalhes na <a href="https://ipeagit.github.io/geocodebr/articles/geocode_reverso.html"><strong>vignette
+conjunto de coordenadas geográficas. Mais detalhes na <a href="https://ipea.github.io/geocodebr/articles/geocode_reverso.html" class="external-link"><strong>vignette
 “geocode”</strong></a>.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># amostra de pontos espaciais</span></span>

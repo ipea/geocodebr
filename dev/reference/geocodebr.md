@@ -16,11 +16,11 @@ statistics and geography agency.)
 
 Useful links:
 
-- <https://github.com/ipeaGIT/geocodebr>
+- <https://github.com/ipea/geocodebr>
 
-- <https://ipeagit.github.io/geocodebr/>
+- <https://ipea.github.io/geocodebr/>
 
-- Report bugs at <https://github.com/ipeaGIT/geocodebr/issues>
+- Report bugs at <https://github.com/ipea/geocodebr/issues>
 
 ## Autor
 
