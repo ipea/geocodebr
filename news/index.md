@@ -1,6 +1,6 @@
 # Changelog
 
-## geocodebr v0.6.3 dev
+## geocodebr v0.6.3
 
 Lançamento CRAN: 2026-05-24
 

@@ -32,7 +32,7 @@ Retorna de forma invisível o caminho do diretório de cache.
 
 ``` r
 definir_pasta_cache(tempdir())
-#> ℹ Definido como pasta de cache /tmp/RtmpeVIdLS.
+#> ℹ Definido como pasta de cache /tmp/Rtmp9Ov1Gp.
 
 # retoma pasta padrão do pacote
 definir_pasta_cache( path = NULL)
