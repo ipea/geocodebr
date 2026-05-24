@@ -5,6 +5,7 @@ Duration: 2m 39s
 
 0 errors ✔ | 0 warnings ✔ | 0 notes ✔
 
+- The following url works fine on the browser \url{https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html}
 
 # geocodebr v0.6.3
 
