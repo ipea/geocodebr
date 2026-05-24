@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Geolocalização De Endereços Brasileiros (Geocoding Brazilian Addresses) • geocodebr</title>
 <script src="lightswitch.js"></script><script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Geolocalização De Endereços Brasileiros (Geocoding Brazilian Addresses)">
 <meta name="description" content="Método simples e eficiente de geolocalizar dados no Brasil. O pacote é baseado em conjuntos de dados espaciais abertos de endereços brasileiros, utilizando como fonte principal o Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE). O CNEFE é publicado pelo Instituto Brasileiro de Geografia e Estatística (IBGE), órgão oficial de estatísticas e geografia do Brasil. (A simple and efficient method for geolocating data in Brazil. The package is based on open spatial datasets of Brazilian addresses, primarily using the Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), published by the Instituto Brasileiro de Geografia e Estatística (IBGE), Brazil's official statistics and geography agency.)">
@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="index.html">geocodebr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -47,7 +47,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Pesquisar site" placeholder="Procurar" data-search-index="search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/ipeaGIT/geocodebr/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/ipea/geocodebr/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Interruptor de luz"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
@@ -68,7 +68,7 @@
 <img src="logo.svg" class="logo" alt=""><h1 id="geocodebr-geolocalização-de-endereços-brasileiros-">geocodebr: Geolocalização de Endereços Brasileiros <a class="anchor" aria-label="anchor" href="#geocodebr-geolocaliza%C3%A7%C3%A3o-de-endere%C3%A7os-brasileiros-"></a>
 </h1>
 </div>
-<p><a href="https://CRAN.R-project.org/package=geocodebr" class="external-link"><img src="https://www.r-pkg.org/badges/version/geocodebr" alt="CRAN status"></a> <a href="https://CRAN.R-project.org/package=geocodebr" class="external-link"><img src="https://cranlogs.r-pkg.org/badges/grand-total/geocodebr?color=blue" alt="CRAN/METACRAN Total downloads"></a> <a href="https://github.com/ipeaGIT/geocodebr/actions" class="external-link"><img src="https://github.com/ipeaGIT/geocodebr/workflows/check/badge.svg" alt="check"></a> <a href="https://app.codecov.io/gh/ipeaGIT/geocodebr?branch=main" class="external-link"><img src="https://codecov.io/gh/ipeaGIT/geocodebr/branch/main/graph/badge.svg" alt="Codecov test coverage"></a> <a href="https://lifecycle.r-lib.org/articles/stages.html" class="external-link"><img src="https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg" alt="Lifecycle: experimental"></a></p>
+<p><a href="https://CRAN.R-project.org/package=geocodebr" class="external-link"><img src="https://www.r-pkg.org/badges/version/geocodebr" alt="CRAN status"></a> <a href="https://CRAN.R-project.org/package=geocodebr" class="external-link"><img src="https://cranlogs.r-pkg.org/badges/grand-total/geocodebr?color=blue" alt="CRAN/METACRAN Total downloads"></a> <a href="https://github.com/ipea/geocodebr/actions" class="external-link"><img src="https://github.com/ipea/geocodebr/workflows/check/badge.svg" alt="check"></a> <a href="https://app.codecov.io/gh/ipea/geocodebr?branch=main" class="external-link"><img src="https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg" alt="Codecov test coverage"></a> <a href="https://lifecycle.r-lib.org/articles/stages.html" class="external-link"><img src="https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg" alt="Lifecycle: experimental"></a></p>
 <p>O <strong>{geocodebr}</strong> é um pacote computacional para geolicalização de endereços Brasileiros. O pacote oferece uma maneira simples e eficiente de geolocalizar dados sem limite de número de consultas. O pacote é baseado em conjuntos de dados espaciais abertos de endereços brasileiros, utilizando como fonte principal o Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE). O CNEFE é <a href="https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html" class="external-link">publicado</a> pelo Instituto Brasileiro de Geografia e Estatística (IBGE). Atualmente, o pacote está disponível apenas em R.</p>
 <div class="section level2">
 <h2 id="instalação">Instalação<a class="anchor" aria-label="anchor" href="#instala%C3%A7%C3%A3o"></a>
@@ -80,7 +80,7 @@
 <p>Caso prefira, a versão em desenvolvimento:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"ipeaGIT/geocodebr"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"ipea/geocodebr"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="utilização">Utilização<a class="anchor" aria-label="anchor" href="#utiliza%C3%A7%C3%A3o"></a>
@@ -100,7 +100,7 @@
 <li><p>O segundo passo é usar a função <code><a href="reference/geocode.html">geocode()</a></code> para encontrar as coordenadas geográficas dos endereços de input.</p></li>
 </ol>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ipeaGIT/geocodebr" class="external-link">geocodebr</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ipea/geocodebr" class="external-link">geocodebr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-spatial.github.io/sf/" class="external-link">sf</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># carregando uma amostra de dados</span></span>
@@ -125,7 +125,7 @@
 <span>  resultado_sf <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  verboso <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
-<p>Os resultados do <strong>{geocodebr}</strong> são classificados em seis categorias gerais de <code>precisao</code>, dependendo do nível de exatidão com que cada endereço de input foi encontrado nos dados do CNEFE. Os resultados trazem ainda uma estimativa da incerteza da localização encontrada como um <code>desvio_metros</code>. Para mais informações, consulte a documentação da função ou a <a href="https://ipeagit.github.io/geocodebr/articles/geocode.html"><strong>vignette “geocode”</strong></a>.</p>
+<p>Os resultados do <strong>{geocodebr}</strong> são classificados em seis categorias gerais de <code>precisao</code>, dependendo do nível de exatidão com que cada endereço de input foi encontrado nos dados do CNEFE. Os resultados trazem ainda uma estimativa da incerteza da localização encontrada como um <code>desvio_metros</code>. Para mais informações, consulte a documentação da função ou a <a href="https://ipea.github.io/geocodebr/articles/geocode.html" class="external-link"><strong>vignette “geocode”</strong></a>.</p>
 </div>
 <div class="section level3">
 <h3 id="id_2-geolocalização-reversa-de-coordenadas-espaciais-para-endereços">2. Geolocalização reversa: de coordenadas espaciais para endereços<a class="anchor" aria-label="anchor" href="#id_2-geolocaliza%C3%A7%C3%A3o-reversa-de-coordenadas-espaciais-para-endere%C3%A7os"></a>
@@ -145,7 +145,7 @@
 <span> dist_max <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span> verboso <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span> <span class="op">)</span></span></code></pre></div>
-<p>Mais detalhes na <a href="https://ipeagit.github.io/geocodebr/articles/geocode_reverso.html"><strong>vignette “geocode reverso”</strong></a>.</p>
+<p>Mais detalhes na <a href="https://ipea.github.io/geocodebr/articles/geocode_reverso.html" class="external-link"><strong>vignette “geocode reverso”</strong></a>.</p>
 </div>
 <div class="section level3">
 <h3 id="id_3-busca-por-ceps">3. Busca por CEPs<a class="anchor" aria-label="anchor" href="#id_3-busca-por-ceps"></a>
@@ -200,8 +200,8 @@
 <h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
 <li><a href="https://cloud.r-project.org/package=geocodebr" class="external-link">Veja no CRAN</a></li>
-<li><a href="https://github.com/ipeaGIT/geocodebr/" class="external-link">Navegue pelo código-fonte</a></li>
-<li><a href="https://github.com/ipeaGIT/geocodebr/issues" class="external-link">Reportar um erro</a></li>
+<li><a href="https://github.com/ipea/geocodebr/" class="external-link">Navegue pelo código-fonte</a></li>
+<li><a href="https://github.com/ipea/geocodebr/issues" class="external-link">Reportar um erro</a></li>
 </ul>
 </div>
 

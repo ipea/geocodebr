@@ -16,11 +16,11 @@ statistics and geography agency.)
 
 Useful links:
 
-- <https://github.com/ipeaGIT/geocodebr>
+- <https://github.com/ipea/geocodebr>
 
-- <https://ipeagit.github.io/geocodebr/>
+- <https://ipea.github.io/geocodebr/>
 
-- Report bugs at <https://github.com/ipeaGIT/geocodebr/issues>
+- Report bugs at <https://github.com/ipea/geocodebr/issues>
 
 ## Autor
 
@@ -28,6 +28,9 @@ Useful links:
 ([ORCID](https://orcid.org/0000-0003-2125-7465))
 
 Authors:
+
+- Rafael H. M. Pereira <rafa.pereira.br@gmail.com>
+  ([ORCID](https://orcid.org/0000-0003-2125-7465))
 
 - Daniel Herszenhut <dhersz@gmail.com>
   ([ORCID](https://orcid.org/0000-0001-8066-1105))

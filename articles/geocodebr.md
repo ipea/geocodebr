@@ -18,14 +18,16 @@ A versão estável do pacote pode ser baixada do CRAN com o comando a
 seguir:
 
 ``` r
+
 install.packages("geocodebr")
 ```
 
 Caso prefira, a versão em desenvolvimento:
 
 ``` r
+
 # install.packages("remotes")
-remotes::install_github("ipeaGIT/geocodebr")
+remotes::install_github("ipea/geocodebr")
 ```
 
 ## Utilização
@@ -52,6 +54,7 @@ passos:
     para encontrar as coordenadas geográficas dos endereços de input.
 
 ``` r
+
 library(geocodebr)
 library(sf)
 #> Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
@@ -105,7 +108,7 @@ endereço de input foi encontrado nos dados do CNEFE. s resultados trazem
 ainda uma estimativa da incerteza da localização encontrado como um
 `desvio_metros`. Para mais informações, consulte a documentação da
 função ou a [**vignette
-“geocode”**](https://ipeagit.github.io/geocodebr/articles/geocode.html).
+“geocode”**](https://ipea.github.io/geocodebr/articles/geocode.html).
 
 ### 2. Geolocalização reversa: de coordenadas espaciais para endereços
 
@@ -114,9 +117,10 @@ A função
 por sua vez, permite a geolocalização reversa, ou seja, a busca de
 endereços próximos a um conjunto de coordenadas geográficas. Mais
 detalhes na [**vignette
-“geocode”**](https://ipeagit.github.io/geocodebr/articles/geocode_reverso.html).
+“geocode”**](https://ipea.github.io/geocodebr/articles/geocode_reverso.html).
 
 ``` r
+
 # amostra de pontos espaciais
 pontos <- readRDS(
   system.file("extdata/pontos.rds", package = "geocodebr")
@@ -145,6 +149,7 @@ os endereços e as coordenadas geográficas de cada CEP. O parâmetro
 na resolução espacial desejada.
 
 ``` r
+
 # amostra de CEPs
 ceps <- c("70390-025", "20071-001")
 
@@ -181,6 +186,7 @@ Após rodar o código desta *vignette*, é provável que o seu *cache*
 esteja configurado como a seguir:
 
 ``` r
+
 geocodebr::listar_pasta_cache()
 #> [1] "/home/runner/.cache/R/geocodebr"
 

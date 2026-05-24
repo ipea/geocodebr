@@ -24,6 +24,7 @@ obs. Note que as colunas indicando o `"estado"` e `"município"` são
 obrigatórias.
 
 ``` r
+
 library(geocodebr)
 
 # leitura de amostra de dados
@@ -52,9 +53,10 @@ cache local na sua máquina. No total, esses dados somam cerca de 1.2 GB,
 o que pode fazer com que a primeira execução da função demore. Esses
 dados, no entanto, são salvos de forma persistente, logo eles são
 baixados uma única vez. Mais informações sobre o cache de dados
-[aqui](https://ipeagit.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
+[aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
 
 ``` r
+
 # geolicalização
 ends_geo <- geocode(
   enderecos = ends, 

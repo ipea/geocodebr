@@ -23,7 +23,7 @@
 ## Citação
 
 Fonte:
-[`inst/CITATION`](https://github.com/ipeaGIT/geocodebr/blob/main/inst/CITATION)
+[`inst/CITATION`](https://github.com/ipea/geocodebr/blob/main/inst/CITATION)
 
 Rafael H. M. Pereira, Daniel Herszenhut (2025). *geocodebr:
 Geolocalização de Endereços Brasileiros*.

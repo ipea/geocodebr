@@ -4,9 +4,9 @@
 status](https://www.r-pkg.org/badges/version/geocodebr)](https://CRAN.R-project.org/package=geocodebr)
 [![CRAN/METACRAN Total
 downloads](https://cranlogs.r-pkg.org/badges/grand-total/geocodebr?color=blue)](https://CRAN.R-project.org/package=geocodebr)
-[![check](https://github.com/ipeaGIT/geocodebr/workflows/check/badge.svg)](https://github.com/ipeaGIT/geocodebr/actions)
+[![check](https://github.com/ipea/geocodebr/workflows/check/badge.svg)](https://github.com/ipea/geocodebr/actions)
 [![Codecov test
-coverage](https://codecov.io/gh/ipeaGIT/geocodebr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/ipeaGIT/geocodebr?branch=main)
+coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/ipea/geocodebr?branch=main)
 [![Lifecycle:
 experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html)
 
@@ -25,6 +25,7 @@ o pacote está disponível apenas em R.
 A última versão estável pode ser baixada do CRAN com o comando:
 
 ``` r
+
 # from CRAN
 install.packages("geocodebr")
 ```
@@ -32,8 +33,9 @@ install.packages("geocodebr")
 Caso prefira, a versão em desenvolvimento:
 
 ``` r
+
 # install.packages("remotes")
-remotes::install_github("ipeaGIT/geocodebr")
+remotes::install_github("ipea/geocodebr")
 ```
 
 ## Utilização
@@ -61,6 +63,7 @@ passos:
     para encontrar as coordenadas geográficas dos endereços de input.
 
 ``` r
+
 library(geocodebr)
 library(sf)
 
@@ -94,7 +97,7 @@ endereço de input foi encontrado nos dados do CNEFE. Os resultados
 trazem ainda uma estimativa da incerteza da localização encontrada como
 um `desvio_metros`. Para mais informações, consulte a documentação da
 função ou a [**vignette
-“geocode”**](https://ipeagit.github.io/geocodebr/articles/geocode.html).
+“geocode”**](https://ipea.github.io/geocodebr/articles/geocode.html).
 
 ### 2. Geolocalização reversa: de coordenadas espaciais para endereços
 
@@ -107,6 +110,7 @@ de interesse, como escolas, hospitais, ou locais de acidentes. Aqui um
 exemplo de como usar a função:
 
 ``` r
+
 # amostra de pontos espaciais
 pontos <- readRDS(
    system.file("extdata/pontos.rds", package = "geocodebr")
@@ -123,7 +127,7 @@ df_enderecos <- geocodebr::geocode_reverso(
 ```
 
 Mais detalhes na [**vignette “geocode
-reverso”**](https://ipeagit.github.io/geocodebr/articles/geocode_reverso.html).
+reverso”**](https://ipea.github.io/geocodebr/articles/geocode_reverso.html).
 
 ### 3. Busca por CEPs
 
@@ -133,6 +137,7 @@ permite fazer consultas de CEPs para encontrar endereços associados a
 cada CEP e suas coordenadas espaciais.
 
 ``` r
+
 # amostra de CEPs
 ceps <- c("70390-025", "20071-001")
 
