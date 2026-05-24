@@ -1,4 +1,4 @@
-# geocodebr v0.6.3 dev
+# geocodebr v0.6.3
 
 ## Correção de bugs (Bug fixes)
 
