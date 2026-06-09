@@ -62,7 +62,15 @@ def busca_por_cep(
         con.execute(
             f"""
             CREATE OR REPLACE TEMP TABLE output_df AS
-            SELECT cep, estado, municipio, logradouro, localidade, lon, lat
+            SELECT
+              CASE
+                WHEN LENGTH(REGEXP_REPLACE(CAST(cep AS VARCHAR), '[^0-9]', '', 'g')) = 8
+                THEN SUBSTRING(REGEXP_REPLACE(CAST(cep AS VARCHAR), '[^0-9]', '', 'g'), 1, 5)
+                     || '-' ||
+                     SUBSTRING(REGEXP_REPLACE(CAST(cep AS VARCHAR), '[^0-9]', '', 'g'), 6, 3)
+                ELSE CAST(cep AS VARCHAR)
+              END AS cep,
+              estado, municipio, logradouro, localidade, lon, lat
             FROM read_parquet('{path_to_parquet}') m
             WHERE REGEXP_REPLACE(CAST(m.cep AS VARCHAR), '[^0-9]', '', 'g') IN ({unique_ceps})
             """
@@ -77,7 +85,7 @@ def busca_por_cep(
         if len(missing) == len(set(ceps)):
             raise ValueError("Nenhum CEP foi encontrado.")
         if missing:
-            values = ", ".join(f"({sql_string(value)})" for value in missing)
+            values = ", ".join(f"({sql_string(_format_cep_digits(value))})" for value in missing)
             con.execute(f"INSERT INTO output_df (cep) VALUES {values}")
         _add_h3_columns(con, "output_df", h3_values)
         return con.execute("SELECT * FROM output_df").to_arrow_table()
@@ -166,6 +174,8 @@ def geocode(
         )
         output_table_to_use = "output_db" if empates_resolvidos == 0 else "output_db2"
         add_precision_col(con, output_table_to_use)
+        if resultado_completo and "empate" not in _table_columns(con, output_table_to_use):
+            con.execute(f"ALTER TABLE {output_table_to_use} ADD COLUMN empate BOOLEAN")
         merge_results_to_input(
             con,
             x="input_db",
@@ -215,9 +225,16 @@ def _create_standardized_input(
         if source is None:
             expr = "NULL"
         elif field == "numero":
-            expr = f"TRY_CAST(NULLIF(REGEXP_REPLACE(CAST({quote_ident(source)} AS VARCHAR), '[^0-9]', '', 'g'), '') AS INTEGER)"
+            digits = f"REGEXP_REPLACE(CAST({quote_ident(source)} AS VARCHAR), '[^0-9]', '', 'g')"
+            parsed_number = f"TRY_CAST(NULLIF({digits}, '') AS INTEGER)"
+            expr = f"CASE WHEN {parsed_number} > 0 THEN {parsed_number} ELSE NULL END"
         elif field == "cep":
-            expr = f"NULLIF(REGEXP_REPLACE(CAST({quote_ident(source)} AS VARCHAR), '[^0-9]', '', 'g'), '')"
+            digits = f"REGEXP_REPLACE(CAST({quote_ident(source)} AS VARCHAR), '[^0-9]', '', 'g')"
+            expr = (
+                f"CASE WHEN LENGTH({digits}) = 8 "
+                f"THEN SUBSTRING({digits}, 1, 5) || '-' || SUBSTRING({digits}, 6, 3) "
+                f"ELSE NULLIF({digits}, '') END"
+            )
         else:
             expr = f"NULLIF(_geocodebr_norm(CAST({quote_ident(source)} AS VARCHAR)), '')"
         out_name = "bairro" if field == "localidade" else field
@@ -232,6 +249,7 @@ def _create_standardized_input(
         """
     )
     con.execute("ALTER TABLE input_padrao_db RENAME bairro TO localidade")
+    _fix_logradouro_prefixes(con)
     _resolve_estado_names(con)
     _resolve_municipio_codes(con)
 
@@ -259,10 +277,90 @@ def _assert_standardized_columns(con: duckdb.DuckDBPyConnection) -> None:
         error_input_nao_padronizado()
 
 
+def _fix_logradouro_prefixes(con: duckdb.DuckDBPyConnection) -> None:
+    tipos = [
+        "RUA",
+        "AVENIDA",
+        "ESTRADA",
+        "TRAVESSA",
+        "BECO",
+        "RODOVIA",
+        "ALAMEDA",
+        "PRACA",
+        "LARGO",
+        "VIELA",
+        "FAZENDA",
+    ]
+    for tipo in tipos:
+        con.execute(
+            f"""
+            UPDATE input_padrao_db
+            SET logradouro = REGEXP_REPLACE(logradouro, '^{tipo} {tipo} ', '{tipo} ')
+            WHERE logradouro LIKE '{tipo} {tipo} %'
+            """
+        )
+    con.execute(
+        """
+        UPDATE input_padrao_db
+        SET logradouro = REGEXP_REPLACE(logradouro, '^RUA AVENIDA ', 'AVENIDA ')
+        WHERE logradouro LIKE 'RUA AVENIDA %'
+        """
+    )
+    con.execute(
+        """
+        UPDATE input_padrao_db
+        SET logradouro = REGEXP_REPLACE(logradouro, '^RUA ESTRADA ', 'ESTRADA ')
+        WHERE logradouro LIKE 'RUA ESTRADA %'
+        """
+    )
+    con.execute(
+        """
+        UPDATE input_padrao_db
+        SET logradouro = REGEXP_REPLACE(logradouro, '^RUA PRACA ', 'PRACA ')
+        WHERE logradouro LIKE 'RUA PRACA %'
+        """
+    )
+    con.execute(
+        """
+        UPDATE input_padrao_db
+        SET logradouro = REGEXP_REPLACE(logradouro, '^RUA RODOVIA ', 'RODOVIA ')
+        WHERE logradouro LIKE 'RUA RODOVIA %'
+        """
+    )
+
+
 def _install_normalize_function(con: duckdb.DuckDBPyConnection) -> None:
+    import re
     import unicodedata
 
     estados = {
+        "11": "RO",
+        "12": "AC",
+        "13": "AM",
+        "14": "RR",
+        "15": "PA",
+        "16": "AP",
+        "17": "TO",
+        "21": "MA",
+        "22": "PI",
+        "23": "CE",
+        "24": "RN",
+        "25": "PB",
+        "26": "PE",
+        "27": "AL",
+        "28": "SE",
+        "29": "BA",
+        "31": "MG",
+        "32": "ES",
+        "33": "RJ",
+        "35": "SP",
+        "41": "PR",
+        "42": "SC",
+        "43": "RS",
+        "50": "MS",
+        "51": "MT",
+        "52": "GO",
+        "53": "DF",
         "ACRE": "AC",
         "ALAGOAS": "AL",
         "AMAPA": "AP",
@@ -299,15 +397,36 @@ def _install_normalize_function(con: duckdb.DuckDBPyConnection) -> None:
         text = "".join(ch for ch in text if not unicodedata.combining(ch))
         text = text.upper()
         text = "".join(ch if ch.isalnum() else " " for ch in text)
-        return " ".join(text.split())
+        token_map = {
+            "ST": "SANTO",
+            "STO": "SANTO",
+            "STA": "SANTA",
+            "FAZ": "FAZENDA",
+            "PQ": "PARQUE",
+            "AV": "AVENIDA",
+            "AVN": "AVENIDA",
+            "DR": "DOUTOR",
+            "JD": "JARDIM",
+        }
+        text = " ".join(token_map.get(token, token) for token in text.split())
+        text = text.replace("NOSSA SENHORA GRACAS", "NOSSA SENHORA DAS GRACAS")
+        text = text.replace("NOSSA SENHORA SANTANA", "NOSSA SENHORA DE SANTANA")
+        text = text.replace("ELISEOS", "ELISIOS")
+        text = text.replace("TENENTE CORONEL", "TENENTE-CORONEL")
+        text = text.replace("BOMFIM", "BONFIM")
+        rodovia_siglas = "BR|AC|AL|AM|AP|BA|CE|DF|ES|GO|MA|MG|MS|MT|PA|PB|PE|PI|PR|RJ|RN|RO|RR|RS|SC|SE|SP|TO"
+        text = re.sub(rf"\b({rodovia_siglas})\s+([0-9]{{3}})\b", r"\1-\2", text)
+        return text
 
     def normalize_uf(value: str | None) -> str | None:
         text = normalize(value)
         if text is None:
             return None
+        if text in estados:
+            return estados[text]
         if len(text) == 2:
             return text
-        return estados.get(text, text)
+        return text
 
     try:
         con.create_function("_geocodebr_norm", normalize, ["VARCHAR"], "VARCHAR")
@@ -332,9 +451,13 @@ def _resolve_estado_names(con: duckdb.DuckDBPyConnection) -> None:
 def _resolve_municipio_codes(con: duckdb.DuckDBPyConnection) -> None:
     from .cache import listar_dados_cache
 
+    _resolve_municipio_codes_from_cnefe_sector(con)
+
     try:
         path = find_cached_parquet(listar_dados_cache(), "municipio")
     except FileNotFoundError:
+        _resolve_numeric_municipio_from_cep(con)
+        _resolve_numeric_municipio_from_address(con)
         return
 
     con.execute(
@@ -349,6 +472,8 @@ def _resolve_municipio_codes(con: duckdb.DuckDBPyConnection) -> None:
         None,
     )
     if code_col is None or "municipio" not in cols:
+        _resolve_numeric_municipio_from_cep(con)
+        _resolve_numeric_municipio_from_address(con)
         return
 
     con.execute(
@@ -367,6 +492,142 @@ def _resolve_municipio_codes(con: duckdb.DuckDBPyConnection) -> None:
         FROM _geocodebr_municipio_ref ref
         WHERE REGEXP_MATCHES(input_padrao_db.municipio, '^[0-9]{7}$')
           AND input_padrao_db.municipio = ref.municipio_codigo
+        """
+    )
+    _resolve_numeric_municipio_from_cep(con)
+    _resolve_numeric_municipio_from_address(con)
+
+
+def _resolve_municipio_codes_from_cnefe_sector(con: duckdb.DuckDBPyConnection) -> None:
+    from .cache import listar_dados_cache
+
+    try:
+        path = find_cached_parquet(listar_dados_cache(), "municipio_logradouro_numero_cep_localidade")
+    except FileNotFoundError:
+        return
+
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE _geocodebr_municipio_sector_ref AS
+        WITH raw AS (
+          SELECT
+            estado,
+            municipio,
+            SUBSTRING(CAST(cod_setor AS VARCHAR), 1, 7) AS codigo7,
+            SUBSTRING(CAST(cod_setor AS VARCHAR), 1, 6) AS codigo6,
+            COUNT(*) AS n
+          FROM read_parquet('{path}')
+          WHERE cod_setor IS NOT NULL
+          GROUP BY estado, municipio, codigo7, codigo6
+        ),
+        long_codes AS (
+          SELECT estado, municipio, codigo7 AS codigo, n FROM raw
+          UNION ALL
+          SELECT estado, municipio, codigo6 AS codigo, n FROM raw
+        ),
+        ranked AS (
+          SELECT *,
+            ROW_NUMBER() OVER (
+              PARTITION BY estado, codigo
+              ORDER BY n DESC, municipio
+            ) AS rn
+          FROM long_codes
+          WHERE codigo IS NOT NULL
+        )
+        SELECT estado, municipio, codigo
+        FROM ranked
+        WHERE rn = 1
+        """
+    )
+    con.execute(
+        """
+        UPDATE input_padrao_db
+        SET municipio = ref.municipio
+        FROM _geocodebr_municipio_sector_ref ref
+        WHERE REGEXP_MATCHES(input_padrao_db.municipio, '^[0-9]{6,7}$')
+          AND input_padrao_db.estado = ref.estado
+          AND input_padrao_db.municipio = ref.codigo
+        """
+    )
+
+
+def _resolve_numeric_municipio_from_cep(con: duckdb.DuckDBPyConnection) -> None:
+    from .cache import listar_dados_cache
+
+    try:
+        path = find_cached_parquet(listar_dados_cache(), "municipio_cep")
+    except FileNotFoundError:
+        return
+
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE _geocodebr_municipio_cep_ref AS
+        SELECT DISTINCT estado, municipio, cep
+        FROM read_parquet('{path}')
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE _geocodebr_municipio_cep_match AS
+        SELECT i.tempidgeocodebr, MIN(r.municipio) AS municipio_nome
+        FROM input_padrao_db i
+        JOIN _geocodebr_municipio_cep_ref r
+          ON i.estado = r.estado
+         AND i.cep = r.cep
+        WHERE REGEXP_MATCHES(i.municipio, '^[0-9]{6,7}$')
+          AND i.cep IS NOT NULL
+        GROUP BY i.tempidgeocodebr
+        HAVING COUNT(DISTINCT r.municipio) = 1
+        """
+    )
+    con.execute(
+        """
+        UPDATE input_padrao_db
+        SET municipio = m.municipio_nome
+        FROM _geocodebr_municipio_cep_match m
+        WHERE input_padrao_db.tempidgeocodebr = m.tempidgeocodebr
+        """
+    )
+
+
+def _resolve_numeric_municipio_from_address(con: duckdb.DuckDBPyConnection) -> None:
+    from .cache import listar_dados_cache
+
+    try:
+        path = find_cached_parquet(listar_dados_cache(), "municipio_logradouro_cep_localidade")
+    except FileNotFoundError:
+        return
+
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE _geocodebr_municipio_addr_ref AS
+        SELECT DISTINCT estado, municipio, logradouro, cep, localidade
+        FROM read_parquet('{path}')
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE _geocodebr_municipio_addr_match AS
+        SELECT i.tempidgeocodebr, MIN(r.municipio) AS municipio_nome
+        FROM input_padrao_db i
+        JOIN _geocodebr_municipio_addr_ref r
+          ON i.estado = r.estado
+         AND i.logradouro = r.logradouro
+         AND (
+              (i.cep IS NOT NULL AND i.cep = r.cep)
+              OR (i.localidade IS NOT NULL AND i.localidade = r.localidade)
+         )
+        WHERE REGEXP_MATCHES(i.municipio, '^[0-9]{6,7}$')
+        GROUP BY i.tempidgeocodebr
+        HAVING COUNT(DISTINCT r.municipio) = 1
+        """
+    )
+    con.execute(
+        """
+        UPDATE input_padrao_db
+        SET municipio = m.municipio_nome
+        FROM _geocodebr_municipio_addr_match m
+        WHERE input_padrao_db.tempidgeocodebr = m.tempidgeocodebr
         """
     )
 
@@ -414,6 +675,13 @@ def _normalize_ceps(cep: str | list[str] | tuple[str, ...]) -> list[str]:
         if len(digits) == 8:
             out.append(digits)
     return sorted(set(out))
+
+
+def _format_cep_digits(value: str) -> str:
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if len(digits) == 8:
+        return f"{digits[:5]}-{digits[5:]}"
+    return value
 
 
 def _normalize_h3_res(h3_res: int | list[int] | tuple[int, ...] | None) -> list[int]:

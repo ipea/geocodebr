@@ -36,7 +36,6 @@ def create_output_db(con: duckdb.DuckDBPyConnection, resultado_completo: bool) -
                 "cep_encontrado TEXT",
                 "municipio_encontrado TEXT",
                 "estado_encontrado TEXT",
-                "empate BOOLEAN",
                 "cod_setor TEXT",
             ]
         )
@@ -105,6 +104,7 @@ def match_weighted_cases(
           SELECT {x}.tempidgeocodebr,
                  {x}.numero,
                  {y}.numero AS numero_cnefe,
+                 ABS({x}.numero - {y}.numero) AS distancia_numero,
                  {y}.lat, {y}.lon,
                  REGEXP_REPLACE({y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
                  {y}.desvio_metros,
@@ -122,11 +122,17 @@ def match_weighted_cases(
         SELECT tempidgeocodebr,
           SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
           SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
-          FIRST(endereco_encontrado) AS endereco_encontrado,
+          CASE WHEN BOOL_OR(log_causa_confusao)
+            THEN FIRST(endereco_encontrado ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
+            ELSE FIRST(endereco_encontrado)
+          END AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,
           FIRST(log_causa_confusao) AS log_causa_confusao,
-          FIRST(contagem_cnefe) AS contagem_cnefe {additional_second}
+          CASE WHEN BOOL_OR(log_causa_confusao)
+            THEN FIRST(contagem_cnefe ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
+            ELSE FIRST(contagem_cnefe)
+          END AS contagem_cnefe {additional_second}
         FROM temp_db
         GROUP BY tempidgeocodebr, endereco_encontrado
         """
@@ -204,6 +210,7 @@ def match_weighted_cases_probabilistic(
           SELECT {x}.tempidgeocodebr,
                  {x}.numero,
                  {y}.numero AS numero_cnefe,
+                 ABS({x}.numero - {y}.numero) AS distancia_numero,
                  {y}.lat, {y}.lon,
                  REGEXP_REPLACE({y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
                  {x}.similaridade_logradouro,
@@ -222,12 +229,18 @@ def match_weighted_cases_probabilistic(
         SELECT tempidgeocodebr,
           SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
           SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
-          FIRST(endereco_encontrado) AS endereco_encontrado,
+          CASE WHEN BOOL_OR(log_causa_confusao)
+            THEN FIRST(endereco_encontrado ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
+            ELSE FIRST(endereco_encontrado)
+          END AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,
           FIRST(log_causa_confusao) AS log_causa_confusao,
           FIRST(similaridade_logradouro) AS similaridade_logradouro,
-          FIRST(contagem_cnefe) AS contagem_cnefe {additional_second}
+          CASE WHEN BOOL_OR(log_causa_confusao)
+            THEN FIRST(contagem_cnefe ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
+            ELSE FIRST(contagem_cnefe)
+          END AS contagem_cnefe {additional_second}
         FROM temp_db
         GROUP BY tempidgeocodebr, endereco_encontrado
         """
@@ -433,8 +446,20 @@ def _complete_weighted_columns(
     output_cols = [_found_col_name(col) for col in key_cols] + ["cod_setor"]
     first_cols = [f"{y}.{col} AS {_found_col_name(col)}" for col in key_cols]
     first_cols.append(f"{y}.cod_setor AS cod_setor")
-    second_cols = [f"FIRST({_found_col_name(col)}) AS {_found_col_name(col)}" for col in key_cols]
-    second_cols.append("FIRST(cod_setor) AS cod_setor")
+    def first_expr(col: str) -> str:
+        return (
+            f"CASE WHEN BOOL_OR(log_causa_confusao) "
+            f"THEN FIRST({col} ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, "
+            f"CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, "
+            f"CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END) "
+            f"ELSE FIRST({col}) END"
+        )
+
+    second_cols = [
+        f"{first_expr(_found_col_name(col))} AS {_found_col_name(col)}"
+        for col in key_cols
+    ]
+    second_cols.append(f"{first_expr('cod_setor')} AS cod_setor")
     return ", " + ", ".join(output_cols), ", " + ", ".join(first_cols), ", " + ", ".join(second_cols)
 
 

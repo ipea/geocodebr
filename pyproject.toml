@@ -37,3 +37,6 @@ packages = ["python-package/geocodebr"]
 [tool.pytest.ini_options]
 pythonpath = ["python-package"]
 testpaths = ["python-package/tests"]
+markers = [
+  "r_parity: compares Python outputs against the local R package outputs",
+]

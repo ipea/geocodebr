@@ -26,5 +26,4 @@ def test_busca_por_cep_duckdb_flow(tmp_path):
 
     assert out.num_rows == 2
     assert "h3_03" in out.schema.names
-    assert out.column("cep").to_pylist() == ["70390025", "99999999"]
-
+    assert out.column("cep").to_pylist() == ["70390-025", "99999-999"]

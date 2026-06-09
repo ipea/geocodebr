@@ -29,8 +29,29 @@ Dependencias principais:
 Para desenvolvimento e testes:
 
 ```bash
-python -m pip install -e ".[test]"
-python -m pytest -q
+uv run pytest -q
+```
+
+### Testes de paridade R vs Python
+
+O pacote tambem inclui testes que comparam a saida do Python com a saida do
+pacote R usando os dados de exemplo `inst/extdata/small_sample.csv` e
+`inst/extdata/large_sample.parquet`.
+
+Esses testes exigem `Rscript` no `PATH`, instalam o pacote R localmente em uma
+biblioteca temporaria e podem baixar dados CNEFE. Se `Rscript` nao estiver
+disponivel, eles sao pulados automaticamente.
+
+No PowerShell:
+
+```powershell
+uv run pytest -m r_parity -q
+```
+
+Em bash:
+
+```bash
+uv run pytest -m r_parity -q
 ```
 
 ## Utilizacao
@@ -244,4 +265,3 @@ Pontos que ainda precisam de validacao ampla:
 - paridade completa da padronizacao com o pacote R `enderecobr`
 - comparacao Python vs R em amostras reais maiores
 - retorno espacial equivalente a `sf`/`GeoDataFrame` quando `resultado_sf=True`
-
