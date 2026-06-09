@@ -16,3 +16,5 @@ docs
 /data_prep/data/*
 /data_prep/data_raw/*
 *.pyc
+__pycache__/
+.venv/

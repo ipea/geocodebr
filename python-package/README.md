@@ -49,6 +49,8 @@ As funcoes retornam, por padrao, um `pyarrow.Table`. Caso precise converter para
 Primeiro, indique quais colunas da sua tabela representam cada campo do
 endereco usando `definir_campos()`. Depois, chame `geocode()`.
 
+O primeiro uso pode baixar os dados CNEFE em cache local.
+
 ```python
 import pyarrow.csv as pv
 
@@ -168,6 +170,22 @@ O resultado inclui:
 - `lat`
 
 Se `h3_res` for informado, o pacote adiciona colunas como `h3_08` ou `h3_10`.
+
+## Exemplos de uso do geocodebr Python
+
+Esta pasta contem exemplos simples usando as funcoes principais da versao Python:
+
+- `geocode()`: busca coordenadas a partir de enderecos.
+- `busca_por_cep()`: busca enderecos/coordenadas a partir de CEPs.
+- `geocode_reverso()`: busca endereco proximo a coordenadas.
+
+Execute os exemplos a partir da raiz do repositorio:
+
+```bash
+uv run python exemple/geocode_enderecos.py
+uv run python exemple/busca_por_cep.py
+uv run python exemple/geocode_reverso.py
+```
 
 ## Cache dos dados CNEFE
 

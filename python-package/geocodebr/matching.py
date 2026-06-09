@@ -12,7 +12,7 @@ from .constants import (
 )
 from .string_dist import calculate_string_dist
 from .tables import register_cnefe_table, register_unique_logradouros_table
-from .utils import get_key_cols, get_reference_table, quote_ident, update_input_db
+from .utils import get_key_cols, get_reference_table, update_input_db
 
 
 def create_output_db(con: duckdb.DuckDBPyConnection, resultado_completo: bool) -> None:

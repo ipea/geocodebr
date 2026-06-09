@@ -64,10 +64,16 @@ def busca_por_cep(
             CREATE OR REPLACE TEMP TABLE output_df AS
             SELECT cep, estado, municipio, logradouro, localidade, lon, lat
             FROM read_parquet('{path_to_parquet}') m
-            WHERE m.cep IN ({unique_ceps})
+            WHERE REGEXP_REPLACE(CAST(m.cep AS VARCHAR), '[^0-9]', '', 'g') IN ({unique_ceps})
             """
         )
-        missing = sorted(set(ceps) - set(row[0] for row in con.execute("SELECT DISTINCT cep FROM output_df").fetchall()))
+        found_ceps = set(
+            row[0]
+            for row in con.execute(
+                "SELECT DISTINCT REGEXP_REPLACE(CAST(cep AS VARCHAR), '[^0-9]', '', 'g') FROM output_df"
+            ).fetchall()
+        )
+        missing = sorted(set(ceps) - found_ceps)
         if len(missing) == len(set(ceps)):
             raise ValueError("Nenhum CEP foi encontrado.")
         if missing:
