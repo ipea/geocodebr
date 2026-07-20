@@ -529,8 +529,9 @@ geocode_core <- function(
     for (i in h3_res) {
       colname <- paste0(
         'h3_',
-        formatC(h3_res, width = 2, flag = "0")
-      )
+        formatC(i, width = 2, flag = "0")
+      ) |> |>
+        sym()
 
       output_df[
         !is.na(lat),

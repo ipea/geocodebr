@@ -1,5 +1,11 @@
 # geocodebr (development version)
 
+## Correção de bugs (Bug fixes)
+
+- Bug corrigido, o que permite agora passar um vetor para o argumento `h3_res` e
+ter o comportamento esperado.
+
+
 # geocodebr v0.6.3
 
 ## Correção de bugs (Bug fixes)
