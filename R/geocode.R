@@ -530,7 +530,7 @@ geocode_core <- function(
       colname <- paste0(
         'h3_',
         formatC(i, width = 2, flag = "0")
-      ) |> |>
+      ) |>
         sym()
 
       output_df[
