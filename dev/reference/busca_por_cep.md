@@ -69,6 +69,10 @@ df <- geocodebr::busca_por_cep(
   verboso = TRUE
   )
 #> ℹ Baixando dados do CNEFE
+#> duckdb is keeping downloaded extensions in a temporary directory:
+#> ℹ /tmp/RtmpD5lZ8b/duckdb/extensions
+#> This is removed when the R session ends, so extensions are re-downloaded each session.
+#> ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.
 
 head(df)
 #>          cep estado      municipio                logradouro localidade

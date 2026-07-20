@@ -67,6 +67,11 @@ ends_geo <- geocode(
   resultado_sf = FALSE,
   verboso = FALSE
   )
+#> duckdb is keeping downloaded extensions in a temporary directory:
+#> ℹ /tmp/Rtmp4p1Zvj/duckdb/extensions
+#> This is removed when the R session ends, so extensions are re-downloaded each session.
+#> ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.
+#> 
 
 head(ends_geo)
 #>   id            nm_logradouro Numero       Cep               Bairro
