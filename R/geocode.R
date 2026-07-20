@@ -531,7 +531,7 @@ geocode_core <- function(
         'h3_',
         formatC(i, width = 2, flag = "0")
       ) |>
-        sym()
+        rlang::sym()
 
       output_df[
         !is.na(lat),
