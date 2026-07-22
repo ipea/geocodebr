@@ -84,6 +84,10 @@ df <- geocodebr::geocode(
   cache = TRUE,
   n_cores = 1
 )
+#> duckdb is keeping downloaded extensions in a temporary directory:
+#> ℹ /tmp/RtmpnkzHEX/duckdb/extensions
+#> This is removed when the R session ends, so extensions are re-downloaded each session.
+#> ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.
 #> Warning message:
 #> Foram encontrados 3 casos de empate. Estes casos foram marcados com valor
 #> `TRUE` na coluna 'empate', e podem ser inspecionados na coluna
@@ -136,6 +140,10 @@ df_enderecos <- geocodebr::geocode_reverso(
   verboso = FALSE,
   n_cores = 1
 )
+#> duckdb is keeping downloaded extensions in a temporary directory:
+#> ℹ /tmp/RtmpRR29Bo/duckdb/extensions
+#> This is removed when the R session ends, so extensions are re-downloaded each session.
+#> ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.
 ```
 
 ### 3. Busca por CEPs

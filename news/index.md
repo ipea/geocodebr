@@ -1,5 +1,15 @@
 # Changelog
 
+## geocodebr v0.6.4
+
+### Correção de bugs (Bug fixes)
+
+- Bug corrigido no argumento `h3_res` da fução
+  [`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md).
+  A função estava sobre-escrevendo as colunas quando se passava um vetor
+  de várias resoluções de `h3_res`. Agora a função apresenta o
+  comportamento esperado.
+
 ## geocodebr v0.6.3
 
 Lançamento CRAN: 2026-05-24

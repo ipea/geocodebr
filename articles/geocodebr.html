@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -67,7 +67,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Introdução ao geocodebr</h1>
             
-            <h4 data-toc-skip class="date">2026-05-24</h4>
+            <h4 data-toc-skip class="date">2026-07-22</h4>
       
       <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocodebr.Rmd" class="external-link"><code>vignettes/geocodebr.Rmd</code></a></small>
       <div class="d-none name"><code>geocodebr.Rmd</code></div>
@@ -150,7 +150,11 @@ encontrar as coordenadas geográficas dos endereços de input.</li>
 <span>  cache <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #BB0000;">Warning message:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BB0000;">duckdb is keeping downloaded extensions in a temporary directory:</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> /tmp/RtmpnkzHEX/duckdb/extensions</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; This is removed when the R session ends, so extensions are re-downloaded each session.</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; Warning message:</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; Foram encontrados 3 casos de empate. Estes casos foram marcados com valor</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; `TRUE` na coluna 'empate', e podem ser inspecionados na coluna</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; 'endereco_encontrado'. Alternativamente, use `resolver_empates = TRUE` para que</span></span></span>
@@ -194,7 +198,11 @@ conjunto de coordenadas geográficas. Mais detalhes na <a href="https://ipea.git
 <span>  dist_max <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  verboso <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; duckdb is keeping downloaded extensions in a temporary directory:</span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpRR29Bo/duckdb/extensions</span></span>
+<span><span class="co">#&gt; This is removed when the R session ends, so extensions are re-downloaded each session.</span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="busca-por-ceps">3. Busca por CEPs<a class="anchor" aria-label="anchor" href="#busca-por-ceps"></a>
@@ -268,7 +276,7 @@ dentro dela.</li>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site criado com <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site criado com <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>
