@@ -1,9 +1,10 @@
-# geocodebr (development version)
+# geocodebr v0.6.4
 
 ## Correção de bugs (Bug fixes)
 
-- Bug corrigido, o que permite agora passar um vetor para o argumento `h3_res` e
-ter o comportamento esperado.
+- Bug corrigido no argumento `h3_res` da fução `geocode()`. A função estava 
+sobre-escrevendo as colunas quando se passava um vetor de várias resoluções de 
+`h3_res`. Agora a função apresenta o comportamento esperado.
 
 
 # geocodebr v0.6.3
