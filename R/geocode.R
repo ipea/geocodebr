@@ -81,9 +81,24 @@ geocode <- function(
   cache = TRUE,
   n_cores = NULL
 ) {
+  inicio <- Sys.time()
+  message("Começou ", inicio)
+
+  enderecos_path <- tempfile(fileext = ".parquet")
+  arrow::write_parquet(enderecos, enderecos_path)
+
+  escrito <- Sys.time()
+  message("Endereços salvos ", escrito)
+
+  rm(enderecos)
+  gc()
+
+  removido <-  Sys.time()
+  message("Endereços removidos ", removido)
+
   callr::r(
     func = function(
-      enderecos,
+      enderecos_path,
       campos_endereco,
       resultado_completo,
       resolver_empates,
@@ -94,9 +109,11 @@ geocode <- function(
       cache,
       n_cores
     ) {
+      inicio2 <- Sys.time()
+       message("Vai chamar o core ", inicio2)
       # Run internal engine
       geocode_core(
-        enderecos = enderecos,
+        enderecos_path = enderecos_path,
         campos_endereco = campos_endereco,
         resultado_completo = resultado_completo,
         resolver_empates = resolver_empates,
@@ -109,7 +126,7 @@ geocode <- function(
       )
     },
     args = list(
-      enderecos = enderecos,
+      enderecos_path = enderecos_path,
       campos_endereco = campos_endereco,
       resultado_completo = resultado_completo,
       resolver_empates = resolver_empates,
@@ -126,9 +143,9 @@ geocode <- function(
 }
 
 
-#' @keywords internal
+#' @export
 geocode_core <- function(
-  enderecos = parent.frame()$enderecos,
+  enderecos_path,
   campos_endereco = parent.frame()$campos_endereco,
   resultado_completo = parent.frame()$resultado_completo,
   resolver_empates = parent.frame()$resolver_empates,
@@ -139,56 +156,65 @@ geocode_core <- function(
   cache = parent.frame()$cache,
   n_cores = parent.frame()$n_cores
 ) {
-  # ## ---- tiny timing toolkit (self-contained) ------------------------------
-  # .make_timer <- function(verbose = TRUE) {
-  #   .marks <- list()
-  #   .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
-  #   .t_prev <- .t0_rt
-  #
-  #   fmt <- function(secs) sprintf("%.3f s", secs)
-  #
-  #   mark <- function(label) {
-  #     now <- proc.time()[["elapsed"]]
-  #     step  <- now - .t_prev
-  #     total <- now - .t0_rt
-  #     .marks <<- append(.marks, list(list(label = label, step = step, total = total)))
-  #     .t_prev <<- now
-  #     if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
-  #     invisible(now)
-  #   }
-  #
-  #   summary <- function(print_summary = verbose) {
-  #     if (length(.marks) == 0) return(invisible(data.frame()))
-  #     df <- data.frame(
-  #       step = vapply(.marks, `[[`, "", "label"),
-  #       step_sec = vapply(.marks, `[[`, 0.0, "step"),
-  #       total_sec = vapply(.marks, `[[`, 0.0, "total"),
-  #       stringsAsFactors = FALSE
-  #     ) |>
-  #       dplyr::mutate(step_relative = round(step_sec / max(total_sec)*100, 1))
-  #
-  #     if (print_summary) {
-  #       message("— Timing summary —")
-  #       print(df, row.names = FALSE)
-  #     }
-  #     df
-  #   }
-  #
-  #   time_it <- function(label, expr) {
-  #     force(label)
-  #     res <- eval.parent(substitute(expr))
-  #     mark(label)
-  #     invisible(res)
-  #   }
-  #
-  #   list(mark = mark, summary = summary, time_it = time_it)
-  # }
-  # timer <- .make_timer(verbose = isTRUE(verboso))
-  # on.exit(timer$summary(), add = TRUE)
-  # ## -----------------------------------------------------------------------
+  core <- Sys.time()
+  message("Chamou o core ", core)
 
+  enderecos <- arrow::read_parquet(enderecos_path)
+
+  lido <- Sys.time()
+  message("Leu enderecos ", lido)
+
+  ## ---- tiny timing toolkit (self-contained) ------------------------------
+  .make_timer <- function(verbose = TRUE) {
+    .marks <- list()
+    .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
+    .t_prev <- .t0_rt
+  
+    fmt <- function(secs) sprintf("%.3f s", secs)
+  
+    mark <- function(label) {
+      now <- proc.time()[["elapsed"]]
+      step  <- now - .t_prev
+      total <- now - .t0_rt
+      .marks <<- append(.marks, list(list(label = label, step = step, total = total)))
+      .t_prev <<- now
+      if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
+      invisible(now)
+    }
+  
+    summary <- function(print_summary = verbose) {
+      if (length(.marks) == 0) return(invisible(data.frame()))
+      df <- data.frame(
+        step = vapply(.marks, `[[`, "", "label"),
+        step_sec = vapply(.marks, `[[`, 0.0, "step"),
+        total_sec = vapply(.marks, `[[`, 0.0, "total"),
+        stringsAsFactors = FALSE
+      ) |>
+        dplyr::mutate(step_relative = round(step_sec / max(total_sec)*100, 1))
+  
+      if (print_summary) {
+        message("— Timing summary —")
+        print(df, row.names = FALSE)
+      }
+      df
+    }
+  
+    time_it <- function(label, expr) {
+      force(label)
+      res <- eval.parent(substitute(expr))
+      mark(label)
+      invisible(res)
+    }
+  
+    list(mark = mark, summary = summary, time_it = time_it)
+  }
+  timer <- .make_timer(verbose = isTRUE(verboso))
+  on.exit(timer$summary(), add = TRUE)
+  ## -----------------------------------------------------------------------
+  message("Checando inputs")
   # check input
   checkmate::assert_data_frame(enderecos)
+  message("Checou endereços")
   checkmate::assert_logical(resultado_completo, any.missing = FALSE, len = 1)
   checkmate::assert_logical(resolver_empates, any.missing = FALSE, len = 1)
   checkmate::assert_logical(resultado_sf, any.missing = FALSE, len = 1)
@@ -208,7 +234,8 @@ geocode_core <- function(
 
 
   # systime start 66666 ----------------
-  # timer$mark("Start")
+
+  timer$mark("Start")
 
   # fix eventual missing fields in input data -------------------------------------------------------
   # geocodebr requires all address fields to be declared
@@ -293,7 +320,7 @@ geocode_core <- function(
   }
 
   # systime padronizacao 66666 ----------------
-  # timer$mark("Padronizacao")
+  timer$mark("Padronizacao")
 
   # create temp id
   data.table::setDT(enderecos)[, tempidgeocodebr := 1:nrow(input_padrao)]
@@ -327,7 +354,7 @@ geocode_core <- function(
   )
 
   # systime register standardized 66666 ----------------
-  # timer$mark("Register standardized input")
+  timer$mark("Register standardized input")
 
   # cria coluna "log_causa_confusao" identificando logradouros que geram confusao
   # issue https://github.com/ipeaGIT/geocodebr/issues/67
@@ -441,7 +468,7 @@ geocode_core <- function(
   }
 
   # systime matching 66666 ----------------
-  # timer$mark("Matching")
+  timer$mark("Matching")
 
   if (verboso) {
     message_preparando_output()
@@ -457,7 +484,7 @@ geocode_core <- function(
   )
 
   # systime resolve empates 66666 ----------------
-  # timer$mark("Resolve empates")
+  timer$mark("Resolve empates")
 
   # bring original input back -----------------------------------------------
 
@@ -474,7 +501,7 @@ geocode_core <- function(
   #                        overwrite = TRUE, temporary = TRUE)
 
   # systime write original input back 66666 ----------------
-  # timer$mark("Write original input back")
+  timer$mark("Write original input back")
 
   # add precision column ----------------
   output_table_to_use <- ifelse(
@@ -485,7 +512,7 @@ geocode_core <- function(
   add_precision_col(con, update_tb = output_table_to_use)
 
   # systime add precision 66666 ----------------
-  # timer$mark("Add precision")
+  timer$mark("Add precision")
 
   x_columns <- names(enderecos)
 
@@ -499,7 +526,7 @@ geocode_core <- function(
   )
 
   # systime merge results 66666 ----------------
-  # timer$mark("Merge results")
+  timer$mark("Merge results")
 
   data.table::setDT(output_df)
 
@@ -539,7 +566,7 @@ geocode_core <- function(
     }
 
     # systime add h3 66666 ----------------
-    # timer$mark("Add H3")
+    timer$mark("Add H3")
   }
 
   # drop eventual mock columns with empty strings
@@ -563,10 +590,37 @@ geocode_core <- function(
     sf::st_crs(output_sf) <- 4674
 
     # systime convert to sf 66666 ----------------
-    # timer$mark("Convert to sf")
+    timer$mark("Convert to sf")
 
     return(output_sf)
   }
 
   return(output_df[])
 }
+
+# devtools::install()
+
+# library(dplyr)
+
+# consolidado_data <- "data/consolidado_info.parquet"
+# df_consolidado <- arrow::read_parquet(consolidado_data)
+
+# amostra <- slice_sample(df_consolidado, n = 100)
+
+# campos <- geocodebr::definir_campos(
+#   estado = "uf_dom",
+#   municipio = "codmun_dom",
+#   logradouro = "logradouro_completo",
+#   numero = "nroLogradouro",
+#   cep = "cep",
+#   localidade = "bairro"
+# )
+
+# geoloc <- geocodebr::geocode(
+#   enderecos = df_consolidado,
+#   campos_endereco = campos,
+#   resultado_completo = TRUE,
+#   resolver_empates = TRUE,
+#   resultado_sf = FALSE,
+#   verboso = TRUE
+# )
