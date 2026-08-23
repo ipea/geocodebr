@@ -41,7 +41,9 @@ geocode(
   dados de entrada. Campos de endereço passados como `NULL` serão
   ignorados, e a função deve receber pelo menos um campo não nulo, além
   dos campos `"estado"` e `"municipio"`, que são obrigatórios. Note que
-  o campo `"localidade"` é equivalente a 'bairro'.
+  o campo `"localidade"` é equivalente a 'bairro', e que o campo
+  `"lograoduro"` deve conter o tipo e o nome do logradouro (e.g. "Rua
+  Castro Alves", "Avenida Ipiranga").
 
 - resultado_completo:
 
@@ -343,10 +345,14 @@ df <- geocodebr::geocode(
   )
 #> ℹ Padronizando endereços de entrada
 #> ℹ Utilizando dados do CNEFE armazenados localmente
-#> duckdb is keeping downloaded extensions in a temporary directory:
-#> ℹ /tmp/Rtmp7hNSxK/duckdb/extensions
-#> This is removed when the R session ends, so extensions are re-downloaded each session.
-#> ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.
+#> duckdb keeps downloaded extensions and secrets in a temporary directory:
+#> ℹ /tmp/Rtmp15BUhj/duckdb
+#> This is removed when the R session ends.
+#> • Extensions are re-downloaded each session.
+#> • Secrets are lost.
+#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
+#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
+#> ℹ See ?duckdb_storage for details and alternatives.
 #> ℹ Geolocalizando endereços
 #>  Casos processados: 0/2 ■                                  0% - dn01 
 #>  Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! 

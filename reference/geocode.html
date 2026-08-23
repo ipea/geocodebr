@@ -95,7 +95,9 @@ A função <code><a href="definir_campos.html">definir_campos()</a></code> auxil
 algumas verificações nos dados de entrada. Campos de endereço passados
 como <code>NULL</code> serão ignorados, e a função deve receber pelo menos um campo
 não nulo, além  dos campos <code>"estado"</code> e <code>"municipio"</code>, que são
-obrigatórios. Note que o campo  <code>"localidade"</code> é equivalente a 'bairro'.</p></dd>
+obrigatórios. Note que o campo  <code>"localidade"</code> é equivalente a 'bairro', e
+que o campo <code>"lograoduro"</code> deve conter o tipo e o nome do logradouro (e.g.
+"Rua Castro Alves", "Avenida Ipiranga").</p></dd>
 
 
 <dt id="arg-resultado-completo">resultado_completo<a class="anchor" aria-label="anchor" href="#arg-resultado-completo"></a></dt>
@@ -328,10 +330,14 @@ coluna <code>cod_setor</code> é <code>NA</code>.</p>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Padronizando endereços de entrada</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Utilizando dados do CNEFE armazenados localmente</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">duckdb is keeping downloaded extensions in a temporary directory:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ /tmp/Rtmp7hNSxK/duckdb/extensions</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">This is removed when the R session ends, so extensions are re-downloaded each session.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ /tmp/Rtmp15BUhj/duckdb</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">This is removed when the R session ends.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">• Extensions are re-downloaded each session.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">• Secrets are lost.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ See ?duckdb_storage for details and alternatives.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Geolocalizando endereços</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 0/2 ■                                  0% - dn01 </span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! </span></span>

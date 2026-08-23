@@ -2,6 +2,8 @@
 
 ## geocodebr v0.6.4
 
+Lançamento CRAN: 2026-07-22
+
 ### Correção de bugs (Bug fixes)
 
 - Bug corrigido no argumento `h3_res` da fução

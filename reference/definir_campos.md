@@ -37,10 +37,11 @@ definir_campos(
   Uma string. O nome da coluna que representa o *logradouro* (endereço
   da rua) do endereço. Pode ser `NULL` se o campo não estiver
   especificado na tabela de endereços. Na tabela de endereços, essa
-  coluna deve incluir o *tipo* do lograoduro, indicando se trata-se de
-  uma "Rua" ou "Avenida" etc, por exemplo "Avenida Presidente Getúlio
-  Vargas". Além disso, essa coluna *não* deve incluir o `numero` do
-  endereço, pois o número deve ser indicado numa coluna separada.
+  coluna deve incluir o *tipo* e o *nome* do lograoduro, indicando se
+  trata-se de uma "Rua" ou "Avenida" etc, por exemplo "Avenida
+  Presidente Getúlio Vargas". Além disso, essa coluna *não* deve incluir
+  o `numero` do endereço, pois o número deve ser indicado numa coluna
+  separada.
 
 - numero:
 
