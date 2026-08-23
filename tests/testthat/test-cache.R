@@ -172,6 +172,39 @@ test_that("deletar_pasta_cache behaves correctly", {
 
 })
 
+# caminho_parquet --------------------------------------------------------------
+
+test_that("caminho_parquet monta o caminho dentro do release corrente", {
+  if (fs::file_exists(cache_config_file)) {
+    config_file_content <- readLines(cache_config_file)
+    on.exit(writeLines(config_file_content, cache_config_file), add = TRUE)
+  } else {
+    on.exit(fs::file_delete(cache_config_file), add = TRUE)
+  }
+
+  tmpdir <- tempfile()
+  fs::dir_create(tmpdir)
+  suppressMessages(definir_pasta_cache(tmpdir))
+
+  caminho <- geocodebr:::caminho_parquet("municipio_cep")
+
+  expect_type(caminho, "character")
+  expect_length(caminho, 1)
+  expect_identical(basename(caminho), "municipio_cep.parquet")
+  expect_identical(
+    basename(dirname(caminho)),
+    paste0("geocodebr_data_release_", geocodebr:::data_release)
+  )
+  expect_identical(
+    as.character(fs::path_norm(dirname(dirname(caminho)))),
+    as.character(fs::path_norm(tmpdir))
+  )
+
+  # o arquivo nao precisa existir, mas o input precisa ser uma string unica
+  expect_error(geocodebr:::caminho_parquet(1))
+  expect_error(geocodebr:::caminho_parquet(c("aaa", "bbb")))
+})
+
 # apaga_data_release_antigo ----------------------------------------------------
 
 test_that("apaga_data_release_antigo preserva o release corrente", {

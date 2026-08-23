@@ -72,11 +72,7 @@ busca_por_cep <- function(
   on.exit(duckdb::dbDisconnect(con), add = TRUE)
 
   # build path to local file
-  path_to_parquet <- fs::path(
-    listar_pasta_cache(),
-    glue::glue("geocodebr_data_release_{data_release}"),
-    paste0("municipio_logradouro_cep_localidade.parquet")
-  )
+  path_to_parquet <- caminho_parquet("municipio_logradouro_cep_localidade")
 
   # ceps string
   unique_ceps <- glue::glue_collapse(glue::single_quote(cep_padrao), sep = ",")

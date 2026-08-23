@@ -9,11 +9,7 @@ register_cnefe_table <- function(con, match_type) {
   cnefe_table_name <- get_reference_table(match_type)
 
   # build path to local file
-  files <- geocodebr::listar_dados_cache()
-  path_to_parquet <- files[grepl(paste0(cnefe_table_name, ".parquet"), files)]
-
-  # make sure we get only the one file from current data release
-  path_to_parquet <- path_to_parquet[ grepl(data_release, path_to_parquet) ]
+  path_to_parquet <- caminho_parquet(cnefe_table_name)
 
 
 
@@ -124,12 +120,7 @@ register_unique_logradouros_table <- function(con, match_type) {
   select_cols <- key_cols[!key_cols %in% c("numero")]
 
   # path to parquet
-  unique_logr_tbl_parquet <- paste0(cnefe_table_name, ".parquet")
-  files <- geocodebr::listar_dados_cache()
-  path_to_parquet <- files[grepl(unique_logr_tbl_parquet, files)]
-
-  # make sure we get only the one file from current data release
-  path_to_parquet <- path_to_parquet[ grepl(data_release, path_to_parquet) ]
+  path_to_parquet <- caminho_parquet(cnefe_table_name)
 
   # should use DISTINCT rows
   DISTINCT <- "DISTINCT"

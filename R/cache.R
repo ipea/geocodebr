@@ -157,6 +157,30 @@ message_removed_cache_dir <- function(cache_dir) {
 }
 
 
+#' Caminho de um parquet do CNEFE dentro da pasta de cache
+#'
+#' Monta o caminho do arquivo `.parquet` de uma tabela de referência do CNEFE
+#' dentro da pasta do release corrente. Centraliza a construção desse caminho.
+#'
+#' @param nome_tabela Uma string. O nome da tabela de referência, sem a extensão,
+#'   e.g. `"municipio_logradouro_cep_localidade"`.
+#'
+#' @return Uma string com o caminho do arquivo. O arquivo não precisa existir.
+#'
+#' @keywords internal
+caminho_parquet <- function(nome_tabela) {
+  checkmate::assert_string(nome_tabela)
+
+  caminho <- fs::path(
+    listar_pasta_cache(),
+    glue::glue("geocodebr_data_release_{data_release}"),
+    paste0(nome_tabela, ".parquet")
+  )
+
+  return(as.character(caminho))
+}
+
+
 #' Apaga do cache os dados de releases antigos
 #'
 #' Detecta se a pasta de cache contem dados de releases anteriores ao utilizado
