@@ -16,3 +16,8 @@
 ^README\.Rmd$
 ^codemeta\.json$
 ^python-package$
+^\.claude$
+^quality_reports$
+^templates$
+^CLAUDE\.md$
+^MEMORY\.md$

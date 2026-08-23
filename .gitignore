@@ -16,3 +16,6 @@ docs
 /data_prep/data/*
 /data_prep/data_raw/*
 geocodebr.Rproj
+
+# Claude Code — config local de máquina (não versionada)
+.claude/settings.local.json
