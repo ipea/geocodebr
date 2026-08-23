@@ -9,6 +9,12 @@ retornava o de menor, contrariando a regra de desempate documentada. Agora o
 candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
 mais distantes (acima de 1 km) não foi alterada.
 
+## Mudanças pequenas (Minor changes)
+
+- A documentação da função `geocode()` agora descreve a etapa de resolução de 
+empates entre candidatos separados por menos de 300 metros, que antes não estava 
+documentada. Ver a seção "Lidando com casos de empate" em `?geocode`.
+
 
 # geocodebr v0.6.4
 
