@@ -104,20 +104,26 @@ trata_empates_geocode_duckdb <- function(
         ),
 
       -- B) tabela *distd* calculate distancia entre os casos empatados
+      -- Usa LAG (e nao LEAD) de proposito: a distancia de cada linha eh medida
+      -- contra a linha ANTERIOR, que por construcao do 'id' tem contagem_cnefe
+      -- maior ou igual. Assim, quando o filtro (C) descarta um par a menos de
+      -- 300 metros, quem sai eh sempre a linha de MENOR contagem_cnefe.
       distd AS (
           SELECT
             b.*,
             CASE WHEN empate_inicial THEN
               haversine(
                 lat, lon,
-                LEAD(lat) OVER (PARTITION BY tempidgeocodebr ORDER BY id),
-                LEAD(lon) OVER (PARTITION BY tempidgeocodebr ORDER BY id)
+                LAG(lat) OVER (PARTITION BY tempidgeocodebr ORDER BY id),
+                LAG(lon) OVER (PARTITION BY tempidgeocodebr ORDER BY id)
               )
             END AS dist_geocodebr_metros
           FROM base b
         ),
 
       -- C) tabela *filtered* pra manter apenas casos de empate que estao a mais de 300 metros e atualiza coluna de empate
+      -- A linha com dist NULL eh a primeira da particao (id = 1), i.e. a de maior
+      -- contagem_cnefe, que por isso eh sempre preservada.
       filtered AS (
           SELECT
             d.*,

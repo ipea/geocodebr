@@ -1,3 +1,15 @@
+# geocodebr (development version)
+
+## Correção de bugs (Bug fixes)
+
+- Corrigido o comportamento da resolução de empates da função `geocode()` nos casos
+em que as coordenadas candidatas estão a menos de 300 metros entre si. Nessas 
+situações, o pacote descartava o candidato com **maior** valor de `contagem_cnefe` e 
+retornava o de menor, contrariando a regra de desempate documentada. Agora o 
+candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
+mais distantes (acima de 1 km) não foi alterada.
+
+
 # geocodebr v0.6.4
 
 ## Correção de bugs (Bug fixes)
