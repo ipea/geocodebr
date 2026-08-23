@@ -58,47 +58,65 @@ match_weighted_cases_probabilistic <- function(
     cols_not_null
   )
 
-  # whether to keep all columns in the result
-  colunas_encontradas <- ""
-  additional_cols_first <- ""
-  additional_cols_second <- ""
+  # `logradouro_encontrado` eh coluna de trabalho interna, e nao apenas uma coluna
+  # de output: a resolucao de empates em trata_empates_geocode_duckdb() usa essa
+  # coluna para aplicar a excecao dos logradouros com nome de data. Por isso ela
+  # precisa ser preenchida sempre, independentemente de `resultado_completo` -- o
+  # schema de output_db em geocode.R ja a declara nos dois casos. As demais
+  # colunas `*_encontrado` seguem condicionadas a `resultado_completo`.
+  tem_logradouro <- 'logradouro' %in% key_cols
 
+  colunas_encontradas <- if (tem_logradouro) ", logradouro_encontrado" else ""
+  additional_cols_first <- if (tem_logradouro) {
+    paste0(glue::glue(", {y}.logradouro AS logradouro_encontrado"))
+  } else {
+    ""
+  }
+  additional_cols_second <- if (tem_logradouro) {
+    ", FIRST(logradouro_encontrado) AS logradouro_encontrado"
+  } else {
+    ""
+  }
+
+  # whether to keep all columns in the result
   if (isTRUE(resultado_completo)) {
-    colunas_encontradas <- paste0(
-      glue::glue("{key_cols}_encontrado"),
+    demais_key_cols <- setdiff(key_cols, 'logradouro')
+
+    colunas_extra <- paste0(
+      glue::glue("{demais_key_cols}_encontrado"),
       collapse = ', '
     )
 
-    colunas_encontradas <- gsub(
+    colunas_extra <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      colunas_encontradas
+      colunas_extra
     )
-    colunas_encontradas <- paste0(", ", colunas_encontradas)
+    colunas_encontradas <- paste0(colunas_encontradas, ", ", colunas_extra)
 
     # additonal cols for the first part of the query
-    additional_cols_first <- paste0(
-      glue::glue("{y}.{key_cols} AS {key_cols}_encontrado"),
+    cols_extra_first <- paste0(
+      glue::glue("{y}.{demais_key_cols} AS {demais_key_cols}_encontrado"),
       collapse = ', '
     )
-    additional_cols_first <- gsub(
+    cols_extra_first <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      additional_cols_first
+      cols_extra_first
     )
-    additional_cols_first <- paste0(", ", additional_cols_first)
+    additional_cols_first <- paste0(additional_cols_first, ", ", cols_extra_first)
 
     # additonal cols for the second part of the query
-    additional_cols_second <- paste0(
-      glue::glue("FIRST({key_cols}_encontrado) AS {key_cols}_encontrado"),
+    cols_extra_second <- paste0(
+      glue::glue("FIRST({demais_key_cols}_encontrado) AS {demais_key_cols}_encontrado"),
       collapse = ', '
     )
-    additional_cols_second <- gsub(
+    cols_extra_second <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      additional_cols_second
+      cols_extra_second
     )
-    additional_cols_second <- paste0(", ", additional_cols_second)
+    additional_cols_second <- paste0(additional_cols_second, ", ", cols_extra_second)
 
     # adiciona codigo do setor censitario
     additional_cols_first <- paste0(additional_cols_first, glue::glue(", {y}.cod_setor AS cod_setor"))

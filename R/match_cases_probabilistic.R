@@ -55,40 +55,56 @@ match_cases_probabilistic <- function(
   # cols that cannot be null
   cols_not_null <- gsub('.logradouro', '.temp_lograd_determ', cols_not_null)
 
-  # whether to keep all columns in the result
-  colunas_encontradas <- ""
-  additional_cols <- ""
+  # `logradouro_encontrado` eh coluna de trabalho interna, e nao apenas uma coluna
+  # de output: a resolucao de empates em trata_empates_geocode_duckdb() usa essa
+  # coluna para aplicar a excecao dos logradouros com nome de data. Por isso ela
+  # precisa ser preenchida sempre, independentemente de `resultado_completo` -- o
+  # schema de output_db em geocode.R ja a declara nos dois casos. As demais
+  # colunas `*_encontrado` seguem condicionadas a `resultado_completo`.
+  tem_logradouro <- 'logradouro' %in% key_cols
 
+  colunas_encontradas <- if (tem_logradouro) ", logradouro_encontrado" else ""
+  additional_cols <- if (tem_logradouro) {
+    paste0(glue::glue(", {y}.logradouro AS logradouro_encontrado"))
+  } else {
+    ""
+  }
+
+  # whether to keep all columns in the result
   if (isTRUE(resultado_completo)) {
-    colunas_encontradas <- paste0(
-      glue::glue("{key_cols}_encontrado"),
+    demais_key_cols <- setdiff(key_cols, 'logradouro')
+
+    colunas_extra <- paste0(
+      glue::glue("{demais_key_cols}_encontrado"),
       collapse = ', '
     )
 
-    colunas_encontradas <- gsub(
+    colunas_extra <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      colunas_encontradas
+      colunas_extra
     )
-    colunas_encontradas <- paste0(", ", colunas_encontradas)
     colunas_encontradas <- paste0(
       colunas_encontradas,
+      ", ",
+      colunas_extra,
       ", similaridade_logradouro"
     )
 
-    additional_cols <- paste0(
-      glue::glue("{y}.{key_cols} AS {key_cols}_encontrado"),
+    cols_extra <- paste0(
+      glue::glue("{y}.{demais_key_cols} AS {demais_key_cols}_encontrado"),
       collapse = ', '
     )
 
-    additional_cols <- gsub(
+    cols_extra <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      additional_cols
+      cols_extra
     )
     additional_cols <- paste0(
-      ", ",
       additional_cols,
+      ", ",
+      cols_extra,
       ", input_padrao_db.similaridade_logradouro AS similaridade_logradouro"
     )
 

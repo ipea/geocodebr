@@ -49,3 +49,25 @@ barata.
   `busca_por_cep()`, e o mesmo bug (usar o vetor `h3_res` no lugar da variável do laço) apareceu nos dois,
   corrigido em cada um numa versão diferente. **Por quê:** ao corrigir algo nesse bloco, checar o outro
   arquivo. Um helper interno único eliminaria a classe do problema.
+
+- `[LEARN:testes]` `devtools::test()` sozinho **nao testa** mudancas em nada que passe por `geocode()`.
+  O corpo roda em `callr::r(..., package = TRUE)`, que faz o subprocesso carregar a versao **instalada**
+  do geocodebr (aqui, a 0.6.4 do CRAN), ignorando o `pkgload::load_all()` do devtools. Para validar de
+  verdade: ou chamar `geocode_core()` direto (em processo, com todos os argumentos explicitos), ou
+  instalar o dev numa biblioteca temporaria e apontar `R_LIBS` para ela antes de rodar os testes.
+  **Por que:** uma rodada de teste passou verde depois de um patch que o subprocesso nunca chegou a
+  executar; sem isso, a suite valida o codigo errado.
+
+- `[LEARN:testes]` Rodar `devtools::test()` mexe em `tests/testthat/_snaps/` (reescreve com CRLF e apaga
+  snapshots nao exercitados, p.ex. `download_cnefe.md`). Conferir `git status` e restaurar com
+  `git checkout -- tests/` antes de commitar. **Por que:** entra ruido de snapshot num diff que deveria
+  ser so de `R/`.
+
+- `[LEARN:geocode]` As categorias sem logradouro (`dc01`, `dc02`, `db01`, `dm01` — municipio + cep ou
+  bairro) **nao devem** entrar no ramo de "empates perdidos": ali o empate e entre enderecos diferentes
+  dentro do mesmo CEP/bairro/municipio, e a media ponderada e o centroide que a `precisao` (`cep`,
+  `localidade`, `municipio`) promete. O ramo "perdidos" existe para o problema oposto — logradouros
+  homonimos espalhados pela cidade, onde a media cai num ponto que nao e nenhum dos candidatos.
+  **Por que:** hoje essas categorias ficam de fora por propagacao de `NULL` em
+  `NOT REGEXP_MATCHES(logradouro_encontrado, ...)`, o que parece bug e convida a um `COALESCE`
+  "corretivo" que seria regressao.

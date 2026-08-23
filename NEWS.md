@@ -2,13 +2,6 @@
 
 ## Correção de bugs (Bug fixes)
 
-- Corrigido o comportamento da resolução de empates da função `geocode()` nos casos
-em que as coordenadas candidatas estão a menos de 300 metros entre si. Nessas 
-situações, o pacote descartava o candidato com **maior** valor de `contagem_cnefe` e 
-retornava o de menor, contrariando a regra de desempate documentada. Agora o 
-candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
-mais distantes (acima de 1 km) não foi alterada.
-
 - Bug corrigido na função `geocode_reverso()`, que agrupava os resultados por uma 
 coluna `id` do input em vez de usar o seu identificador interno. Na prática, a função 
 só funcionava quando a tabela de input tinha uma coluna chamada `id` com valores 
@@ -24,6 +17,25 @@ exemplo, com `h3_res = c(7, 10)`, a coluna `h3_07` recebia índices de resoluç�
 O erro era silencioso, sem mensagem de erro ou aviso, e não ocorria quando `h3_res` 
 tinha um único valor. Agora a função apresenta o comportamento esperado. Este é o 
 mesmo bug que havia sido corrigido na função `geocode()` na versão v0.6.4.
+
+- Correção interna na etapa de resolução de empates da função `geocode()` nos casos
+em que as coordenadas candidatas estão a menos de 300 metros entre si. Nessas 
+situações, o pacote descartava o candidato com **maior** valor de `contagem_cnefe` e 
+retornava o de menor, contrariando a regra de desempate documentada. Agora o 
+candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
+mais distantes (acima de 1 km) não foi alterada.
+
+- Correção interna na etapa de resolução de empates da função `geocode()`. A coluna
+`logradouro_encontrado`, usada internamente para decidir como cada empate é resolvido, só
+era preenchida quando o argumento `resultado_completo = TRUE`. Na prática, isso fazia com
+que `resultado_completo` — que deveria controlar apenas quais colunas aparecem no
+resultado — alterasse também as coordenadas devolvidas: no comportamento padrão, nenhum
+empate era classificado como "perdido", e endereços com logradouros homônimos distantes
+entre si recebiam a média ponderada das coordenadas dos candidatos, em vez das coordenadas
+do candidato com maior `contagem_cnefe`. Agora a coluna é sempre repassada às etapas
+internas, e as coordenadas devolvidas não dependem mais de `resultado_completo`. Na
+amostra `large_sample.parquet` distribuída com o pacote, apenas 558 dos 20.028 (2.7%)
+endereços eram afetados, com diferenças de até 26 km.
 
 ## Mudanças pequenas (Minor changes)
 
