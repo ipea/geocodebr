@@ -163,6 +163,11 @@ trata_empates_geocode_duckdb <- function(
             TRUE AS empate {cols_encontradas}
           FROM filtered
           WHERE empate = TRUE
+            -- so match com logradouro pode ser 'perdido': nas categorias sem
+            -- logradouro (dc01, dc02, db01, dm01) o empate e entre enderecos do
+            -- mesmo CEP/bairro/municipio, e a media ponderada e o centroide que
+            -- a precisao correspondente promete
+            AND logradouro_encontrado IS NOT NULL
             AND (
               max_dist > 1000
               OR log_causa_confusao
