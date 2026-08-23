@@ -213,38 +213,34 @@ merge_results_to_input <- function(
   return(merged_data)
 } # nocov end
 
-
-#' create index
-#'
-#' @keywords internal
-create_index <- function(con, tb, cols, operation, overwrite = TRUE) {
-  # nocov start
-
-  idx <- paste0('idx_', tb)
-  cols_group <- paste(cols, collapse = ", ")
-
-  # check if table already has index
-  i <- DBI::dbGetQuery(
-    con,
-    sprintf("SELECT * FROM duckdb_indexes WHERE table_name = '%s';", tb)
-  )
-
-  if (nrow(i) > 0 & isFALSE(overwrite)) {
-    return(NULL)
-  }
-  if (nrow(i) > 0 & isTRUE(overwrite)) {
-    DBI::dbExecute(con, sprintf('DROP INDEX IF EXISTS %s', idx))
-  }
-
-  query_index <- sprintf(
-    '%s INDEX %s ON %s(%s);',
-    operation,
-    idx,
-    tb,
-    cols_group
-  )
-  DBI::dbExecute(con, query_index)
-} # nocov end
+#create_index <- function(con, tb, cols, operation, overwrite = TRUE) {
+#  # nocov start
+#
+#  idx <- paste0('idx_', tb)
+#  cols_group <- paste(cols, collapse = ", ")
+#
+#  # check if table already has index
+#  i <- DBI::dbGetQuery(
+#    con,
+#    sprintf("SELECT * FROM duckdb_indexes WHERE table_name = '%s';", tb)
+#  )
+#
+#  if (nrow(i) > 0 & isFALSE(overwrite)) {
+#    return(NULL)
+#  }
+#  if (nrow(i) > 0 & isTRUE(overwrite)) {
+#    DBI::dbExecute(con, sprintf('DROP INDEX IF EXISTS %s', idx))
+#  }
+#
+#  query_index <- sprintf(
+#    '%s INDEX %s ON %s(%s);',
+#    operation,
+#    idx,
+#    tb,
+#    cols_group
+#  )
+#  DBI::dbExecute(con, query_index)
+#} # nocov end
 
 
 get_key_cols <- function(match_type) {
