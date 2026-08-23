@@ -300,4 +300,79 @@ converte para `sf` (EPSG 4674) se `resultado_sf = TRUE`.
 4. `man/roxygen/templates/precision_section.R` e `empates_section.R` são a documentação de usuário desse
    pipeline — mudou a lógica aqui, atualize lá.
 
+### geocode_reverso()
+
+Apesar do nome sugerir simetria com `geocode()`, é um pipeline **completamente diferente**: não usa
+`callr`, não usa o laço de 25 etapas, não tem desempate, e delega quase tudo à extensão espacial do DuckDB
+via `duckspatial`. Roda no processo do próprio usuário.
+
+**Etapa 1 — validação.** Exige `sf` com geometria **`POINT`** e **EPSG 4674** (aborta com outro CRS em vez
+de reprojetar). `dist_max` é limitado a `[500, 100000]` metros — **não é possível pedir raio menor que
+500 m**. Por fim, testa se a `st_bbox()` do conjunto cai dentro de um bounding box do Brasil hardcoded
+(`R/geocode_reverso.R:79-84`); como o teste é sobre a bbox **agregada**, um único ponto fora do país
+derruba a chamada inteira.
+
+**Etapa 2 — dados.** Baixa **uma única tabela**, `municipio_logradouro_numero_cep_localidade` (a mais
+detalhada), e abre o DuckDB com `load_spatial = TRUE`, que instala/carrega a extensão espacial.
+
+**Etapa 3 — recorte geográfico, por geometria e não por coluna.** Esta é a diferença conceitual central em
+relação ao `geocode()`: aqui o usuário **não informa** município nem UF. O pacote descobre os municípios
+candidatos com um join espacial `within` entre os pontos de input e
+`inst/extdata/munis_bbox_2022.parquet` — que contém **bounding boxes** dos municípios, não os polígonos
+reais. Isso devolve deliberadamente um superconjunto (bboxes vizinhas se sobrepõem), o que é seguro para
+não perder endereços na fronteira. Os códigos IBGE resultantes passam por
+`enderecobr::padronizar_municipios()`, e os nomes são interpolados direto na string SQL — daí o
+`gsub("'", "''")` para municípios com apóstrofo (`Olho d'Água`).
+
+**Etapa 4 — busca espacial em UTM.** CNEFE e pontos de input são reprojetados para **EPSG:31983**
+(SIRGAS 2000 / UTM 23S) para que as distâncias saiam em metros. Cria-se um buffer de `dist_max` em volta de
+cada ponto, faz-se um join `intersects` contra os endereços do CNEFE, e um
+`ROW_NUMBER() ... ORDER BY distancia_metros` mantém o **endereço mais próximo** de cada ponto. O resultado
+volta para EPSG 4674 antes de ser coletado.
+
+> **EPSG:31983 é uma única zona UTM aplicada ao país inteiro.** A zona 23S é centrada em -45° de longitude,
+> então a distorção cresce conforme se afasta dela. Medido: erro de +0,2% em São Paulo, +0,7% em Salvador,
+> +3,6% em Manaus e **+8,3% em Rio Branco**. Isso afeta tanto a coluna `distancia_metros` quanto o raio
+> efetivo de busca do buffer. Ver o relatório de achados em `quality_reports/diagnoses/`.
+
+**Etapa 5 — output.** Retorna o `sf` de input acrescido das colunas do endereço encontrado e de
+`distancia_metros`, com a geometria movida para a última coluna. **O join é `INNER`**: pontos sem nenhum
+endereço dentro de `dist_max` são **descartados silenciosamente**, e o output pode ter menos linhas que o
+input. A função só falha se *nenhum* ponto encontrar endereço. Isso contrasta com `geocode()`, que preserva
+todas as linhas via `LEFT JOIN` e devolve `NA`.
+
+### busca_por_cep()
+
+O mais simples dos três: sem `callr`, sem laço, sem empates, sem extensão espacial — uma única consulta SQL.
+
+**Etapa 1 — normalização.** `enderecobr::padronizar_ceps()` e, em seguida, `unique()` + `na.omit()` +
+remoção de strings vazias. Ou seja, **CEPs duplicados ou inválidos no input são eliminados** e não têm
+correspondência 1:1 com as linhas do output.
+
+**Etapa 2 — consulta.** Baixa apenas `municipio_logradouro_cep_localidade` e roda um
+`SELECT ... FROM read_parquet(...) WHERE cep IN (...)`. Note que **não há recorte por município ou UF** —
+é uma varredura do parquet nacional, viável porque o CEP já é discriminante.
+
+**Etapa 3 — CEPs não encontrados.** Os CEPs sem correspondência são anexados de volta ao resultado como
+linhas com `cep` preenchido e todo o resto `NA` (`data.table::rbindlist(..., fill = TRUE)`), para que o
+usuário veja o que não foi achado. Se *nenhum* CEP for encontrado, a função aborta.
+
+**Etapa 4 — output.** Adiciona colunas H3 se `h3_res` for informado e converte para `sf` se
+`resultado_sf = TRUE`.
+
+> **A cardinalidade do output não é a do input.** Um CEP costuma cobrir vários logradouros/localidades, e
+> cada combinação vira uma linha. Somado à deduplicação da Etapa 1, o número de linhas do resultado não
+> guarda relação direta com o comprimento do vetor `cep`.
+
+#### Diferenças entre as três funções
+
+| | `geocode()` | `geocode_reverso()` | `busca_por_cep()` |
+|---|---|---|---|
+| Isolamento em `callr` | Sim | Não | Não |
+| Tabelas CNEFE baixadas | 8 (todas) | 1 | 1 |
+| Extensão espacial DuckDB | Não | **Sim** | Não |
+| Como limita municípios | Colunas UF+município do input (obrigatórias) | Join espacial com bboxes | Não limita |
+| Linhas do input preservadas | Sim (`LEFT JOIN`, `NA` se não achou) | **Não** (`INNER JOIN`, descarta) | Não (dedup + 1:N) |
+| Desconecta o DuckDB | Sim | Sim | **Não** (ver achados) |
+
 
