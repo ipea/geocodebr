@@ -108,6 +108,13 @@ geocode_reverso <- function(
     load_spatial = TRUE
   )
 
+  # rede de seguranca: garante que a conexao seja fechada mesmo se a funcao
+  # falhar no meio do caminho, inclusive quando ela para porque nenhum endereco
+  # proximo foi encontrado. O dbDisconnect() explicito mais abaixo continua sendo
+  # o fechamento normal, e o teste dbIsValid() evita o aviso
+  # "Connection already closed" quando a funcao termina sem erro
+  on.exit(if (DBI::dbIsValid(conn)) duckdb::dbDisconnect(conn), add = TRUE)
+
   # limita escopo de busca aos municipios  -------------------------------------------------------
   # determine potential municipalities
   munis <- system.file("extdata/munis_bbox_2022.parquet", package = "geocodebr") |>
@@ -226,7 +233,7 @@ geocode_reverso <- function(
         b.* {exclude_clause},
         ST_Distance(a.geometry, b.geometry) AS distancia_metros,
         ROW_NUMBER() OVER (
-          PARTITION BY a.id
+          PARTITION BY a.tempidgeocodebr
           ORDER BY distancia_metros
         ) AS rn
       FROM pontos_utm AS a

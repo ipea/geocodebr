@@ -9,6 +9,14 @@ retornava o de menor, contrariando a regra de desempate documentada. Agora o
 candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
 mais distantes (acima de 1 km) não foi alterada.
 
+- Bug corrigido na função `geocode_reverso()`, que agrupava os resultados por uma 
+coluna `id` do input em vez de usar o seu identificador interno. Na prática, a função 
+só funcionava quando a tabela de input tinha uma coluna chamada `id` com valores 
+únicos. Com qualquer outro `sf`, a função retornava um erro; e quando a coluna `id` 
+existia mas tinha valores repetidos, a função devolvia silenciosamente apenas um 
+endereço por valor de `id`, em vez de um por ponto de input. Agora o resultado 
+independe das colunas presentes na tabela de input.
+
 - Bug corrigido no argumento `h3_res` da função `busca_por_cep()`. Quando se passava 
 um vetor com várias resoluções, a função criava as colunas com os nomes corretos mas 
 preenchia todas elas com os índices de uma única resolução — a última do vetor. Por 
