@@ -1,5 +1,19 @@
 # geocodebr (development version)
 
+## Mudanças pequenas (Minor changes)
+
+- A documentação da função `geocode()` agora descreve a etapa de resolução de 
+empates entre candidatos separados por menos de 300 metros, que antes não estava 
+documentada. Ver a seção "Lidando com casos de empate" em `?geocode`.
+
+- As funções `geocode()`, `geocode_reverso()` e `busca_por_cep()` agora fecham a 
+conexão com o banco DuckDB ao final da sua execução, inclusive quando são 
+interrompidas por um erro no meio do caminho. Antes, uma interrupção deixava a 
+conexão aberta e um arquivo temporário em disco, o que podia acumular recursos em 
+usos repetidos ou dentro de laços. No caso da `busca_por_cep()`, a conexão não era 
+fechada nem mesmo quando a função terminava normalmente.
+
+
 ## Correção de bugs (Bug fixes)
 
 - Bug corrigido na função `geocode_reverso()`, que agrupava os resultados por uma 
@@ -37,18 +51,16 @@ internas, e as coordenadas devolvidas não dependem mais de `resultado_completo`
 amostra `large_sample.parquet` distribuída com o pacote, apenas 558 dos 20.028 (2.7%)
 endereços eram afetados, com diferenças de até 26 km.
 
-## Mudanças pequenas (Minor changes)
+- Bug corrigido em função interna de limpeza automática do cache de dados do CNEFE. 
+Quando a pasta de cache continha dados de um release antigo convivendo com os do 
+release corrente, o pacote apagava a pasta de cache inteira — inclusive os dados 
+correntes, que estavam íntegros —, forçando um novo download de todo o conjunto 
+de dados. Agora apenas as pastas dos releases antigos são apagadas. Além disso,
+uma pasta de release com nome fora do padrão esperado fazia a limpeza parar com o
+erro `missing value where TRUE/FALSE needed`, o que interrompia qualquer chamada
+a `geocode()`, `geocode_reverso()` ou `busca_por_cep()` com `cache = TRUE`. Esse
+caso passa a ser tratado como release antigo.
 
-- A documentação da função `geocode()` agora descreve a etapa de resolução de 
-empates entre candidatos separados por menos de 300 metros, que antes não estava 
-documentada. Ver a seção "Lidando com casos de empate" em `?geocode`.
-
-- As funções `geocode()`, `geocode_reverso()` e `busca_por_cep()` agora fecham a 
-conexão com o banco DuckDB ao final da sua execução, inclusive quando são 
-interrompidas por um erro no meio do caminho. Antes, uma interrupção deixava a 
-conexão aberta e um arquivo temporário em disco, o que podia acumular recursos em 
-usos repetidos ou dentro de laços. No caso da `busca_por_cep()`, a conexão não era 
-fechada nem mesmo quando a função terminava normalmente.
 
 
 # geocodebr v0.6.4

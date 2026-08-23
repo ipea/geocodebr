@@ -157,57 +157,44 @@ message_removed_cache_dir <- function(cache_dir) {
 }
 
 
-#' Atualiza dados no release local
+#' Apaga do cache os dados de releases antigos
 #'
-#' Detecta automaticamente se o release local esta desatualizado. Se sim, apaga
-#' a pasta de cache do release local e atualiza a versao do release no caminho
-#' da pasta
+#' Detecta se a pasta de cache contem dados de releases anteriores ao utilizado
+#' pela versao atual do pacote. Se sim, apaga **apenas** as pastas desses
+#' releases antigos, preservando a pasta do release corrente.
 #'
 #' @return Retorna de forma invisível o caminho do diretório de cache.
 #'
 #' @keywords internal
 apaga_data_release_antigo <- function() {
 
-  # list cache local
-  cache_dir <- geocodebr::listar_pasta_cache()
+  cache_dir <- listar_pasta_cache()
 
-  # detect all release paths
-  local_release_path <- list.dirs(cache_dir, recursive = T)[-1]
-  local_release_path <- local_release_path[grep(
-    'geocodebr_data_release_',
-    local_release_path
-  )]
+  # pastas de release presentes no cache. Elas sao filhas diretas da pasta de
+  # cache, entao nao ha motivo para descer recursivamente
+  local_release_path <- list.dirs(cache_dir, recursive = FALSE)
+  local_release_path <- local_release_path[
+    grepl("geocodebr_data_release_", basename(local_release_path), fixed = TRUE)
+  ]
 
-  new_data_release_dir <- fs::path(
-    cache_dir,
+  if (length(local_release_path) == 0) {
+    return(invisible(cache_dir))
+  }
+
+  # a comparacao e feita pelo nome da pasta, e nao por uma versao numerica
+  # extraida dele: assim uma pasta com nome inesperado e tratada como release
+  # antigo, em vez de virar NA e derrubar a comparacao
+  dir_release_corrente <- as.character(
     glue::glue("geocodebr_data_release_{data_release}")
   )
 
-  if (identical(as.character(new_data_release_dir), local_release_path)) {
-    return(cache_dir)
+  releases_antigos <- local_release_path[
+    basename(local_release_path) != dir_release_corrente
+  ]
+
+  if (length(releases_antigos) > 0) {
+    unlink(releases_antigos, recursive = TRUE)
   }
 
-  # versao numerica dos releases local e do pacote
-  local_release <- gsub("[^0-9]", "", basename(local_release_path)) |>
-    as.numeric()
-  pkg_release <- gsub("[^0-9]", "", data_release) |> as.numeric()
-
-  if (length(local_release) == 0) {
-    return(cache_dir)
-  }
-
-  check1 <- is.na(local_release)
-  check2 <- local_release == pkg_release
-  if (all(check1, check2)) {
-    return(cache_dir)
-  }
-
-  if (any(local_release != pkg_release)) {
-    # deleta os dados do release local
-    suppressMessages(
-      geocodebr::deletar_pasta_cache()
-    )
-
-    return(cache_dir)
-  }
+  return(invisible(cache_dir))
 }

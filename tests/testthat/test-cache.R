@@ -171,3 +171,53 @@ test_that("deletar_pasta_cache behaves correctly", {
 
 
 })
+
+# apaga_data_release_antigo ----------------------------------------------------
+
+test_that("apaga_data_release_antigo preserva o release corrente", {
+  if (fs::file_exists(cache_config_file)) {
+    config_file_content <- readLines(cache_config_file)
+    on.exit(writeLines(config_file_content, cache_config_file), add = TRUE)
+  } else {
+    on.exit(fs::file_delete(cache_config_file), add = TRUE)
+  }
+
+  # usa uma pasta temporaria para nao mexer em dados que ja estejam em cache
+  tmpdir <- tempfile()
+  fs::dir_create(tmpdir)
+  suppressMessages(definir_pasta_cache(tmpdir))
+
+  dir_corrente <- paste0("geocodebr_data_release_", geocodebr:::data_release)
+
+  cria_releases <- function(dirs) {
+    unlink(list.dirs(tmpdir, recursive = FALSE), recursive = TRUE)
+    for (d in dirs) {
+      fs::dir_create(fs::path(tmpdir, d))
+      file.create(fs::path(tmpdir, d, "municipio.parquet"))
+    }
+  }
+
+  releases_no_cache <- function() {
+    basename(list.dirs(geocodebr:::listar_pasta_cache(), recursive = FALSE))
+  }
+
+  # release antigo convivendo com o corrente: apaga so o antigo
+  cria_releases(c("geocodebr_data_release_v0.0.1", dir_corrente))
+  geocodebr:::apaga_data_release_antigo()
+  expect_identical(releases_no_cache(), dir_corrente)
+  expect_true(file.exists(fs::path(tmpdir, dir_corrente, "municipio.parquet")))
+
+  # pasta de release com nome fora do padrao nao derruba a funcao
+  cria_releases(c("geocodebr_data_release_dev", dir_corrente))
+  expect_no_error(geocodebr:::apaga_data_release_antigo())
+  expect_identical(releases_no_cache(), dir_corrente)
+
+  # so o release corrente: nada e apagado
+  cria_releases(dir_corrente)
+  geocodebr:::apaga_data_release_antigo()
+  expect_identical(releases_no_cache(), dir_corrente)
+
+  # cache sem nenhuma pasta de release
+  cria_releases(character(0))
+  expect_no_error(geocodebr:::apaga_data_release_antigo())
+})
