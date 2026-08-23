@@ -26,10 +26,10 @@ conter o nome dos municípios, ou o seu código IBGE de 7 dígitos.}
 \item{logradouro}{Uma string. O nome da coluna que representa o \emph{logradouro}
 (endereço da rua) do endereço. Pode ser \code{NULL} se o campo não estiver
 especificado na tabela de endereços. Na tabela de endereços, essa coluna
-deve incluir o \emph{tipo} do lograoduro, indicando se trata-se de uma "Rua" ou
-"Avenida" etc, por exemplo "Avenida Presidente Getúlio Vargas". Além disso,
-essa coluna \emph{não} deve incluir o \code{numero} do endereço, pois o número deve
-ser indicado numa coluna separada.}
+deve incluir o \emph{tipo} e o \emph{nome} do lograoduro, indicando se trata-se de
+uma "Rua" ou "Avenida" etc, por exemplo "Avenida Presidente Getúlio Vargas".
+Além disso, essa coluna \emph{não} deve incluir o \code{numero} do endereço, pois o
+número deve ser indicado numa coluna separada.}
 
 \item{numero}{Uma string. O nome da coluna que representa o número do endereço.
 Pode ser \code{NULL} se o campo não estiver especificado na tabela de endereços.

@@ -27,7 +27,9 @@ A função \code{\link[=definir_campos]{definir_campos()}} auxilia na criação 
 algumas verificações nos dados de entrada. Campos de endereço passados
 como \code{NULL} serão ignorados, e a função deve receber pelo menos um campo
 não nulo, além  dos campos \code{"estado"} e \code{"municipio"}, que são
-obrigatórios. Note que o campo  \code{"localidade"} é equivalente a 'bairro'.}
+obrigatórios. Note que o campo  \code{"localidade"} é equivalente a 'bairro', e
+que o campo \code{"lograoduro"} deve conter o tipo e o nome do logradouro (e.g.
+"Rua Castro Alves", "Avenida Ipiranga").}
 
 \item{resultado_completo}{Lógico. Indica se o output deve incluir colunas
 adicionais, como o endereço encontrado de referência. Por padrão, é \code{FALSE}.}

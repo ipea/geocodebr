@@ -9,17 +9,23 @@ export(geocode)
 export(geocode_reverso)
 export(listar_dados_cache)
 export(listar_pasta_cache)
-importFrom(data.table,"%chin%")
-importFrom(data.table,"%like%")
-importFrom(data.table,":=")
-importFrom(data.table,.GRP)
-importFrom(data.table,.I)
-importFrom(data.table,.N)
-importFrom(data.table,.SD)
-importFrom(dplyr,across)
-importFrom(dplyr,all_of)
-importFrom(dplyr,case_when)
-importFrom(dplyr,mutate)
-importFrom(dplyr,select)
-importFrom(stats,na.omit)
-importFrom(stats,weighted.mean)
+importFrom(data.table,
+  "%chin%",
+  "%like%",
+  ":=",
+  .GRP,
+  .I,
+  .N,
+  .SD
+)
+importFrom(dplyr,
+  across,
+  all_of,
+  case_when,
+  mutate,
+  select
+)
+importFrom(stats,
+  na.omit,
+  weighted.mean
+)

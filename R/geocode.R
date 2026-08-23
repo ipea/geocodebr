@@ -15,7 +15,9 @@
 #'    algumas verificações nos dados de entrada. Campos de endereço passados
 #'    como `NULL` serão ignorados, e a função deve receber pelo menos um campo
 #'    não nulo, além  dos campos `"estado"` e `"municipio"`, que são
-#'    obrigatórios. Note que o campo  `"localidade"` é equivalente a 'bairro'.
+#'    obrigatórios. Note que o campo  `"localidade"` é equivalente a 'bairro', e
+#'    que o campo `"lograoduro"` deve conter o tipo e o nome do logradouro (e.g.
+#'    "Rua Castro Alves", "Avenida Ipiranga").
 #' @param resultado_completo Lógico. Indica se o output deve incluir colunas
 #'    adicionais, como o endereço encontrado de referência. Por padrão, é `FALSE`.
 #' @param resolver_empates Lógico. Alguns resultados da geolocalização podem
