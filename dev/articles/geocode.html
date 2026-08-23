@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão em desenvolvimento">0.6.3.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão em desenvolvimento">0.6.4.900</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -68,7 +68,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Geocode</h1>
             
-            <h4 data-toc-skip class="date">2026-07-20</h4>
+            <h4 data-toc-skip class="date">2026-08-23</h4>
       
       <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocode.Rmd" class="external-link"><code>vignettes/geocode.Rmd</code></a></small>
       <div class="d-none name"><code>geocode.Rmd</code></div>
@@ -134,10 +134,14 @@ entanto, são salvos de forma persistente, logo eles são baixados uma
 <span>  resultado_sf <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  verboso <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #BB0000;">duckdb is keeping downloaded extensions in a temporary directory:</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> /tmp/Rtmp4p1Zvj/duckdb/extensions</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; This is removed when the R session ends, so extensions are re-downloaded each session.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BB0000;">duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> /tmp/RtmpUxGs66/duckdb</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; This is removed when the R session ends.</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #00BBBB;">•</span><span style="color: #BB0000;"> Extensions are re-downloaded each session.</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #00BBBB;">•</span><span style="color: #BB0000;"> Secrets are lost.</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> See ?duckdb_storage for details and alternatives.</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; </span></span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">ends_geo</span><span class="op">)</span></span>

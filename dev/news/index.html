@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão em desenvolvimento">0.6.3.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão em desenvolvimento">0.6.4.900</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -47,7 +47,18 @@
 <h2 class="pkg-version" data-toc-text="development version" id="geocodebr-development-version">geocodebr (development version)<a class="anchor" aria-label="anchor" href="#geocodebr-development-version"></a></h2>
 <div class="section level3">
 <h3 id="correção-de-bugs-bug-fixes-development-version">Correção de bugs (Bug fixes)<a class="anchor" aria-label="anchor" href="#corre%C3%A7%C3%A3o-de-bugs-bug-fixes-development-version"></a></h3>
-<ul><li>Bug corrigido, o que permite agora passar um vetor para o argumento <code>h3_res</code> e ter o comportamento esperado.</li>
+<ul><li>Corrigido o comportamento da resolução de empates da função <code><a href="../reference/geocode.html">geocode()</a></code> nos casos em que as coordenadas candidatas estão a menos de 300 metros entre si. Nessas situações, o pacote descartava o candidato com <strong>maior</strong> valor de <code>contagem_cnefe</code> e retornava o de menor, contrariando a regra de desempate documentada. Agora o candidato com maior <code>contagem_cnefe</code> é preservado. A classificação dos empates mais distantes (acima de 1 km) não foi alterada.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="mudanças-pequenas-minor-changes-development-version">Mudanças pequenas (Minor changes)<a class="anchor" aria-label="anchor" href="#mudan%C3%A7as-pequenas-minor-changes-development-version"></a></h3>
+<ul><li>A documentação da função <code><a href="../reference/geocode.html">geocode()</a></code> agora descreve a etapa de resolução de empates entre candidatos separados por menos de 300 metros, que antes não estava documentada. Ver a seção “Lidando com casos de empate” em <code><a href="../reference/geocode.html">?geocode</a></code>.</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.6.4" id="geocodebr-v064">geocodebr v0.6.4<a class="anchor" aria-label="anchor" href="#geocodebr-v064"></a></h2><p class="text-muted">Lançamento CRAN: 2026-07-22</p>
+<div class="section level3">
+<h3 id="correção-de-bugs-bug-fixes-0-6-4">Correção de bugs (Bug fixes)<a class="anchor" aria-label="anchor" href="#corre%C3%A7%C3%A3o-de-bugs-bug-fixes-0-6-4"></a></h3>
+<ul><li>Bug corrigido no argumento <code>h3_res</code> da fução <code><a href="../reference/geocode.html">geocode()</a></code>. A função estava sobre-escrevendo as colunas quando se passava um vetor de várias resoluções de <code>h3_res</code>. Agora a função apresenta o comportamento esperado.</li>
 </ul></div>
 </div>
     <div class="section level2">

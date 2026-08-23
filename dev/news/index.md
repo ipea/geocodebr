@@ -4,8 +4,35 @@
 
 ### Correção de bugs (Bug fixes)
 
-- Bug corrigido, o que permite agora passar um vetor para o argumento
-  `h3_res` e ter o comportamento esperado.
+- Corrigido o comportamento da resolução de empates da função
+  [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+  nos casos em que as coordenadas candidatas estão a menos de 300 metros
+  entre si. Nessas situações, o pacote descartava o candidato com
+  **maior** valor de `contagem_cnefe` e retornava o de menor,
+  contrariando a regra de desempate documentada. Agora o candidato com
+  maior `contagem_cnefe` é preservado. A classificação dos empates mais
+  distantes (acima de 1 km) não foi alterada.
+
+### Mudanças pequenas (Minor changes)
+
+- A documentação da função
+  [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+  agora descreve a etapa de resolução de empates entre candidatos
+  separados por menos de 300 metros, que antes não estava documentada.
+  Ver a seção “Lidando com casos de empate” em
+  [`?geocode`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md).
+
+## geocodebr v0.6.4
+
+Lançamento CRAN: 2026-07-22
+
+### Correção de bugs (Bug fixes)
+
+- Bug corrigido no argumento `h3_res` da fução
+  [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md).
+  A função estava sobre-escrevendo as colunas quando se passava um vetor
+  de várias resoluções de `h3_res`. Agora a função apresenta o
+  comportamento esperado.
 
 ## geocodebr v0.6.3
 

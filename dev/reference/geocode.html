@@ -17,7 +17,7 @@ utilizam o sistema de coordenadas geográficas SIRGAS 2000, EPSG 4674.'><meta pr
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão em desenvolvimento">0.6.3.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão em desenvolvimento">0.6.4.900</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -95,7 +95,9 @@ A função <code><a href="definir_campos.html">definir_campos()</a></code> auxil
 algumas verificações nos dados de entrada. Campos de endereço passados
 como <code>NULL</code> serão ignorados, e a função deve receber pelo menos um campo
 não nulo, além  dos campos <code>"estado"</code> e <code>"municipio"</code>, que são
-obrigatórios. Note que o campo  <code>"localidade"</code> é equivalente a 'bairro'.</p></dd>
+obrigatórios. Note que o campo  <code>"localidade"</code> é equivalente a 'bairro', e
+que o campo <code>"lograoduro"</code> deve conter o tipo e o nome do logradouro (e.g.
+"Rua Castro Alves", "Avenida Ipiranga").</p></dd>
 
 
 <dt id="arg-resultado-completo">resultado_completo<a class="anchor" aria-label="anchor" href="#arg-resultado-completo"></a></dt>
@@ -167,18 +169,24 @@ Alternativamente, o resultado pode ser um objeto <code>sf</code>.</p>
 <code>precisao</code>, <code>tipo_resultado</code> e <code>desvio_metros</code>, explicadas abaixo.</p>
 <p>Lidando com casos de empate:</p>
 <p>No processo de geolocalização de dados, é possível que para alguns endereços
-de input sejam encontrados diferentes coordenadas possíveis (e.g. duas ruas
+de input sejam encontradas diferentes coordenadas possíveis (e.g. duas ruas
 diferentes com o mesmo nome, mas em bairros distintos em uma mesma cidade).
-Esses casos são trados como empate'. Quando a função <code>geocode()</code> recebe o
-o parâmetro <code>resolver_empates = TRUE</code>, os casos de empate são resolvidos
+Esses casos são tratados como 'empate'. Quando a função <code>geocode()</code> recebe o
+parâmetro <code>resolver_empates = TRUE</code>, os casos de empate são resolvidos
 automaticamente pela função. A solução destes empates é feita da seguinte
-maneira:</p><ol><li><p>Quando se encontra diferente coordenadas possíveis para um mesmo endereço
-de input, nós assumimos que essas coordendas pertencem provavelmente a endereços
-diferentes se (a) estas coordenadas estão a mais de 1Km entre si, ou (b) estão
-associadas a um logradouro 'ambíguo', i.e. que costumam se repetir em muitos
-bairros (e.g. "RUA A", "RUA QUATRO", "RUA 10", etc). Nestes casos, a solução
-de desempate é retornar o ponto com maior número de estabelecimentos no CNEFE,
-valor indicado na coluna <code>"contagem_cnefe"</code>.</p></li>
+maneira:</p><ol><li><p>Antes de qualquer coisa, o pacote avalia se os pontos candidatos estão
+muito próximos entre si. Candidatos separados por menos de 300 metros são
+considerados como representando o mesmo local, e nesses casos a solução de
+desempate é reter apenas o ponto com maior número de estabelecimentos no
+CNEFE, valor indicado na coluna <code>"contagem_cnefe"</code>. Se ao final desta etapa
+restar um único ponto candidato, o caso deixa de ser tratado como empate.</p></li>
+<li><p>Quando ainda restam candidatos após a etapa anterior, nós assumimos que
+essas coordenadas pertencem provavelmente a endereços diferentes se (a) estas
+coordenadas estão a mais de 1Km entre si, ou (b) estão associadas a um
+logradouro 'ambíguo', i.e. que costumam se repetir em muitos bairros (e.g.
+"RUA A", "RUA QUATRO", "RUA 10", etc). Nestes casos, a solução de desempate é
+retornar o ponto com maior número de estabelecimentos no CNEFE, valor
+indicado na coluna <code>"contagem_cnefe"</code>.</p></li>
 <li><p>Quando as coordenadas possivelmente associadas a um endereço estão a menos
 de 1Km entre si e não se trata de um logradouro 'ambíguo', nós assumimos que
 os pontos pertencem provavelmente ao mesmo logradouro (e.g. diferentes CEPs
@@ -328,10 +336,14 @@ coluna <code>cod_setor</code> é <code>NA</code>.</p>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Padronizando endereços de entrada</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Utilizando dados do CNEFE armazenados localmente</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">duckdb is keeping downloaded extensions in a temporary directory:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ /tmp/RtmpM4IjxA/duckdb/extensions</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">This is removed when the R session ends, so extensions are re-downloaded each session.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ /tmp/RtmpTIVOJq/duckdb</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">This is removed when the R session ends.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">• Extensions are re-downloaded each session.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">• Secrets are lost.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ See ?duckdb_storage for details and alternatives.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Geolocalizando endereços</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 0/2 ■                                  0% - dn01 </span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! </span></span>
