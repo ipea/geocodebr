@@ -318,6 +318,12 @@ geocode_core <- function(
   # creating a temporary db and register the input table data
   con <- create_geocodebr_db(n_cores = n_cores)
 
+  # rede de seguranca: garante que a conexao seja fechada mesmo se a funcao
+  # falhar no meio do caminho. O dbDisconnect() explicito mais abaixo continua
+  # sendo o fechamento normal, e o teste dbIsValid() evita o aviso
+  # "Connection already closed" quando a funcao termina sem erro
+  on.exit(if (DBI::dbIsValid(con)) duckdb::dbDisconnect(con), add = TRUE)
+
   # register standardized input data
   input_padrao_arrw <- arrow::as_arrow_table(input_padrao)
   DBI::dbWriteTableArrow(

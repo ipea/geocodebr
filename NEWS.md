@@ -9,11 +9,26 @@ retornava o de menor, contrariando a regra de desempate documentada. Agora o
 candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
 mais distantes (acima de 1 km) não foi alterada.
 
+- Bug corrigido no argumento `h3_res` da função `busca_por_cep()`. Quando se passava 
+um vetor com várias resoluções, a função criava as colunas com os nomes corretos mas 
+preenchia todas elas com os índices de uma única resolução — a última do vetor. Por 
+exemplo, com `h3_res = c(7, 10)`, a coluna `h3_07` recebia índices de resolução 10. 
+O erro era silencioso, sem mensagem de erro ou aviso, e não ocorria quando `h3_res` 
+tinha um único valor. Agora a função apresenta o comportamento esperado. Este é o 
+mesmo bug que havia sido corrigido na função `geocode()` na versão v0.6.4.
+
 ## Mudanças pequenas (Minor changes)
 
 - A documentação da função `geocode()` agora descreve a etapa de resolução de 
 empates entre candidatos separados por menos de 300 metros, que antes não estava 
 documentada. Ver a seção "Lidando com casos de empate" em `?geocode`.
+
+- As funções `geocode()`, `geocode_reverso()` e `busca_por_cep()` agora fecham a 
+conexão com o banco DuckDB ao final da sua execução, inclusive quando são 
+interrompidas por um erro no meio do caminho. Antes, uma interrupção deixava a 
+conexão aberta e um arquivo temporário em disco, o que podia acumular recursos em 
+usos repetidos ou dentro de laços. No caso da `busca_por_cep()`, a conexão não era 
+fechada nem mesmo quando a função terminava normalmente.
 
 
 # geocodebr v0.6.4
