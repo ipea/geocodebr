@@ -61,6 +61,16 @@ erro `missing value where TRUE/FALSE needed`, o que interrompia qualquer chamada
 a `geocode()`, `geocode_reverso()` ou `busca_por_cep()` com `cache = TRUE`. Esse
 caso passa a ser tratado como release antigo.
 
+- Bug corrigido no argumento `cache = FALSE` das funções `geocode()`,
+`geocode_reverso()` e `busca_por_cep()`. Nesse modo, os dados do CNEFE são
+baixados para um diretório temporário, mas as funções liam os dados da pasta de
+cache persistente — isto é, de um lugar diferente daquele em que os dados haviam
+acabado de ser gravados. Na prática, quem não tinha os dados em cache recebia o
+erro `IO Error: No files found that match the pattern ...` depois de esperar o
+download inteiro, e quem já tinha obtinha o resultado correto, mas lido do cache,
+com o download recém-feito descartado. Agora a leitura usa a pasta devolvida por
+`download_cnefe()`.
+
 
 
 # geocodebr v0.6.4

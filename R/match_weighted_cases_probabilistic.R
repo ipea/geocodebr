@@ -10,7 +10,8 @@ match_weighted_cases_probabilistic <- function(
   output_tb = "output_db",
   key_cols = key_cols,
   match_type = match_type,
-  resultado_completo) {
+  resultado_completo,
+  pasta_dados) {
 
   # match_type = "pn01"
 
@@ -20,10 +21,10 @@ match_weighted_cases_probabilistic <- function(
   key_cols <- get_key_cols(match_type)
 
   # write cnefe table to db
-  register_cnefe_table(con, match_type)
+  register_cnefe_table(con, match_type, pasta_dados)
 
   # 1st step: create small table with unique logradouros -----------------------
-  unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type)
+  unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type, pasta_dados)
 
   # 2nd step: update input_padrao_db with the most probable logradouro ---------
   calculate_string_dist(con, match_type, unique_logradouros_tbl)

@@ -5,7 +5,8 @@ match_weighted_cases <- function(
   output_tb = "output_db",
   key_cols = key_cols,
   match_type = match_type,
-  resultado_completo
+  resultado_completo,
+  pasta_dados
 ) {
   # match_type = "da01"
   # key_cols <- geocodebr:::get_key_cols(match_type)
@@ -16,7 +17,7 @@ match_weighted_cases <- function(
   key_cols <- get_key_cols(match_type)
 
   # write cnefe table to db
-  register_cnefe_table(con, match_type)
+  register_cnefe_table(con, match_type, pasta_dados)
 
   # cols that cannot be null
   cols_not_null <- paste(

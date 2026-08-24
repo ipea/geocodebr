@@ -360,7 +360,7 @@ probabilistic_types_no_number <- c(
   "pl04"
 )
 
-exact_types__no_logradouro <- c(
+exact_types_no_logradouro <- c(
   "dc01",
   "dc02",
   "db01",

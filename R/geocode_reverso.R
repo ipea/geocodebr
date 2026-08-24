@@ -138,7 +138,10 @@ geocode_reverso <- function(
 
 
   # build path to local file
-  path_to_parquet <- caminho_parquet("municipio_logradouro_numero_cep_localidade")
+  path_to_parquet <- caminho_parquet(
+    "municipio_logradouro_numero_cep_localidade",
+    cnefe_dir
+  )
 
   # create filtered_cnefe table, filter on the fly
   cols_to_keep <- c(

@@ -164,15 +164,20 @@ message_removed_cache_dir <- function(cache_dir) {
 #'
 #' @param nome_tabela Uma string. O nome da tabela de referência, sem a extensão,
 #'   e.g. `"municipio_logradouro_cep_localidade"`.
+#' @param pasta_dados Uma string. A pasta onde os dados do CNEFE foram baixados,
+#'   tal como devolvida por [download_cnefe()]. Com `cache = FALSE` essa pasta é
+#'   um diretório temporário, e não a pasta de cache — por isso ela precisa ser
+#'   informada, e não redescoberta aqui.
 #'
 #' @return Uma string com o caminho do arquivo. O arquivo não precisa existir.
 #'
 #' @keywords internal
-caminho_parquet <- function(nome_tabela) {
+caminho_parquet <- function(nome_tabela, pasta_dados = listar_pasta_cache()) {
   checkmate::assert_string(nome_tabela)
+  checkmate::assert_string(pasta_dados)
 
   caminho <- fs::path(
-    listar_pasta_cache(),
+    pasta_dados,
     glue::glue("geocodebr_data_release_{data_release}"),
     paste0(nome_tabela, ".parquet")
   )

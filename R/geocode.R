@@ -434,7 +434,8 @@ geocode_core <- function(
         con,
         match_type = match_type,
         key_cols = key_cols,
-        resultado_completo = resultado_completo
+        resultado_completo = resultado_completo,
+        pasta_dados = cnefe_dir
       )
 
       matched_rows <- matched_rows + n_rows_affected

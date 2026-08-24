@@ -1,4 +1,4 @@
-register_cnefe_table <- function(con, match_type) {
+register_cnefe_table <- function(con, match_type, pasta_dados) {
   # nocov start
 
   # message("register_cnefe_table")
@@ -9,7 +9,7 @@ register_cnefe_table <- function(con, match_type) {
   cnefe_table_name <- get_reference_table(match_type)
 
   # build path to local file
-  path_to_parquet <- caminho_parquet(cnefe_table_name)
+  path_to_parquet <- caminho_parquet(cnefe_table_name, pasta_dados)
 
 
 
@@ -97,7 +97,7 @@ register_cnefe_table <- function(con, match_type) {
 
 
 # create small table with unique logradouros
-register_unique_logradouros_table <- function(con, match_type) {
+register_unique_logradouros_table <- function(con, match_type, pasta_dados) {
   # nocov start
 
   # match_type = "pn03"
@@ -120,7 +120,7 @@ register_unique_logradouros_table <- function(con, match_type) {
   select_cols <- key_cols[!key_cols %in% c("numero")]
 
   # path to parquet
-  path_to_parquet <- caminho_parquet(cnefe_table_name)
+  path_to_parquet <- caminho_parquet(cnefe_table_name, pasta_dados)
 
   # should use DISTINCT rows
   DISTINCT <- "DISTINCT"

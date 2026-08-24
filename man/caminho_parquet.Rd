@@ -4,11 +4,16 @@
 \alias{caminho_parquet}
 \title{Caminho de um parquet do CNEFE dentro da pasta de cache}
 \usage{
-caminho_parquet(nome_tabela)
+caminho_parquet(nome_tabela, pasta_dados = listar_pasta_cache())
 }
 \arguments{
 \item{nome_tabela}{Uma string. O nome da tabela de referência, sem a extensão,
 e.g. \code{"municipio_logradouro_cep_localidade"}.}
+
+\item{pasta_dados}{Uma string. A pasta onde os dados do CNEFE foram baixados,
+tal como devolvida por \code{\link[=download_cnefe]{download_cnefe()}}. Com \code{cache = FALSE} essa pasta é
+um diretório temporário, e não a pasta de cache — por isso ela precisa ser
+informada, e não redescoberta aqui.}
 }
 \value{
 Uma string com o caminho do arquivo. O arquivo não precisa existir.

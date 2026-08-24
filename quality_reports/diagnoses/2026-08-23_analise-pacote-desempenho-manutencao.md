@@ -21,6 +21,7 @@ Complementa (não repete) `2026-08-23_geocode-diagnostico-performance.md`, que p
 | §5.6, 1º item | `create_geocodebr_db(db_path = 'memory')` criava uma conexão e a descartava | ramo removido |
 | §5.6, último item | `geocode_reverso()` falhava com `attr(obj, "sf_column") does not point to a geometry column` quando o namespace do `sf` não estava carregado: sem `[.sfc` registrado, um simples `pontos[1:10, ]` no código do usuário destruía a classe da coluna de geometria em silêncio | `@importFrom sf st_crs st_geometry_type st_bbox` em `geocodebr-package.R` — o `sf` passa a ser carregado junto com o pacote. Verificado: `[.sfc` registrado após `library(geocodebr)`, subconjunto preserva `sfc_POINT/sfc`, e o caso que falhava retorna normalmente |
 | §4 | não-determinismo entre execuções: duas chamadas idênticas divergiam em até 14 dos 20.028 endereços (coordenadas, `contagem_cnefe`, `cod_setor`) | duas fontes corrigidas — os dois `QUALIFY` de `trata_empates_geocode_duckdb.R` passaram a ordenar por `id` (e o próprio `id` ganhou `lat, lon` como critério final), e os `FIRST()` dos matches ponderados ganharam `ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon`. Verificado: 0 divergências em 4 rodadas, e independência exata entre `resultado_completo` FALSE e TRUE. Sem custo de tempo (mediana 9,84 s → 9,62 s, dentro da variância) |
+| §2 | `cache = FALSE` baixava para um diretório temporário e lia da pasta de cache persistente: erro `IO Error: No files found` para quem não tinha cache, e download descartado para quem tinha | opção A implementada — `caminho_parquet()` ganhou o argumento `pasta_dados`, propagado a partir do valor devolvido por `download_cnefe()` (`+1 argumento` nos dois `register_*` e nos quatro `match_*`). Teste de regressão em `test-busca_por_cep.R`, com `local_mocked_bindings()` e parquet sintético; verificado que ele falha no código anterior com o `IO Error` esperado |
 
 ------------------------------------------------------------------------
 
@@ -86,37 +87,6 @@ Nos três cenários o número de endereços geocodificados é idêntico (20.028)
 | `estado` + `municipio` + `cep` | 2                   | **20 MB (1,3%)** |
 
 Isso muda a experiência de primeiro uso de quem só tem CEP — de um download de 1,46 GB para um de 20 MB. Custo: `download_cnefe()` precisa aceitar um vetor de tabelas (hoje aceita `"todas"` ou uma só), e o cache passa a poder estar parcialmente populado, o que o `setdiff` de `download_cnefe()` já trata naturalmente.
-
-------------------------------------------------------------------------
-
-## 2. `cache = FALSE` baixa para um lugar e lê de outro
-
-Reproduzido de forma isolada, com `perform_requests_in_parallel()` mockada (a função existe no pacote justamente para isso) copiando o parquet real em vez de baixar, e `R_USER_CACHE_DIR` apontando para um cache vazio:
-
-| situação | o que acontece |
-|----|----|
-| cache **vazio** + `cache = FALSE` | o "download" grava em `%TEMP%/geocodebr_temp…/geocodebr_data_release_v0.4.1/` e a leitura vai para a pasta de cache persistente → **`IO Error: No files found that match the pattern …`** |
-| cache **populado** + `cache = FALSE` | funciona, mas lendo do **cache persistente**. O download inteiro foi feito e descartado |
-| cache populado + `cache = TRUE` | funciona (controle) |
-
-`download_cnefe()` faz a parte dela: com `cache = FALSE` monta `cache_dir <- tempfile("geocodebr_temp")`, baixa para lá e **devolve esse caminho**. As três funções principais recebem o valor em `cnefe_dir` (`geocode.R:312`, `busca_por_cep.R:62`, `geocode_reverso.R:99`) e **nunca usam a variável** — a leitura resolve sempre por `listar_pasta_cache()`. O comportamento documentado ("quando `FALSE`, os dados são baixados para um diretório temporário") é cumprido na metade que baixa e ignorado na metade que lê.
-
-Por que passou despercebido: `tests/testthat/test-download_cnefe.R:52-55` testa `cache = FALSE`, mas só verifica que `download_cnefe()` devolve um caminho sob `tempdir()`. O defeito mora na junção entre as duas metades, que nenhum teste atravessa — e quem desenvolve tem o cache populado, então nunca vê o erro.
-
-**Proposta.** Desde a §5.3 resolvida, toda leitura passa por `caminho_parquet()` — o lado da leitura tem um único ponto de entrada. Falta dizer a ele qual é a raiz, e o valor a passar é o próprio `cnefe_dir`, que já é a raiz certa nos dois modos:
-
-``` r
-caminho_parquet <- function(nome_tabela, pasta_dados = listar_pasta_cache())
-```
-
-Em `busca_por_cep()` e `geocode_reverso()` é uma linha cada. Em `geocode()` o caminho é mais fundo (`geocode_core` → `match_fun()` → `register_cnefe_table()`), e há duas maneiras de fechar:
-
-- **A — passar explicitamente:** +1 argumento nos quatro `match_*` e nos dois `register_*`. É o idioma que o pacote já usa para `con` e `match_type`, não cria estado global. Se a §5.1 for feita antes, vira um argumento em dois lugares em vez de seis.
-- **B — guardar a raiz num environment interno**, definido no início de cada função principal e restaurado no `on.exit()`. Três pontos de mudança, nenhuma assinatura alterada, em troca de estado mutável de pacote.
-
-Teste de regressão: o padrão já existe no arquivo (`local_mocked_bindings(perform_requests_in_parallel = ...)`); com um parquet sintético de duas linhas escrito no destino mockado e o cache num tempdir vazio, o teste roda em CI — hoje falha com `IO Error`, depois passa.
-
-**Alerta que sobrevive à correção:** mesmo consertado, `geocode(cache = FALSE)` baixa as 8 tabelas a cada chamada — e quem usa `cache = FALSE` é justamente quem tende a chamar em laço. Casa bem com o corolário da §1.
 
 ------------------------------------------------------------------------
 
@@ -214,13 +184,12 @@ Registradas para não serem re-propostas:
 |----|----|----|----|----|
 | 1 | Pular etapas cujo campo-chave está vazio (§1) | **3,3× a 9×** quando faltam campos; no-op quando não faltam | Muito baixo (8 linhas) | Muito baixo — medido, mesmo nº de achados |
 | 2 | Não chamar Jaro nas etapas `pa*` (§3b) | −30% do Jaro | Muito baixo | Muito baixo — no-op comprovado |
-| 3 | Fazer a leitura seguir o download com `cache = FALSE` (§2) | corrige um erro de uso documentado | Baixo (A) ou Médio (B) | Baixo |
-| 4 | `TEMP VIEW` em vez de `TEMP TABLE` (§3a) | 1,5–7× na fase de 50% | Baixo | Médio — reperfilar ponta a ponta |
-| 5 | Baixar só as tabelas necessárias (§1, corolário) | 1.492 MB → 20 MB no melhor caso | Médio | Baixo |
-| 6 | Helper único para os quatro `match_*` (§5.1) | manutenção | Médio | Médio — mexe no SQL de todos |
-| 7 | Remover código morto e as duas funções sem chamador (§5.5) | manutenção | Muito baixo | Nenhum |
+| 3 | `TEMP VIEW` em vez de `TEMP TABLE` (§3a) | 1,5–7× na fase de 50% | Baixo | Médio — reperfilar ponta a ponta |
+| 4 | Baixar só as tabelas necessárias (§1, corolário) | 1.492 MB → 20 MB no melhor caso | Médio | Baixo |
+| 5 | Helper único para os quatro `match_*` (§5.1) | manutenção | Médio | Médio — mexe no SQL de todos |
+| 6 | Remover código morto e as duas funções sem chamador (§5.5) | manutenção | Muito baixo | Nenhum |
 
-**Sequência sugerida:** 1 → 2 (barato, baixo risco, e ambos são ganho direto), depois 3, depois 4 com reperfilagem. As de manutenção (6 e 7) numa passada própria, já que 6 mexe no SQL das quatro funções e merece a suíte rodando isolada.
+**Sequência sugerida:** 1 → 2 (barato, baixo risco, e ambos são ganho direto), depois 3 com reperfilagem. As de manutenção (5 e 6) numa passada própria, já que 5 mexe no SQL das quatro funções e merece a suíte rodando isolada.
 
 ------------------------------------------------------------------------
 
