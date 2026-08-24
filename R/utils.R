@@ -342,6 +342,20 @@ probabilistic_interpolation_types <- c(
   "pa04"
 )
 
+# pa01/pa02/pa03 tem exatamente o mesmo key_cols (get_key_cols()), a mesma
+# tabela de referencia (get_reference_table()) e o mesmo corte de similaridade
+# (get_prob_match_cutoff()) que pn01/pn02/pn03, a etapa imediatamente anterior
+# em all_possible_match_types. calculate_string_dist() so calcula Jaro para
+# linhas com similaridade_logradouro IS NULL -- ou seja, as linhas que sobram
+# para pa0k sao exatamente as que pn0k ja testou contra o mesmo candidato com o
+# mesmo corte e nao passou. Recalcular em pa0k e um no-op garantido (medido:
+# 0 matches em pa01/pa02/pa03 em 20.028 enderecos -- ver
+# quality_reports/diagnoses/2026-08-23_geocode-diagnostico-performance.md §6).
+# NAO inclui "pa04": pn04 esta desativado (# too costly, ver acima), entao nao
+# ha etapa anterior que preencha similaridade_logradouro para pa04 reaproveitar.
+# Se pn04/pa04 forem reativados juntos, pa04 pode entrar aqui; separados, nao.
+match_types_jaro_redundante <- c("pa01", "pa02", "pa03")
+
 exact_types_no_number <- c(
   "dl01",
   "dl02",

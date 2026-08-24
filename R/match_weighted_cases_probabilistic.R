@@ -23,11 +23,18 @@ match_weighted_cases_probabilistic <- function(
   # write cnefe table to db
   register_cnefe_table(con, match_type, pasta_dados)
 
-  # 1st step: create small table with unique logradouros -----------------------
-  unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type, pasta_dados)
+  # 1st + 2nd steps: recalcula o logradouro provavel (Jaro)  eatualiza input_padrao_db   --------------------------------------------------------
+  # aqui a gente pula os match_types_jaro_redundante, pq a etapa
+  # "pn0k" anterior ja fez esse trabalho para o mesmo candidato e mesmo corte
+  # (ver comentario em utils.R). Reexecutar ali e um no-op comprovado.
+  if (!match_type %in% match_types_jaro_redundante) {
 
-  # 2nd step: update input_padrao_db with the most probable logradouro ---------
-  calculate_string_dist(con, match_type, unique_logradouros_tbl)
+    # step 1: create small table with unique logradouros
+    unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type, pasta_dados)
+
+    # step 2: update input_padrao_db with the most probable logradouro
+    calculate_string_dist(con, match_type, unique_logradouros_tbl)
+  }
 
   # 3rd step: match deterministico --------------------------------------------------------
 
