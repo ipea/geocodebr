@@ -104,7 +104,7 @@ O item (b) foi reconfirmado nesta rodada: no cenário completo, `pa01`+`pa02`+`p
 
 Os itens (a) e (1) desta análise **se compõem bem**: (1) reduz *quantas* tabelas são materializadas, (a) reduz o custo de materializar *cada* uma. Nenhum dos dois torna o outro desnecessário.
 
-**Um item novo, pequeno:** `register_unique_logradouros_table()` filtra por `estado` e `municipio` quando lê da tabela raiz já materializada, mas **só por `municipio`** quando lê do parquet (`R/register_cnefe_tables.R:204-215`). Materializa mais linhas do que precisa; não afeta resultado, porque o join em `calculate_string_dist()` inclui `estado`.
+~~**Um item novo, pequeno:** `register_unique_logradouros_table()` filtra por `estado` e `municipio` quando lê da tabela raiz já materializada, mas **só por `municipio`** quando lê do parquet (`R/register_cnefe_tables.R:204-215`). Materializa mais linhas do que precisa; não afeta resultado, porque o join em `calculate_string_dist()` inclui `estado`.~~ — **corrigido** (2026-08-24): ramo do parquet ganhou o mesmo CTE `unique_states` e o mesmo filtro `WHERE m.estado IN (...) AND m.municipio IN (...)` do ramo da tabela já materializada.
 
 ------------------------------------------------------------------------
 

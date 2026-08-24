@@ -208,11 +208,16 @@ register_unique_logradouros_table <- function(con, match_type, pasta_dados) {
             WITH unique_munis AS (
                 SELECT DISTINCT municipio
                 FROM input_padrao_db
+            ),
+            unique_states AS (
+                SELECT DISTINCT estado
+                FROM input_padrao_db
             )
 
           SELECT {DISTINCT} {select_cols}
               FROM read_parquet('{path_to_parquet}') m
-              WHERE m.municipio IN (SELECT municipio FROM unique_munis);"
+              WHERE m.estado IN (SELECT estado FROM unique_states)
+                AND m.municipio IN (SELECT municipio FROM unique_munis);"
     )
   }
   DBI::dbExecute(con, query_unique_logradouros)
