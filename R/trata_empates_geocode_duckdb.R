@@ -1,8 +1,8 @@
 trata_empates_geocode_duckdb <- function(
-  con = parent.frame()$con,
-  resultado_completo = parent.frame()$resultado_completo,
-  resolver_empates = parent.frame()$resolver_empates,
-  verboso = parent.frame()$verboso
+  con,
+  resultado_completo,
+  resolver_empates,
+  verboso
 ) {
   # 1) checa se tem empates --------------------------------------
 

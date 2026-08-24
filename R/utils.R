@@ -31,10 +31,7 @@ arrow_open_dataset <- function(filename) {
 #' @return A message
 #'
 #' @keywords internal
-cache_message <- function(
-  local_file = parent.frame()$local_file,
-  cache = parent.frame()$cache
-) {
+cache_message <- function(local_file, cache) {
   # nocov start
 
   # name of local file

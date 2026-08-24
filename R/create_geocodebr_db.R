@@ -1,7 +1,7 @@
 create_geocodebr_db <- function(
   # nocov start
   db_path = "tempdir",
-  n_cores = parent.frame()$n_cores,
+  n_cores = NULL,
   load_spatial = FALSE
 ) {
   # check input
@@ -13,10 +13,6 @@ create_geocodebr_db <- function(
   # perform **larger-than-memory** workloads
   if (db_path == 'tempdir') {
     db_path <- tempfile(pattern = 'geocodebr', fileext = '.duckdb')
-  }
-
-  if (db_path == 'memory') {
-    con <- duckdb::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
   }
 
   # create db connection

@@ -130,16 +130,16 @@ geocode <- function(
 
 #' @keywords internal
 geocode_core <- function(
-  enderecos = parent.frame()$enderecos,
-  campos_endereco = parent.frame()$campos_endereco,
-  resultado_completo = parent.frame()$resultado_completo,
-  resolver_empates = parent.frame()$resolver_empates,
-  resultado_sf = parent.frame()$resultado_sf,
-  h3_res = parent.frame()$h3_res,
-  padronizar_enderecos = parent.frame()$padronizar_enderecos,
-  verboso = parent.frame()$verboso,
-  cache = parent.frame()$cache,
-  n_cores = parent.frame()$n_cores
+  enderecos,
+  campos_endereco,
+  resultado_completo,
+  resolver_empates,
+  resultado_sf,
+  h3_res,
+  padronizar_enderecos,
+  verboso,
+  cache,
+  n_cores
 ) {
   # ## ---- tiny timing toolkit (self-contained) ------------------------------
   # .make_timer <- function(verbose = TRUE) {
