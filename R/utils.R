@@ -404,35 +404,68 @@ assert_and_assign_address_fields <- function(address_fields, addresses_table) {
 } # nocov end
 
 
+# Tabela de referencia do CNEFE lida por cada match_type.
+#
+# O mapeamento NAO e derivavel das key_cols da etapa: varias etapas leem uma
+# tabela mais detalhada do que a sua chave exige. Por exemplo, `dn04` tem chave
+# municipio + logradouro + numero, mas le a tabela ..._numero_localidade, porque
+# so um subconjunto das combinacoes e distribuido (ver `all_files` em
+# `download_cnefe()`). Manter isso como um mapa explicito evita ter de reconstruir
+# essa excecao mentalmente a cada leitura.
+#
+# Cobre os 28 match_types que `get_key_cols()` conhece, inclusive `pn04`, `pa04`
+# e `pl04`, que hoje estao fora de `all_possible_match_types` por serem caros.
+reference_table_by_match_type <- c(
+  dn01 = "municipio_logradouro_numero_cep_localidade",
+  dn02 = "municipio_logradouro_numero_cep_localidade",
+  dn03 = "municipio_logradouro_numero_cep_localidade",
+  dn04 = "municipio_logradouro_numero_localidade",
+
+  da01 = "municipio_logradouro_numero_cep_localidade",
+  da02 = "municipio_logradouro_numero_cep_localidade",
+  da03 = "municipio_logradouro_numero_localidade",
+  da04 = "municipio_logradouro_numero_localidade",
+
+  pn01 = "municipio_logradouro_numero_cep_localidade",
+  pn02 = "municipio_logradouro_numero_cep_localidade",
+  pn03 = "municipio_logradouro_numero_cep_localidade",
+  pn04 = "municipio_logradouro_numero",
+
+  pa01 = "municipio_logradouro_numero_cep_localidade",
+  pa02 = "municipio_logradouro_numero_cep_localidade",
+  pa03 = "municipio_logradouro_numero_localidade",
+  pa04 = "municipio_logradouro_numero",
+
+  dl01 = "municipio_logradouro_cep_localidade",
+  dl02 = "municipio_logradouro_cep_localidade",
+  dl03 = "municipio_logradouro_cep_localidade",
+  dl04 = "municipio_logradouro_localidade",
+
+  pl01 = "municipio_logradouro_cep_localidade",
+  pl02 = "municipio_logradouro_cep_localidade",
+  pl03 = "municipio_logradouro_cep_localidade",
+  pl04 = "municipio_logradouro",
+
+  dc01 = "municipio_cep_localidade",
+  dc02 = "municipio_cep",
+  db01 = "municipio_localidade",
+  dm01 = "municipio"
+)
+
+
 get_reference_table <- function(match_type) {
   # nocov start
 
-  # key_cols = get_key_cols('da03')
+  table_name <- reference_table_by_match_type[match_type]
 
-  key_cols <- get_key_cols(match_type)
-
-  # read corresponding parquet file
-  table_name <- paste(key_cols, collapse = "_")
-  table_name <- gsub('estado_municipio', 'municipio', table_name)
-
-  # reference table
-  if (match_type %like% 'dn02|pn02|da02|pa02|dn03|pn03') {
-    table_name <- "municipio_logradouro_numero_cep_localidade"
+  if (anyNA(table_name)) {
+    desconhecidos <- match_type[is.na(table_name)]
+    cli::cli_abort(
+      "Nao ha tabela de refer\u00eancia definida para o match_type {.val {desconhecidos}}."
+    )
   }
 
-  if (match_type %like% 'da03|pa03|dn04|da04') {
-    table_name <- "municipio_logradouro_numero_localidade"
-  }
-
-  if (match_type %like% 'dl02|pl02|dl03|pl03') {
-    table_name <- "municipio_logradouro_cep_localidade"
-  }
-
-  if (match_type %like% 'dl04') {
-    table_name <- "municipio_logradouro_localidade"
-  }
-
-  return(table_name)
+  return(unname(table_name))
 } # nocov end
 
 
