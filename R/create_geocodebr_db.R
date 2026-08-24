@@ -16,10 +16,14 @@ create_geocodebr_db <- function(
   }
 
   # create db connection
+  # `shared_home` pertence ao construtor duckdb(), nao ao dbConnect(): passado ao
+  # dbConnect() ele e engolido pelo `...` sem erro nem efeito. Declarado aqui, o
+  # cache de extensoes em ~/.duckdb segue sendo reaproveitado -- o que importa
+  # para a extensao espacial usada por geocode_reverso() -- e a mensagem
+  # informativa do duckdb sobre esse diretorio deixa de ser emitida a cada chamada
   con <- duckdb::dbConnect(
-    duckdb::duckdb(bigint = "integer64"),
-    dbdir = db_path,
-    shared_home = TRUE
+    duckdb::duckdb(bigint = "integer64", shared_home = TRUE),
+    dbdir = db_path
   ) # db_path ":memory:"
 
   # Set Number of cores for parallel operation
