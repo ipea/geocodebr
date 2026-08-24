@@ -416,19 +416,7 @@ geocode_core <- function(
     # caso contrario, passa para proxima categoria
     if (all(key_cols %in% names(input_padrao))) {
       # select match function
-      match_fun <-
-        if (match_type %in% c(number_exact_types, exact_types_no_number)) {
-          match_cases
-        } else if (match_type %in% number_interpolation_types) {
-          match_weighted_cases
-        } else if (
-          match_type %in%
-            c(probabilistic_exact_types, probabilistic_types_no_number)
-        ) {
-          match_cases_probabilistic
-        } else if (match_type %in% probabilistic_interpolation_types) {
-          match_weighted_cases_probabilistic
-        }
+      match_fun <- reference_match_fun_by_match_type(match_type)
 
       n_rows_affected <- match_fun(
         con,

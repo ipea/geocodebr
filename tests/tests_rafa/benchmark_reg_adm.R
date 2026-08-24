@@ -81,8 +81,8 @@ stop()
 
 
 gc(T,T,T)
-#bench::system_time(
- bench::mark(iterations = 1,
+bench::system_time(
+# bench::mark(iterations = 1,
   cadgeo <- geocodebr::geocode(
     enderecos  = df,
     campos_endereco = campos,

@@ -68,21 +68,21 @@ table(dfT$logradouro_encontrado, useNA = "always")
 
 
 
-dfT <- geocodebr::geocode(
+df1 <- geocodebr::geocode(
   enderecos = input_df,
   campos_endereco = campos,
   resolver_empates = T,
   resultado_completo = T,
 )
 
-dfT <- geocodebr::geocode(
+df2 <- geocodebr::geocode(
   enderecos = input_df,
   campos_endereco = campos,
   resolver_empates = T,
   resultado_completo = F,
 )
 
-dfT <- geocodebr::geocode(
+df3 <- geocodebr::geocode(
   enderecos = input_df,
   campos_endereco = campos,
   resolver_empates = F,
@@ -90,7 +90,7 @@ dfT <- geocodebr::geocode(
 )
 
 
-dfT <- geocodebr::geocode(
+df4 <- geocodebr::geocode(
   enderecos = input_df,
   campos_endereco = campos,
   resolver_empates = F,

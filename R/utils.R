@@ -483,6 +483,38 @@ get_reference_table <- function(match_type) {
 } # nocov end
 
 
+# Funcao de match utilizada por cada match_type.
+#
+# Cada match_type pertence a exatamente um dos grupos definidos acima
+# (number_exact_types / exact_types_no_number, number_interpolation_types,
+# probabilistic_exact_types / probabilistic_types_no_number,
+# probabilistic_interpolation_types).
+reference_match_fun_by_match_type <- function(match_type) {
+  # nocov start
+  if (match_type %in% c(number_exact_types, exact_types_no_number)) {
+    return(match_cases)
+  }
+
+  if (match_type %in% number_interpolation_types) {
+    return(match_weighted_cases)
+  }
+
+  if (
+    match_type %in% c(probabilistic_exact_types, probabilistic_types_no_number)
+  ) {
+    return(match_cases_probabilistic)
+  }
+
+  if (match_type %in% probabilistic_interpolation_types) {
+    return(match_weighted_cases_probabilistic)
+  }
+
+  cli::cli_abort(
+    "Nao ha fun\u00e7\u00e3o de match definida para o match_type {.val {match_type}}."
+  )
+} # nocov end
+
+
 # min cutoff for string match
 # min cutoff for probabilistic string match of logradouros
 get_prob_match_cutoff <- function(match_type) {

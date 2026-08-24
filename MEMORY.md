@@ -17,11 +17,17 @@ Os achados da revisão das três funções exportadas principais estão em
 
 - `2026-08-22_geocode-pipeline-achados.md` — `geocode()`
 - `2026-08-23_geocode-reverso-e-busca-por-cep-achados.md` — `geocode_reverso()` e `busca_por_cep()`
+- `2026-08-24_geocode-revisao-critica.md` — rodada de acompanhamento do relatório de 22/08: status de cada
+  item antigo + achado novo (não-determinismo em `da0x`/`pa0x`, ver `[LEARN:duckdb]` abaixo)
 
 Cada relatório tem uma tabela-resumo no final marcando o que já foi corrigido. **Um item crítico segue
-aberto, no `geocode()`:** o fato de `resultado_completo` alterar as coordenadas retornadas (item 2 do
-relatório de 2026-08-22). O outro item crítico do mesmo relatório (item 1 — erro de SQL quando
-`resultado_completo = TRUE` e não há empates) **foi corrigido** em 2026-08-24, ver `[LEARN:duckdb]` abaixo.
+aberto no `geocode()`:** `FIRST()` sem `ORDER BY` em `match_weighted_cases.R`/`match_weighted_cases_probabilistic.R`
+faz `da0x`/`pa0x` devolverem coordenadas diferentes em execuções idênticas quando há candidatos empatados
+(ver `[LEARN:duckdb]` abaixo). O item 1 do relatório de 22/08 (erro de SQL quando `resultado_completo = TRUE`
+e não há empates) **foi corrigido** em 2026-08-24. O item 2 do mesmo relatório (`resultado_completo` alterando
+coordenadas) teve sua causa original corrigida, mas foi **substituído** por este novo item — mesmo sintoma,
+causa-raiz diferente e mais séria (não é sobre `resultado_completo`, é não-determinismo entre quaisquer duas
+chamadas).
 
 ---
 
@@ -99,3 +105,17 @@ relatório de 2026-08-22). O outro item crítico do mesmo relatório (item 1 —
   Error: column does not exist`, mas se qualquer CTE downstream recria essa mesma coluna por nome, o fix
   vira uma colisão silenciosa — o sintoma muda de "erro barulhento" pra "todo o output sai `NA`", o que é
   bem mais difícil de depurar. Checar sempre se o nome já existe a montante antes de adicionar ao schema.
+
+- `[LEARN:duckdb]` `FIRST(coluna)` **sem `ORDER BY`** dentro de um `GROUP BY` não é determinístico — o
+  DuckDB pode devolver um valor diferente em execuções idênticas (mesma query, mesmo input), porque a
+  ordem física de scan dentro do grupo varia com o plano de execução paralelo. Confirmado ao vivo em
+  `match_weighted_cases.R`/`match_weighted_cases_probabilistic.R` (tipos `da0x`/`pa0x`, que agregam vários
+  candidatos do CNEFE via `GROUP BY tempidgeocodebr, endereco_encontrado` e escolhem `contagem_cnefe`,
+  `cod_setor`, `endereco_encontrado` etc. via `FIRST()`): 4 chamadas idênticas a `geocode()` devolveram 3
+  valores diferentes de `lat`/`lon` (~1,5 km de diferença) para o mesmo endereço, com `n_cores` no default
+  (paralelo). Com `n_cores = 1` as mesmas 4 chamadas foram estáveis. **Por quê:** `contagem_cnefe` escolhido
+  por esse `FIRST()` alimenta o critério de desempate em `trata_empates_geocode_duckdb.R`
+  (`ORDER BY contagem_cnefe DESC`), então a arbitrariedade se propaga até qual candidato de rua o usuário
+  recebe. Ainda **não corrigido** — ver item 1 de
+  `quality_reports/diagnoses/2026-08-24_geocode-revisao-critica.md`. Ao adicionar qualquer `FIRST()`/`LAST()`
+  novo no pipeline, sempre com `ORDER BY` explícito.
