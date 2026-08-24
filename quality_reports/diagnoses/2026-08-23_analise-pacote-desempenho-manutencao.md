@@ -20,6 +20,7 @@ Complementa (não repete) `2026-08-23_geocode-diagnostico-performance.md`, que p
 | §5.4 | `get_reference_table()` montava o nome pelas `key_cols` e o sobrescrevia em quatro `%like%` | substituída por `reference_table_by_match_type`, vetor nomeado com os 28 `match_type`; mapeamento verificado idêntico ao anterior e congelado em `test-utils.R` |
 | §5.6, 1º item | `create_geocodebr_db(db_path = 'memory')` criava uma conexão e a descartava | ramo removido |
 | §5.6, último item | `geocode_reverso()` falhava com `attr(obj, "sf_column") does not point to a geometry column` quando o namespace do `sf` não estava carregado: sem `[.sfc` registrado, um simples `pontos[1:10, ]` no código do usuário destruía a classe da coluna de geometria em silêncio | `@importFrom sf st_crs st_geometry_type st_bbox` em `geocodebr-package.R` — o `sf` passa a ser carregado junto com o pacote. Verificado: `[.sfc` registrado após `library(geocodebr)`, subconjunto preserva `sfc_POINT/sfc`, e o caso que falhava retorna normalmente |
+| §4 | não-determinismo entre execuções: duas chamadas idênticas divergiam em até 14 dos 20.028 endereços (coordenadas, `contagem_cnefe`, `cod_setor`) | duas fontes corrigidas — os dois `QUALIFY` de `trata_empates_geocode_duckdb.R` passaram a ordenar por `id` (e o próprio `id` ganhou `lat, lon` como critério final), e os `FIRST()` dos matches ponderados ganharam `ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon`. Verificado: 0 divergências em 4 rodadas, e independência exata entre `resultado_completo` FALSE e TRUE. Sem custo de tempo (mediana 9,84 s → 9,62 s, dentro da variância) |
 
 ------------------------------------------------------------------------
 
@@ -137,19 +138,36 @@ Os itens (a) e (1) desta análise **se compõem bem**: (1) reduz *quantas* tabel
 
 ------------------------------------------------------------------------
 
-## 4. Não-determinismo entre execuções
+## 4. Decisão pendente: o que `contagem_cnefe` deve significar num resultado interpolado
 
-Rodando `geocode_core()` duas vezes sobre o mesmo input, com os mesmos argumentos: **1 coordenada e 10 valores de `endereco_encontrado` diferentes** em 20.028 linhas.
+**Não é um defeito — é uma escolha de semântica que ficou explícita ao corrigir o não-determinismo (ver
+"Resolvido"), e que o mantenedor optou por não mexer agora.**
 
-A causa está nos dois `QUALIFY` de `trata_empates_geocode_duckdb.R` (linhas 179 e 211):
+Nos matches ponderados (`da*`/`pa*`, `precisao = "numero_aproximado"`), a coordenada devolvida é uma
+interpolação sobre **vários** registros do CNEFE, agrupados por `tempidgeocodebr` + `endereco_encontrado`.
+As colunas descritivas do grupo — `contagem_cnefe`, `cod_setor`, `cep_encontrado`, `localidade_encontrada`
+— precisam sair de *um* desses registros.
 
-``` sql
-QUALIFY ROW_NUMBER() OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
-```
+Hoje saem do registro **cujo número é o mais próximo** do número informado, que é também o de maior peso na
+interpolação. Antes da correção saíam de um registro arbitrário, o que não era uma alternativa defensável —
+mas "o mais próximo" não é a única alternativa defensável.
 
-Sem critério de desempate, dois candidatos com a mesma `contagem_cnefe` são escolhidos pela ordem física das linhas, que varia com o plano de execução. A CTE `base` do mesmo arquivo já faz certo — `ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado`. Replicar essa ordenação nos dois `QUALIFY` torna o resultado reproduzível, sem mudar a regra.
+A dúvida específica é sobre `contagem_cnefe`, porque ela **não é só descritiva**: a regra de desempate a usa
+como proxy de "quanta evidência do CNEFE sustenta este candidato"
+(`man/roxygen/templates/empates_section.R`). Nessa leitura, para um candidato que é a agregação de N
+registros, o **total** (`SUM`) descreveria a evidência melhor do que a contagem de um registro só.
 
-Isso importa além da estética: hoje um teste de regressão sobre coordenadas de empates é intrinsecamente instável, e foi exatamente o ruído que precisei descontar para validar a correção de `logradouro_encontrado`.
+| opção | o que significa | efeito colateral |
+|----|----|----|
+| `FIRST(... ORDER BY ABS(numero - numero_cnefe), ...)` (atual) | "o endereço mais próximo tem N registros" | nenhum além do já medido |
+| `SUM(contagem_cnefe)` | "esta interpolação se apoia em N registros no total" | muda a regra de desempate: candidatos interpolados passam a competir com peso maior contra candidatos exatos |
+
+Quem decide é quem escreveu a regra de desempate. Se a escolha mudar, o efeito precisa ser medido nos mesmos
+moldes: quantas coordenadas mudam no `large_sample.parquet` e em que tipos de match.
+
+Para referência, o efeito da escolha atual, medido: **203 dos 20.028 endereços (1,0%)** mudaram de
+coordenada em relação ao comportamento arbitrário anterior (`da02` 122, `da04` 70, `pa02` 11; 173 deles eram
+casos de empate), `contagem_cnefe` mudou em 1.959 linhas e `cod_setor` em 1.207.
 
 ------------------------------------------------------------------------
 
@@ -196,14 +214,13 @@ Registradas para não serem re-propostas:
 |----|----|----|----|----|
 | 1 | Pular etapas cujo campo-chave está vazio (§1) | **3,3× a 9×** quando faltam campos; no-op quando não faltam | Muito baixo (8 linhas) | Muito baixo — medido, mesmo nº de achados |
 | 2 | Não chamar Jaro nas etapas `pa*` (§3b) | −30% do Jaro | Muito baixo | Muito baixo — no-op comprovado |
-| 3 | Ordenação determinística nos dois `QUALIFY` (§4) | reprodutibilidade | Muito baixo | Baixo |
-| 4 | Fazer a leitura seguir o download com `cache = FALSE` (§2) | corrige um erro de uso documentado | Baixo (A) ou Médio (B) | Baixo |
-| 5 | `TEMP VIEW` em vez de `TEMP TABLE` (§3a) | 1,5–7× na fase de 50% | Baixo | Médio — reperfilar ponta a ponta |
-| 6 | Baixar só as tabelas necessárias (§1, corolário) | 1.492 MB → 20 MB no melhor caso | Médio | Baixo |
-| 7 | Helper único para os quatro `match_*` (§5.1) | manutenção | Médio | Médio — mexe no SQL de todos |
-| 8 | Remover código morto e as duas funções sem chamador (§5.5) | manutenção | Muito baixo | Nenhum |
+| 3 | Fazer a leitura seguir o download com `cache = FALSE` (§2) | corrige um erro de uso documentado | Baixo (A) ou Médio (B) | Baixo |
+| 4 | `TEMP VIEW` em vez de `TEMP TABLE` (§3a) | 1,5–7× na fase de 50% | Baixo | Médio — reperfilar ponta a ponta |
+| 5 | Baixar só as tabelas necessárias (§1, corolário) | 1.492 MB → 20 MB no melhor caso | Médio | Baixo |
+| 6 | Helper único para os quatro `match_*` (§5.1) | manutenção | Médio | Médio — mexe no SQL de todos |
+| 7 | Remover código morto e as duas funções sem chamador (§5.5) | manutenção | Muito baixo | Nenhum |
 
-**Sequência sugerida:** 1 → 2 → 3 (barato, baixo risco, e 1 e 2 são ganho direto), depois 4, depois 5 com reperfilagem. As de manutenção (7 e 8) numa passada própria, já que 7 mexe no SQL das quatro funções e merece a suíte rodando isolada.
+**Sequência sugerida:** 1 → 2 (barato, baixo risco, e ambos são ganho direto), depois 3, depois 4 com reperfilagem. As de manutenção (6 e 7) numa passada própria, já que 6 mexe no SQL das quatro funções e merece a suíte rodando isolada.
 
 ------------------------------------------------------------------------
 
