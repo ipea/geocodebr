@@ -2,11 +2,24 @@
 
 **Escopo:** os 19 arquivos de `R/` na íntegra — as quatro funções exportadas principais (`geocode()`, `geocode_reverso()`, `busca_por_cep()`, `download_cnefe()`), as funções de cache e as internas de apoio (`match_*`, `register_*`, `string_dist`, `trata_empates_*`, `create_geocodebr_db`, `utils`).
 
-**Base de código:** `a4b8036`. **Nada foi alterado** fora de uma worktree descartável — este documento é diagnóstico e proposta.
+**Base de código:** escrito contra `a4b8036`; **atualizado em 2026-08-23** para remover os itens resolvidos na mesma sessão (ver "Resolvido" abaixo). As subseções de manutenção mantiveram seus números originais (§5.1, §5.5, §5.6) — daí os buracos na numeração; as seções de topo foram renumeradas. A tabela abaixo se refere à **numeração anterior**.
 
 **Método:** leitura integral, seguida de medição. Tudo que é numérico aqui foi medido nesta máquina contra o cache real do CNEFE (release `v0.4.1`, 1,46 GB, 8 parquets), com `inst/extdata/large_sample.parquet` (20.028 endereços, 215 municípios, 3 UFs), chamando `geocode_core()` direto — `geocode()` roda em `callr::r(package = TRUE)` e carregaria a versão *instalada*, não a do branch. Os protótipos foram medidos numa `git worktree` em `a4b8036`, com 2 a 4 repetições e ordem invertida entre condições.
 
-Complementa (não repete) `2026-08-23_geocode-diagnostico-performance.md`, que perfilou o caminho feliz de `geocode()`. Os itens de lá que continuam abertos são referenciados na §3.
+Complementa (não repete) `2026-08-23_geocode-diagnostico-performance.md`, que perfilou o caminho feliz de `geocode()`. Os itens de lá que continuam abertos estão na §3.
+
+------------------------------------------------------------------------
+
+## Resolvido (removido deste relatório)
+
+| item (numeração anterior) | o que era | onde foi resolvido |
+|----|----|----|
+| §2 | `apaga_data_release_antigo()` apagava a pasta de cache inteira quando um release antigo convivia com o corrente, e quebrava com `missing value where TRUE/FALSE needed` diante de pasta com nome fora do padrão | `d49e53f` — passa a apagar só os releases antigos, comparando pelo nome da pasta; teste de regressão em `test-cache.R` |
+| §5.2 | `parent.frame()$x` como valor padrão de argumento em `geocode_core()`, `create_geocodebr_db()`, `trata_empates_geocode_duckdb()` e `cache_message()` | 17 defaults removidos; argumentos passados explicitamente. Os `.envir = parent.frame()` de `error.R`/`message.R`/`progress_bar.R` foram mantidos — são outro idioma, legítimo |
+| §5.3 | três maneiras diferentes de montar o caminho do mesmo parquet | `2b4bc59` — `caminho_parquet(nome_tabela)` em `R/cache.R`, usada nos quatro pontos de leitura; teste em `test-cache.R` |
+| §5.4 | `get_reference_table()` montava o nome pelas `key_cols` e o sobrescrevia em quatro `%like%` | substituída por `reference_table_by_match_type`, vetor nomeado com os 28 `match_type`; mapeamento verificado idêntico ao anterior e congelado em `test-utils.R` |
+| §5.6, 1º item | `create_geocodebr_db(db_path = 'memory')` criava uma conexão e a descartava | ramo removido |
+| §5.6, último item | `geocode_reverso()` falhava com `attr(obj, "sf_column") does not point to a geometry column` quando o namespace do `sf` não estava carregado: sem `[.sfc` registrado, um simples `pontos[1:10, ]` no código do usuário destruía a classe da coluna de geometria em silêncio | `@importFrom sf st_crs st_geometry_type st_bbox` em `geocodebr-package.R` — o `sf` passa a ser carregado junto com o pacote. Verificado: `[.sfc` registrado após `library(geocodebr)`, subconjunto preserva `sfc_POINT/sfc`, e o caso que falhava retorna normalmente |
 
 ------------------------------------------------------------------------
 
@@ -75,35 +88,34 @@ Isso muda a experiência de primeiro uso de quem só tem CEP — de um download 
 
 ------------------------------------------------------------------------
 
-## 2. Robustez: dois defeitos na limpeza de cache
+## 2. `cache = FALSE` baixa para um lugar e lê de outro
 
-`apaga_data_release_antigo()` (`R/cache.R:169-213`) roda no início de todo `download_cnefe(cache = TRUE)`. Testado de forma isolada, com `R_USER_CACHE_DIR`/`R_USER_CONFIG_DIR` apontando para um diretório temporário (o cache real não foi tocado):
+Reproduzido de forma isolada, com `perform_requests_in_parallel()` mockada (a função existe no pacote justamente para isso) copiando o parquet real em vez de baixar, e `R_USER_CACHE_DIR` apontando para um cache vazio:
 
-| caso | conteúdo antes | resultado |
-|----|----|----|
-| release antigo + atual convivendo | `v0.4.0`, `v0.4.1` | **a pasta de cache inteira é apagada**, o `v0.4.1` válido junto |
-| pasta com nome sem dígitos | `dev`, `v0.4.1` | **erro:** `missing value where TRUE/FALSE needed` |
-| só o release atual | `v0.4.1` | ok, preservado |
+| situação | o que acontece |
+|----|----|
+| cache **vazio** + `cache = FALSE` | o "download" grava em `%TEMP%/geocodebr_temp…/geocodebr_data_release_v0.4.1/` e a leitura vai para a pasta de cache persistente → **`IO Error: No files found that match the pattern …`** |
+| cache **populado** + `cache = FALSE` | funciona, mas lendo do **cache persistente**. O download inteiro foi feito e descartado |
+| cache populado + `cache = TRUE` | funciona (controle) |
 
-**Caso 1** — o ramo final chama `deletar_pasta_cache()`, que faz `unlink(cache_dir, recursive = TRUE)` na pasta toda. Quem tinha o release corrente já baixado paga 1,46 GB de download de novo, sem necessidade. A correção é apagar só os diretórios cujo release difere do corrente:
+`download_cnefe()` faz a parte dela: com `cache = FALSE` monta `cache_dir <- tempfile("geocodebr_temp")`, baixa para lá e **devolve esse caminho**. As três funções principais recebem o valor em `cnefe_dir` (`geocode.R:312`, `busca_por_cep.R:62`, `geocode_reverso.R:99`) e **nunca usam a variável** — a leitura resolve sempre por `listar_pasta_cache()`. O comportamento documentado ("quando `FALSE`, os dados são baixados para um diretório temporário") é cumprido na metade que baixa e ignorado na metade que lê.
 
-``` r
-antigos <- local_release_path[basename(local_release_path) !=
-                              glue::glue("geocodebr_data_release_{data_release}")]
-unlink(antigos, recursive = TRUE)
-```
+Por que passou despercebido: `tests/testthat/test-download_cnefe.R:52-55` testa `cache = FALSE`, mas só verifica que `download_cnefe()` devolve um caminho sob `tempdir()`. O defeito mora na junção entre as duas metades, que nenhum teste atravessa — e quem desenvolve tem o cache populado, então nunca vê o erro.
 
-**Caso 2** — a causa é a lógica de três linhas:
+**Proposta.** Desde a §5.3 resolvida, toda leitura passa por `caminho_parquet()` — o lado da leitura tem um único ponto de entrada. Falta dizer a ele qual é a raiz, e o valor a passar é o próprio `cnefe_dir`, que já é a raiz certa nos dois modos:
 
 ``` r
-check1 <- is.na(local_release)
-check2 <- local_release == pkg_release
-if (all(check1, check2)) { ... }
+caminho_parquet <- function(nome_tabela, pasta_dados = listar_pasta_cache())
 ```
 
-Se `local_release` é `NA`, `check2` é `NA` e `all(TRUE, NA)` é `NA` — `if (NA)` é erro. Note que o ramo é inalcançável mesmo quando funciona: `check1` e `check2` não podem ser ambos `TRUE`. O `if (any(local_release != pkg_release))` logo abaixo tem o mesmo problema com `NA`. Trocar por `local_release <- suppressWarnings(as.numeric(...)); antigos <- is.na(local_release) | local_release != pkg_release` resolve os dois de uma vez.
+Em `busca_por_cep()` e `geocode_reverso()` é uma linha cada. Em `geocode()` o caminho é mais fundo (`geocode_core` → `match_fun()` → `register_cnefe_table()`), e há duas maneiras de fechar:
 
-Menor, no mesmo arquivo: `list.dirs(cache_dir, recursive = T)` — `T` é uma variável reatribuível, não uma constante (idem `overwrite = T` em `R/geocode_reverso.R:190,210`).
+- **A — passar explicitamente:** +1 argumento nos quatro `match_*` e nos dois `register_*`. É o idioma que o pacote já usa para `con` e `match_type`, não cria estado global. Se a §5.1 for feita antes, vira um argumento em dois lugares em vez de seis.
+- **B — guardar a raiz num environment interno**, definido no início de cada função principal e restaurado no `on.exit()`. Três pontos de mudança, nenhuma assinatura alterada, em troca de estado mutável de pacote.
+
+Teste de regressão: o padrão já existe no arquivo (`local_mocked_bindings(perform_requests_in_parallel = ...)`); com um parquet sintético de duas linhas escrito no destino mockado e o cache num tempdir vazio, o teste roda em CI — hoje falha com `IO Error`, depois passa.
+
+**Alerta que sobrevive à correção:** mesmo consertado, `geocode(cache = FALSE)` baixa as 8 tabelas a cada chamada — e quem usa `cache = FALSE` é justamente quem tende a chamar em laço. Casa bem com o corolário da §1.
 
 ------------------------------------------------------------------------
 
@@ -121,7 +133,7 @@ O item (b) foi reconfirmado nesta rodada: no cenário completo, `pa01`+`pa02`+`p
 
 Os itens (a) e (1) desta análise **se compõem bem**: (1) reduz *quantas* tabelas são materializadas, (a) reduz o custo de materializar *cada* uma. Nenhum dos dois torna o outro desnecessário.
 
-**Um item novo, pequeno:** `register_unique_logradouros_table()` filtra por `estado` e `municipio` quando lê da tabela raiz já materializada, mas **só por `municipio`** quando lê do parquet (`R/register_cnefe_tables.R:216-225`). Materializa mais linhas do que precisa; não afeta resultado, porque o join em `calculate_string_dist()` inclui `estado`.
+**Um item novo, pequeno:** `register_unique_logradouros_table()` filtra por `estado` e `municipio` quando lê da tabela raiz já materializada, mas **só por `municipio`** quando lê do parquet (`R/register_cnefe_tables.R:204-215`). Materializa mais linhas do que precisa; não afeta resultado, porque o join em `calculate_string_dist()` inclui `estado`.
 
 ------------------------------------------------------------------------
 
@@ -129,7 +141,7 @@ Os itens (a) e (1) desta análise **se compõem bem**: (1) reduz *quantas* tabel
 
 Rodando `geocode_core()` duas vezes sobre o mesmo input, com os mesmos argumentos: **1 coordenada e 10 valores de `endereco_encontrado` diferentes** em 20.028 linhas.
 
-A causa está em `trata_empates_geocode_duckdb.R:174-175` e `206-207`:
+A causa está nos dois `QUALIFY` de `trata_empates_geocode_duckdb.R` (linhas 179 e 211):
 
 ``` sql
 QUALIFY ROW_NUMBER() OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
@@ -151,42 +163,20 @@ Isso importa além da estética: hoje um teste de regressão sobre coordenadas d
 
 Proposta: extrair `monta_colunas_encontradas(y, key_cols, resultado_completo, agregado = FALSE)` devolvendo a lista `list(colunas, select_first, select_second)`, e deixar cada `match_*` só com sua query. Reduz os quatro arquivos em \~40% e faz correções futuras acontecerem uma vez.
 
-### 5.2 `parent.frame()$x` como valor padrão de argumento
-
-`geocode_core()`, `create_geocodebr_db()`, `trata_empates_geocode_duckdb()` e `cache_message()` declaram seus argumentos como `x = parent.frame()$x`. Consequências práticas:
-
-- a função não é chamável isoladamente sem passar **todos** os argumentos — a verificação da correção do desempate precisou passar os 10 de `geocode_core()` na mão;
-- ferramentas de análise estática e o próprio `R CMD check` não conseguem ver a dependência;
-- um `rename` de variável no chamador quebra a callee silenciosamente.
-
-Proposta: passar explicitamente. `trata_empates_geocode_duckdb(con, resultado_completo, resolver_empates, verboso)` já é chamada com todos os argumentos posicionalmente em `geocode.R:460-465` — os defaults ali são puro peso morto.
-
-### 5.3 Três maneiras de achar o mesmo parquet
-
-| local | como |
-|----|----|
-| `register_cnefe_tables.R:12-16` | `listar_dados_cache()` + `grepl(paste0(nome, ".parquet"))` + `grepl(data_release)` |
-| `busca_por_cep.R:75-79` | `fs::path(listar_pasta_cache(), glue("geocodebr_data_release_{data_release}"), "....parquet")` |
-| `geocode_reverso.R:141-145` | idêntico ao anterior, outra tabela |
-
-Um helper `caminho_parquet(nome_tabela)` elimina a divergência. De quebra corrige a fragilidade do `grepl`: o `.` do `".parquet"` é um metacaractere de regex, não um ponto literal.
-
-### 5.4 `get_reference_table()` monta o nome e depois o desmonta
-
-`R/utils.R:410-439` constrói `table_name` colando `key_cols`, e em seguida sobrescreve o resultado em quatro `if (match_type %like% '...')`. Ou seja, a construção só vale para os casos que os `if` não pegam. Uma tabela de lookup nomeada (`c(dn01 = "municipio_logradouro_numero_cep_localidade", ...)`) diz a mesma coisa em 25 linhas legíveis e some com a interação entre as duas metades.
-
 ### 5.5 Código morto
 
-`register_cnefe_tables.R` tem 293 linhas, das quais **\~136 são código comentado** (o caminho de `duckdb_register_arrow`, o bloco de índice, `write_all_cnefe_tables_to_db()`). Há também o cadáver comentado de `create_index()` em `utils.R:216-243` — a função foi removida em `746ea54`, mas o comentário ficou, e o bloco de índice em `register_cnefe_tables.R:78-97` ainda referencia a ideia. Some-se a query antiga em `string_dist.R:69-95` e o toolkit de timer em `geocode.R:143-190`.
+`register_cnefe_tables.R` tem 284 linhas, das quais **161 são comentários** — quase todos código desativado: o caminho de `duckdb_register_arrow` (dois blocos, linhas 20-53 e 143-182), o bloco de `CREATE INDEX` (78-97) e `write_all_cnefe_tables_to_db()` (227-268). Há também o cadáver comentado de `create_index()` em `utils.R:213`, a query antiga em `string_dist.R:69-95` e o toolkit de timer em `geocode.R:144-190`.
 
 Isso tudo está no histórico do git. Manter no arquivo faz cada leitura futura reavaliar se aquilo é ativo. Em particular, o bloco de índice merece ou remoção ou um comentário de uma linha registrando o resultado já medido: **índice piora, não melhora** (§4 do relatório anterior).
 
+Duas funções internas **sem nenhum chamador**, que também não deveriam continuar no pacote: `cache_message()` (`utils.R`, com `man/cache_message.Rd` gerado) e `register_geocodebr_tables()` (`register_cnefe_tables.R:271`).
+
 ### 5.6 Menores
 
-- `create_geocodebr_db(db_path = 'memory')` cria uma conexão em memória e imediatamente a **descarta**, sobrescrevendo `con` com uma conexão em disco (`R/create_geocodebr_db.R:18-26`). O pedido é ignorado em silêncio e a conexão vaza. Ou implementar, ou remover o ramo.
-- `geocodebr::` para funções do próprio pacote (`cache.R:172,208`, `download_cnefe.R:66`, `register_cnefe_tables.R:12,128`, `geocode_reverso.R:99`) — o resto do pacote chama direto.
-- O bloco que adiciona colunas H3 é idêntico em `geocode.R:535-550` e `busca_por_cep.R:120-132` (já registrado como `[LEARN:testes]` no `MEMORY.md`).
-- `stop()` cru em `geocode_reverso.R:255`, fora do padrão `cli`/`geocodebr_error()` do resto do pacote.
+- `geocodebr::` para funções do próprio pacote, em `download_cnefe.R:66`, `geocode_reverso.R:99` e `register_cnefe_tables.R:274` — o resto do pacote chama direto.
+- `T` em vez de `TRUE` em `geocode_reverso.R:186,206` (`T` é uma variável reatribuível, não uma constante).
+- O bloco que adiciona colunas H3 é idêntico em `geocode.R:539-550` e `busca_por_cep.R:120-130` (já registrado como `[LEARN:testes]` no `MEMORY.md`).
+- `stop()` cru em `geocode_reverso.R:259` e `utils.R:21`, fora do padrão `cli`/`geocodebr_error()` do resto do pacote.
 
 ------------------------------------------------------------------------
 
@@ -194,7 +184,7 @@ Isso tudo está no histórico do git. Manter no arquivo faz cada leitura futura 
 
 Registradas para não serem re-propostas:
 
-- **`listar_dados_cache()` chamado 34× por execução seria um gargalo de I/O.** Medido: mediana abaixo da resolução do relógio (`0,0000 s`). Irrelevante. O que vale mudar ali é a fragilidade do `grepl`, não o custo.
+- **`listar_dados_cache()` chamado 34× por execução seria um gargalo de I/O.** Medido: mediana abaixo da resolução do relógio (`0,0000 s`). Irrelevante. (O que valia mudar ali era a fragilidade do `grepl`, resolvida com `caminho_parquet()`.)
 - **Indexar as tabelas de referência.** Medido no relatório anterior: pior em todos os cenários, porque o DuckDB resolve equi-join com hash join e nunca consulta o índice ART.
 - **Trocar parquet por `.duckdb` permanente.** 4% de ganho por 3,7× de download.
 
@@ -205,17 +195,15 @@ Registradas para não serem re-propostas:
 | \# | mudança | ganho | esforço | risco |
 |----|----|----|----|----|
 | 1 | Pular etapas cujo campo-chave está vazio (§1) | **3,3× a 9×** quando faltam campos; no-op quando não faltam | Muito baixo (8 linhas) | Muito baixo — medido, mesmo nº de achados |
-| 2 | `TEMP VIEW` em vez de `TEMP TABLE` (§3a) | 1,5–7× na fase de 50% | Baixo | Médio — reperfilar ponta a ponta |
-| 3 | Não chamar Jaro nas etapas `pa*` (§3b) | −30% do Jaro | Muito baixo | Muito baixo — no-op comprovado |
-| 4 | Baixar só as tabelas necessárias (§1, corolário) | 1.492 MB → 20 MB no melhor caso | Médio | Baixo |
-| 5 | Consertar `apaga_data_release_antigo()` (§2) | evita re-download de 1,46 GB; remove um erro | Baixo | Baixo |
-| 6 | Ordenação determinística nos dois `QUALIFY` (§4) | reprodutibilidade | Muito baixo | Baixo |
+| 2 | Não chamar Jaro nas etapas `pa*` (§3b) | −30% do Jaro | Muito baixo | Muito baixo — no-op comprovado |
+| 3 | Ordenação determinística nos dois `QUALIFY` (§4) | reprodutibilidade | Muito baixo | Baixo |
+| 4 | Fazer a leitura seguir o download com `cache = FALSE` (§2) | corrige um erro de uso documentado | Baixo (A) ou Médio (B) | Baixo |
+| 5 | `TEMP VIEW` em vez de `TEMP TABLE` (§3a) | 1,5–7× na fase de 50% | Baixo | Médio — reperfilar ponta a ponta |
+| 6 | Baixar só as tabelas necessárias (§1, corolário) | 1.492 MB → 20 MB no melhor caso | Médio | Baixo |
 | 7 | Helper único para os quatro `match_*` (§5.1) | manutenção | Médio | Médio — mexe no SQL de todos |
-| 8 | Remover `parent.frame()` dos defaults (§5.2) | manutenção | Baixo | Baixo |
-| 9 | `caminho_parquet()` único (§5.3) + lookup em `get_reference_table()` (§5.4) | manutenção | Baixo | Baixo |
-| 10 | Remover código morto (§5.5) | manutenção | Muito baixo | Nenhum |
+| 8 | Remover código morto e as duas funções sem chamador (§5.5) | manutenção | Muito baixo | Nenhum |
 
-**Sequência sugerida:** 1 → 3 → 6 → 5 (tudo barato, baixo risco, e 1 e 3 são ganho direto), depois 2 com reperfilagem, e as de manutenção (7-10) numa passada própria, já que 7 mexe no SQL das quatro funções e merece a suíte rodando isolada.
+**Sequência sugerida:** 1 → 2 → 3 (barato, baixo risco, e 1 e 2 são ganho direto), depois 4, depois 5 com reperfilagem. As de manutenção (7 e 8) numa passada própria, já que 7 mexe no SQL das quatro funções e merece a suíte rodando isolada.
 
 ------------------------------------------------------------------------
 
@@ -224,4 +212,4 @@ Registradas para não serem re-propostas:
 - **Escala.** Tudo aqui é com 20.028 endereços em 215 municípios de 3 UFs. O peso relativo da materialização depende do **número de municípios**; o dos joins, do **número de endereços**. Com milhões de endereços em poucos municípios, a prioridade #1 perde peso relativo (mas não muda de sinal: continua pulando trabalho impossível).
 - **`geocode_reverso()` e `busca_por_cep()` não foram perfilados** nesta rodada — só lidos. `busca_por_cep()` faz uma varredura nacional do parquet sem recorte por UF, o que é viável porque o CEP é discriminante, mas não foi cronometrado. As distorções de UTM 23S de `geocode_reverso()` já estão medidas no relatório de 2026-08-23 sobre aquelas duas funções.
 - **Efeito de `n_cores`** — todas as medições usaram `n_cores = 7`.
-- **Ponta a ponta com o pacote instalado**, para as propostas 2, 4 e 7.
+- **Ponta a ponta com o pacote instalado**, para as propostas 5, 6 e 7.

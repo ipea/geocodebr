@@ -46,7 +46,6 @@ distância máxima de busca.
 \examples{
 \dontshow{if (identical(tolower(Sys.getenv("NOT_CRAN")), "true")) withAutoprint(\{ # examplesIf}
 library(geocodebr)
-library(sf)
 
 # ler amostra de dados
 pontos <- readRDS(

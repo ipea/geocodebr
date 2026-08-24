@@ -20,7 +20,6 @@
 #'
 #' @examplesIf identical(tolower(Sys.getenv("NOT_CRAN")), "true")
 #' library(geocodebr)
-#' library(sf)
 #'
 #' # ler amostra de dados
 #' pontos <- readRDS(
@@ -183,7 +182,7 @@ geocode_reverso <- function(
     y = 'EPSG:31983',
     conn = conn,
     name = "pontos_utm",
-    overwrite = T,
+    overwrite = TRUE,
     quiet = TRUE
   )
 
@@ -203,7 +202,7 @@ geocode_reverso <- function(
       join = "intersects", # intersects within
       conn = conn,
       name = "join_result",
-      overwrite = T,
+      overwrite = TRUE,
       quiet = TRUE
     )
   )

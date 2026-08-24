@@ -7,6 +7,7 @@
 #' @importFrom dplyr mutate select across case_when all_of
 #' @importFrom data.table := .I .SD %chin% .GRP .N %like%
 #' @importFrom stats weighted.mean na.omit
+#' @importFrom sf st_crs st_geometry_type st_bbox
 #'
 #' @keywords internal
 "_PACKAGE"
