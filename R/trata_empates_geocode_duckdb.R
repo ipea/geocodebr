@@ -18,7 +18,16 @@ trata_empates_geocode_duckdb <- function(
   )[[1]]
 
   # 2) se nao tiver mais empates, termina aqui --------------------------------------
+  # mas adiciona uma coluna de empate vazia caso o usuario peça endereco_completo = TRUE
   if (n_casos_empate == 0) {
+
+    query <- glue::glue(
+    "ALTER TABLE output_db
+     ADD COLUMN IF NOT EXISTS empate BOOLEAN DEFAULT FALSE;"
+    )
+
+    DBI::dbExecute(con, query)
+
     return(n_casos_empate)
   }
 

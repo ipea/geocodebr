@@ -18,10 +18,10 @@ Os achados da revisão das três funções exportadas principais estão em
 - `2026-08-22_geocode-pipeline-achados.md` — `geocode()`
 - `2026-08-23_geocode-reverso-e-busca-por-cep-achados.md` — `geocode_reverso()` e `busca_por_cep()`
 
-Cada relatório tem uma tabela-resumo no final marcando o que já foi corrigido. **Dois itens críticos
-seguem abertos, ambos no `geocode()`:** o erro de SQL quando `resultado_completo = TRUE` e não há empates,
-e o fato de `resultado_completo` alterar as coordenadas retornadas. Os dois são erros de SQL de correção
-barata.
+Cada relatório tem uma tabela-resumo no final marcando o que já foi corrigido. **Um item crítico segue
+aberto, no `geocode()`:** o fato de `resultado_completo` alterar as coordenadas retornadas (item 2 do
+relatório de 2026-08-22). O outro item crítico do mesmo relatório (item 1 — erro de SQL quando
+`resultado_completo = TRUE` e não há empates) **foi corrigido** em 2026-08-24, ver `[LEARN:duckdb]` abaixo.
 
 ---
 
@@ -83,3 +83,19 @@ barata.
   com `shared_home = TRUE`. **Por que:** a recomendacao inicial de usar `FALSE` para evitar concorrencia entre
   processos tinha esse custo escondido; o pacote usa `TRUE`, que preserva o cache de extensoes e silencia a
   mensagem do mesmo jeito.
+
+- `[LEARN:duckdb]` Pré-declarar no schema de `output_db` (em `geocode.R`) uma coluna que outra parte do
+  pipeline também cria dinamicamente (ex.: `empate`, via `SELECT d.*, (...) AS empate`) causa **duas
+  colunas com o mesmo nome** no resultado da CTE. O DuckDB aceita a query sem erro, mas toda referência
+  não-qualificada a essa coluna mais adiante (`WHERE empate = FALSE`) resolve para a coluna errada (a
+  original, `NULL`), fazendo os filtros descartarem silenciosamente todas as linhas — sem erro, sem
+  warning. **Corrigido** em `trata_empates_geocode_duckdb.R`: a coluna `empate` deixou de ser pré-declarada
+  no schema; no ramo de zero-empates agora é criada via `ALTER TABLE output_db ADD COLUMN IF NOT EXISTS
+  empate BOOLEAN DEFAULT FALSE` (resolve o bug original de `resultado_completo = TRUE` + zero empates —
+  `output_db` sem `output_db2` não tinha a coluna que `merge_results_to_input()` sempre seleciona quando
+  `resultado_completo = TRUE`), e nos outros dois ramos ela nasce direto no `SELECT` (`AS empate`, sem
+  `REPLACE`, já que nesses pontos a coluna nunca existe previamente). **Por quê:** o padrão "pré-declarar
+  no schema pra evitar erro de coluna inexistente" parece a correção óbvia quando o sintoma é um `Binder
+  Error: column does not exist`, mas se qualquer CTE downstream recria essa mesma coluna por nome, o fix
+  vira uma colisão silenciosa — o sintoma muda de "erro barulhento" pra "todo o output sai `NA`", o que é
+  bem mais difícil de depurar. Checar sempre se o nome já existe a montante antes de adicionar ao schema.
