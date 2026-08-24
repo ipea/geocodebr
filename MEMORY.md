@@ -71,3 +71,15 @@ barata.
   **Por que:** hoje essas categorias ficam de fora por propagacao de `NULL` em
   `NOT REGEXP_MATCHES(logradouro_encontrado, ...)`, o que parece bug e convida a um `COALESCE`
   "corretivo" que seria regressao.
+
+- `[LEARN:duckdb]` `shared_home` (e os demais argumentos de configuracao do driver) pertence ao construtor
+  `duckdb::duckdb()`, **nao** ao `DBI::dbConnect()`. Passado ao `dbConnect()` ele e engolido pelo `...` sem
+  erro e sem efeito. Verificado em sessoes limpas: so com o argumento no construtor a mensagem
+  "duckdb is storing downloaded extensions and secrets under ~/.duckdb" para de aparecer.
+  **Por que:** a versao errada foi commitada acreditando-se que funcionava, e nada no R avisa.
+
+- `[LEARN:duckdb]` `shared_home = FALSE` isola o diretorio de extensoes por conexao, e por isso obriga a
+  reinstalar a extensao espacial a cada chamada de `geocode_reverso()`: medido **6,96 s** contra **0,05-1,23 s**
+  com `shared_home = TRUE`. **Por que:** a recomendacao inicial de usar `FALSE` para evitar concorrencia entre
+  processos tinha esse custo escondido; o pacote usa `TRUE`, que preserva o cache de extensoes e silencia a
+  mensagem do mesmo jeito.
