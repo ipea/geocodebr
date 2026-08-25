@@ -23,6 +23,13 @@ match_weighted_cases_probabilistic <- function(
   # write cnefe table to db
   register_cnefe_table(con, match_type, pasta_dados)
 
+  # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
+  # candidato mais proximo do numero buscado vence; empate exato de distancia
+  # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
+  # depois lat/lon -- garante resultado identico entre execucoes, mesmo em
+  # paralelo (ver MEMORY.md [LEARN:duckdb], match_type da0x/pa0x)
+  ordem_first <- "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
+
   # 1st + 2nd steps: recalcula o logradouro provavel (Jaro)  eatualiza input_padrao_db   --------------------------------------------------------
   # aqui a gente pula os match_types_jaro_redundante, pq a etapa
   # "pn0k" anterior ja fez esse trabalho para o mesmo candidato e mesmo corte
@@ -81,7 +88,7 @@ match_weighted_cases_probabilistic <- function(
     ""
   }
   additional_cols_second <- if (tem_logradouro) {
-    ", FIRST(logradouro_encontrado) AS logradouro_encontrado"
+    glue::glue(", FIRST(logradouro_encontrado {ordem_first}) AS logradouro_encontrado")
   } else {
     ""
   }
@@ -116,7 +123,7 @@ match_weighted_cases_probabilistic <- function(
 
     # additonal cols for the second part of the query
     cols_extra_second <- paste0(
-      glue::glue("FIRST({demais_key_cols}_encontrado) AS {demais_key_cols}_encontrado"),
+      glue::glue("FIRST({demais_key_cols}_encontrado {ordem_first}) AS {demais_key_cols}_encontrado"),
       collapse = ', '
     )
     cols_extra_second <- gsub(
@@ -128,7 +135,7 @@ match_weighted_cases_probabilistic <- function(
 
     # adiciona codigo do setor censitario
     additional_cols_first <- paste0(additional_cols_first, glue::glue(", {y}.cod_setor AS cod_setor"))
-    additional_cols_second <- paste0(additional_cols_second, glue::glue(", FIRST(cod_setor)"))
+    additional_cols_second <- paste0(additional_cols_second, glue::glue(", FIRST(cod_setor {ordem_first})"))
     colunas_encontradas <- paste0(colunas_encontradas, ", cod_setor")
 
   }
@@ -161,12 +168,12 @@ match_weighted_cases_probabilistic <- function(
        SELECT tempidgeocodebr,
          SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
          SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
-         FIRST(endereco_encontrado) AS endereco_encontrado,
+         FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
          '{match_type}' AS tipo_resultado,
          AVG(desvio_metros) AS desvio_metros,
-         FIRST(log_causa_confusao) AS log_causa_confusao,
-         FIRST(similaridade_logradouro) AS similaridade_logradouro,
-         FIRST(contagem_cnefe) AS contagem_cnefe {additional_cols_second}
+         FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+         FIRST(similaridade_logradouro {ordem_first}) AS similaridade_logradouro,
+         FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
       FROM temp_db
       GROUP BY tempidgeocodebr, endereco_encontrado;"
   )

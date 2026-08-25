@@ -186,7 +186,7 @@ trata_empates_geocode_duckdb <- function(
             )
             AND NOT REGEXP_MATCHES(logradouro_encontrado, '\\\\bDE (JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\\\\b')
           QUALIFY ROW_NUMBER()
-            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
+            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
         ),
 
         -- F) empatados salvaveis = restantes (nao em a nem b)
@@ -218,7 +218,7 @@ trata_empates_geocode_duckdb <- function(
             TRUE AS empate {cols_encontradas}
           FROM empates_wavg
           QUALIFY ROW_NUMBER()
-            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
+            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
         )
 
       -- junta as 3 tabelas numa soh (df_sem_empate, df_empates_perdidos, df_empates_salve)

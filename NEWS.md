@@ -1,51 +1,56 @@
 # geocodebr (development version)
 
+## Mudanças grandes (Major changes)
+
+- Nos casos de resultado encontrado com número aproximado (interpolação — tipos
+`da01` a `da04` e `pa01` a `pa03`), as colunas extras do output como `contagem_cnefe`,
+`cod_setor` e `endereco_encontrado` podiam vir de um ponto arbitrário entre os usados
+na interpolação, e podiam mudar entre chamadas idênticas de `geocode()` — inclusive as
+coordenadas de casos de empate, que usam `contagem_cnefe` como critério de desempate.
+Agora essas colunas sempre vêm do ponto com número mais próximo do buscado, e o
+resultado é reprodutível entre chamadas. Como consequência, cerca de 1% dos endereços
+geocodificados a partir de `da02`/`da04`/`pa02` podem retornar coordenadas ligeiramente
+diferentes das versões anteriores do pacote.
+
 ## Mudanças pequenas (Minor changes)
+
+- A função `geocode()` agora pula, sem custo, as etapas internas de busca que 
+dependem de um campo de endereço não declarado em `campos_endereco` (por exemplo, 
+se input do usuário não possui as colunas `logradouro` e `numero`, o geocode agora
+faz a busca só por CEP/bairro/município). Antes, essas etapas eram sempre executadas 
+e materializavam a tabela de referência do CNEFE correspondente mesmo sabendo de 
+antemão que nenhum resultado seria encontrado. Isso traz enorme ganho de performance
+nesses casos. O resultado retornado não muda.
 
 - A documentação da função `geocode()` agora descreve a etapa de resolução de 
 empates entre candidatos separados por menos de 300 metros, que antes não estava 
 documentada. Ver a seção "Lidando com casos de empate" em `?geocode`.
 
+
+## Correção de bugs (Bug fixes)
+
 - As funções `geocode()`, `geocode_reverso()` e `busca_por_cep()` agora fecham a 
 conexão com o banco DuckDB ao final da sua execução, inclusive quando são 
 interrompidas por um erro no meio do caminho. Antes, uma interrupção deixava a 
 conexão aberta e um arquivo temporário em disco, o que podia acumular recursos em 
-usos repetidos ou dentro de laços. No caso da `busca_por_cep()`, a conexão não era 
-fechada nem mesmo quando a função terminava normalmente.
-
-- A função `geocode()` agora pula, sem custo, as etapas internas de busca que 
-dependem de um campo de endereço não declarado em `campos_endereco` (por exemplo, 
-`logradouro` e `numero`, quando o usuário busca só por CEP/bairro/município). Antes, 
-essas etapas eram sempre executadas e materializavam a tabela de referência do CNEFE 
-correspondente mesmo sabendo de antemão que nenhum resultado seria encontrado. Em um 
-teste com 20 mil endereços contendo só CEP, bairro, município e UF, o tempo total 
-caiu de 3,3s para 0,8s (redução de 76%). O resultado retornado não muda.
-
-
-## Correção de bugs (Bug fixes)
+usos repetidos ou dentro de laços.
 
 - Bug corrigido na função `geocode_reverso()`, que agrupava os resultados por uma 
 coluna `id` do input em vez de usar o seu identificador interno. Na prática, a função 
 só funcionava quando a tabela de input tinha uma coluna chamada `id` com valores 
-únicos. Com qualquer outro `sf`, a função retornava um erro; e quando a coluna `id` 
-existia mas tinha valores repetidos, a função devolvia silenciosamente apenas um 
-endereço por valor de `id`, em vez de um por ponto de input. Agora o resultado 
-independe das colunas presentes na tabela de input.
+únicos. Agora o resultado independe das colunas presentes na tabela de input.
 
 - Bug corrigido no argumento `h3_res` da função `busca_por_cep()`. Quando se passava 
 um vetor com várias resoluções, a função criava as colunas com os nomes corretos mas 
-preenchia todas elas com os índices de uma única resolução — a última do vetor. Por 
-exemplo, com `h3_res = c(7, 10)`, a coluna `h3_07` recebia índices de resolução 10. 
-O erro era silencioso, sem mensagem de erro ou aviso, e não ocorria quando `h3_res` 
-tinha um único valor. Agora a função apresenta o comportamento esperado. Este é o 
-mesmo bug que havia sido corrigido na função `geocode()` na versão v0.6.4.
+preenchia todas elas com os índices de uma única resolução — a última do vetor.
+Agora a função apresenta o comportamento esperado. Este é o  mesmo bug que havia 
+sido corrigido na função `geocode()` na versão v0.6.4.
 
 - Correção interna na etapa de resolução de empates da função `geocode()` nos casos
 em que as coordenadas candidatas estão a menos de 300 metros entre si. Nessas 
 situações, o pacote descartava o candidato com **maior** valor de `contagem_cnefe` e 
 retornava o de menor, contrariando a regra de desempate documentada. Agora o 
-candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
-mais distantes (acima de 1 km) não foi alterada.
+candidato com maior `contagem_cnefe` é preservado.
 
 - Correção interna na etapa de resolução de empates da função `geocode()`. A coluna
 `logradouro_encontrado`, usada internamente para decidir como cada empate é resolvido, só

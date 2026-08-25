@@ -116,8 +116,9 @@ chamadas).
   (paralelo). Com `n_cores = 1` as mesmas 4 chamadas foram estáveis. **Por quê:** `contagem_cnefe` escolhido
   por esse `FIRST()` alimenta o critério de desempate em `trata_empates_geocode_duckdb.R`
   (`ORDER BY contagem_cnefe DESC`), então a arbitrariedade se propaga até qual candidato de rua o usuário
-  recebe. Ainda **não corrigido** — ver item 1 de
-  `quality_reports/diagnoses/2026-08-24_geocode-revisao-critica.md`. Ao adicionar qualquer `FIRST()`/`LAST()`
+  recebe. **Corrigido em 25/08** — `FIRST(col ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon)`
+  em `match_weighted_cases.R`/`match_weighted_cases_probabilistic.R`; ver
+  `quality_reports/diagnoses/2026-08-25_first-order-fix-benchmark.md`. Ao adicionar qualquer `FIRST()`/`LAST()`
   novo no pipeline, sempre com `ORDER BY` explícito.
 
 - `[LEARN:duckdb]` A não-determinismo de `FIRST()` sem `ORDER BY` (entrada acima) **não depende só de
@@ -154,3 +155,18 @@ chamadas).
   ao tamanho do input a cada chamada de `geocode()`. Preferir sempre reaproveitar informação já computada a
   partir da *declaração* do usuário (`campos_endereco`/`missing_cols`, um objeto pequeno e fixo) a escanear
   os *dados* (`input_padrao`, que cresce com o input), quando as duas fontes respondem a mesma pergunta.
+
+- `[LEARN:duckdb]` O `FIRST()` sem `ORDER BY` (entrada acima) **não era a única fonte** de não-determinismo
+  no laço de empates. `R/trata_empates_geocode_duckdb.R` tem dois `QUALIFY ROW_NUMBER() OVER (PARTITION BY
+  tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1` (ramos "perdidos" e "salváveis") que também escolhiam
+  arbitrariamente entre candidatos empatados em `contagem_cnefe` — achado só depois de corrigir o `FIRST()`
+  e ver que a reprodutibilidade não fechou 100%. **Corrigido em 25/08, em duas rodadas**: primeiro `ORDER BY
+  contagem_cnefe DESC, desvio_metros` (reduziu de 5 para 2-3 linhas divergentes em 20.028, mas não fechou —
+  `desvio_metros` é atributo do registro CNEFE, não distância calculada, e ainda empatava às vezes); depois
+  `..., endereco_encontrado` como terceiro critério, que fechou o não-determinismo por completo (0/20.028 em
+  3 rodadas consecutivas de "duas chamadas idênticas"). Ver
+  `quality_reports/diagnoses/2026-08-25_first-order-fix-benchmark.md`. **Por quê:** ao investigar
+  não-determinismo em `geocode()`, não presumir que corrigir um `FIRST()`/`QUALIFY` sem `ORDER BY` fecha o
+  problema — rodar duas chamadas idênticas de ponta a ponta e comparar de novo depois de cada fix, porque
+  pode haver mais de uma fonte no mesmo caminho de código, e um desempate parcial (poucas colunas) pode
+  reduzir sem zerar a divergência.
