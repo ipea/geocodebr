@@ -19,12 +19,6 @@ match_weighted_cases <- function(
   # write cnefe table to db
   register_cnefe_table(con, match_type, pasta_dados)
 
-  # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
-  # candidato mais proximo do numero buscado vence; empate exato de distancia
-  # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
-  # depois lat/lon -- garante resultado identico entre execucoes, mesmo em
-  # paralelo (ver MEMORY.md [LEARN:duckdb], match_type da0x/pa0x)
-  ordem_first <- "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
 
   # cols that cannot be null
   cols_not_null <- paste(
@@ -41,71 +35,32 @@ match_weighted_cases <- function(
     collapse = ' AND '
   )
 
+  # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
+  # candidato mais proximo do numero buscado vence; empate exato de distancia
+  # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
+  # depois lat/lon -- garante resultado identico entre execucoes, mesmo em
+  # paralelo (ver MEMORY.md [LEARN:duckdb], match_type da0x/pa0x)
+  ordem_first <- "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
+
+  # parte 1 (CTE, sem agregacao)
   # `logradouro_encontrado` eh coluna de trabalho interna, e nao apenas uma coluna
   # de output: a resolucao de empates em trata_empates_geocode_duckdb() usa essa
   # coluna para aplicar a excecao dos logradouros com nome de data. Por isso ela
   # precisa ser preenchida sempre, independentemente de `resultado_completo` -- o
   # schema de output_db em geocode.R ja a declara nos dois casos. As demais
   # colunas `*_encontrado` seguem condicionadas a `resultado_completo`.
-  tem_logradouro <- 'logradouro' %in% key_cols
+  first <- monta_colunas_encontradas(y, key_cols, resultado_completo)
+  colunas_encontradas <- first$colunas_encontradas
+  additional_cols_first <- first$additional_cols
 
-  colunas_encontradas <- if (tem_logradouro) ", logradouro_encontrado" else ""
-  additional_cols_first <- if (tem_logradouro) {
-    paste0(glue::glue(", {y}.logradouro AS logradouro_encontrado"))
-  } else {
-    ""
-  }
-  additional_cols_second <- if (tem_logradouro) {
-    glue::glue(", FIRST(logradouro_encontrado {ordem_first})")
-  } else {
-    ""
-  }
-
-  # whether to keep all columns in the result
-  if (isTRUE(resultado_completo)) {
-    demais_key_cols <- setdiff(key_cols, 'logradouro')
-
-    colunas_extra <- paste0(
-      glue::glue("{demais_key_cols}_encontrado"),
-      collapse = ', '
-    )
-
-    colunas_extra <- gsub(
-      'localidade_encontrado',
-      'localidade_encontrada',
-      colunas_extra
-    )
-    colunas_encontradas <- paste0(colunas_encontradas, ", ", colunas_extra)
-
-    # additonal cols for the first part of the query
-    cols_extra_first <- paste0(
-      glue::glue("{y}.{demais_key_cols} AS {demais_key_cols}_encontrado"),
-      collapse = ', '
-    )
-    cols_extra_first <- gsub(
-      'localidade_encontrado',
-      'localidade_encontrada',
-      cols_extra_first
-    )
-    additional_cols_first <- paste0(additional_cols_first, ", ", cols_extra_first)
-
-    # additonal cols for the second part of the query
-    cols_extra_second <- paste0(
-      glue::glue("FIRST({demais_key_cols}_encontrado {ordem_first})"),
-      collapse = ', '
-    )
-    cols_extra_second <- gsub(
-      'localidade_encontrado',
-      'localidade_encontrada',
-      cols_extra_second
-    )
-    additional_cols_second <- paste0(additional_cols_second, ", ", cols_extra_second)
-
-    # adiciona codigo do setor censitario
-    additional_cols_first <- paste0(additional_cols_first, glue::glue(", {y}.cod_setor AS cod_setor"))
-    additional_cols_second <- paste0(additional_cols_second, glue::glue(", FIRST(cod_setor {ordem_first})"))
-    colunas_encontradas <- paste0(colunas_encontradas, ", cod_setor")
-  }
+  # parte 2 (SELECT agregado por GROUP BY) -- cada coluna, inclusive
+  # logradouro_encontrado, embrulhada em FIRST(... ordem_first)
+  second <- monta_colunas_encontradas(
+    y, key_cols, resultado_completo,
+    agregado = TRUE,
+    ordem_first = ordem_first
+  )
+  additional_cols_second <- second$additional_cols
 
   # Match query  --------------------------------------------------------
 

@@ -62,58 +62,23 @@ match_cases_probabilistic <- function(
   # precisa ser preenchida sempre, independentemente de `resultado_completo` -- o
   # schema de output_db em geocode.R ja a declara nos dois casos. As demais
   # colunas `*_encontrado` seguem condicionadas a `resultado_completo`.
-  tem_logradouro <- 'logradouro' %in% key_cols
-
-  colunas_encontradas <- if (tem_logradouro) ", logradouro_encontrado" else ""
-  additional_cols <- if (tem_logradouro) {
-    paste0(glue::glue(", {y}.logradouro AS logradouro_encontrado"))
-  } else {
-    ""
-  }
-
-  # whether to keep all columns in the result
+  # similaridade_logradouro eh especifica do caminho probabilistico -- soma
+  # como base antes de chamar o helper comum, que decide sozinho (via
+  # resultado_completo) o que mais acrescentar
+  colunas_encontradas <- ""
+  additional_cols <- ""
   if (isTRUE(resultado_completo)) {
-    demais_key_cols <- setdiff(key_cols, 'logradouro')
-
-    colunas_extra <- paste0(
-      glue::glue("{demais_key_cols}_encontrado"),
-      collapse = ', '
-    )
-
-    colunas_extra <- gsub(
-      'localidade_encontrado',
-      'localidade_encontrada',
-      colunas_extra
-    )
-    colunas_encontradas <- paste0(
-      colunas_encontradas,
-      ", ",
-      colunas_extra,
-      ", similaridade_logradouro"
-    )
-
-    cols_extra <- paste0(
-      glue::glue("{y}.{demais_key_cols} AS {demais_key_cols}_encontrado"),
-      collapse = ', '
-    )
-
-    cols_extra <- gsub(
-      'localidade_encontrado',
-      'localidade_encontrada',
-      cols_extra
-    )
-    additional_cols <- paste0(
-      additional_cols,
-      ", ",
-      cols_extra,
-      ", input_padrao_db.similaridade_logradouro AS similaridade_logradouro"
-    )
-
-    # adiciona codigo do setor censitario
-    additional_cols <- paste0(additional_cols, glue::glue(", {y}.cod_setor AS cod_setor"))
-    colunas_encontradas <- paste0(colunas_encontradas, ", cod_setor")
-
+    colunas_encontradas <- ", similaridade_logradouro"
+    additional_cols <- ", input_padrao_db.similaridade_logradouro AS similaridade_logradouro"
   }
+
+  extra <- monta_colunas_encontradas(
+    y, key_cols, resultado_completo,
+    colunas_encontradas = colunas_encontradas,
+    additional_cols = additional_cols
+  )
+  colunas_encontradas <- extra$colunas_encontradas
+  additional_cols <- extra$additional_cols
 
   # summarize query
   query_update_db <- glue::glue(
