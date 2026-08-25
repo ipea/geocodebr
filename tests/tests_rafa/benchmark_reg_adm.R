@@ -96,6 +96,8 @@ bench::system_time(
     )
 )
 
+# process    real
+#    2.8m   18.1m
 
 # 10 milhoes
 # args: n_cores = 7, resultado_completo = F resolver_empates = T

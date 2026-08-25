@@ -224,6 +224,13 @@ geocode_core <- function(
   # determine which columns are missing, if any
   missing_cols <- campos_endereco[unlist(lapply(campos_endereco, is.null))]
 
+  # nomes dos campos que o usuario nao declarou -- viram coluna-fantasma
+  # NA_character_ logo abaixo, entao nenhum match_type cujo key_cols inclua
+  # um desses campos pode gerar match (o filtro "IS NOT NULL" da query de
+  # match sempre vai zerar). Usado no laco de matching mais abaixo para pular
+  # essas etapas sem materializar a tabela de referencia correspondente.
+  campos_nao_declarados <- names(missing_cols)
+
   if (length(missing_cols)>=1) {
 
     # add empty string to missing cols
@@ -413,8 +420,9 @@ geocode_core <- function(
     }
 
     # somente busca essa categoria match_type se todas colunas estiverem na base
-    # caso contrario, passa para proxima categoria
-    if (all(key_cols %in% names(input_padrao))) {
+    # e nenhuma delas for um campo que o usuario nao declarou -- caso
+    # contrario, passa para proxima categoria
+    if (all(key_cols %in% names(input_padrao)) && !any(key_cols %in% campos_nao_declarados)) {
       # select match function
       match_fun <- reference_match_fun_by_match_type(match_type)
 

@@ -119,3 +119,38 @@ chamadas).
   recebe. Ainda **não corrigido** — ver item 1 de
   `quality_reports/diagnoses/2026-08-24_geocode-revisao-critica.md`. Ao adicionar qualquer `FIRST()`/`LAST()`
   novo no pipeline, sempre com `ORDER BY` explícito.
+
+- `[LEARN:duckdb]` A não-determinismo de `FIRST()` sem `ORDER BY` (entrada acima) **não depende só de
+  paralelismo** — `n_cores = 1` não é garantia de estabilidade se a *ordem física de scan* mudar por outro
+  motivo, como trocar a fonte de uma `TEMP TABLE` materializada por uma `TEMP VIEW` sobre o mesmo parquet.
+  Medido: com `n_cores = 1` fixo dos dois lados, 4 de 20.028 linhas (`da02`/`da04`) mudaram de candidato
+  (516 m–4.915 m de diferença) só por causa da troca TABLE→VIEW em `register_cnefe_table()` — ver
+  `quality_reports/diagnoses/2026-08-24_temp-view-benchmark.md`. **Por quê:** ao comparar dois builds/branches
+  para achar regressão de corretude, rodar em `n_cores = 1` reduz o ruído mas não elimina o `FIRST()`/`LAST()`
+  como fonte de falso positivo — checar se a linha divergente é justamente `da0x`/`pa0x` antes de investigar
+  mais fundo.
+
+- `[LEARN:duckdb]` Trocar `CREATE TEMP TABLE` por `CREATE TEMP VIEW` em `register_cnefe_table()`
+  (`R/register_cnefe_tables.R`) **piora** o tempo total do `geocode_core()` em ~42% (medido: 4,18 s → 5,92 s
+  de mediana, 20.028 endereços, `n_cores = 7`), apesar da função em si ficar 3,5× mais rápida isoladamente
+  (1,51 s → 0,43 s). **Já tentado e revertido** — não retentar sem mudar a abordagem. **Por quê:** um
+  benchmark isolado com joins sintéticos (`quality_reports/diagnoses/2026-08-23_geocode-diagnostico-performance.md`
+  §3) previu ganho até ~12 usos da mesma tabela porque testava joins de uma coluna; os joins reais do laço
+  de matching (múltiplas colunas-chave, CTEs `unique_munis`/`unique_states`, interpolação por número,
+  `GROUP BY ... FIRST()`) são caros o bastante por consulta para que reabrir/refiltrar o parquet a cada uma
+  das ~10 etapas que usam a tabela mais compartilhada custe mais que materializar uma vez. Um benchmark
+  isolado de custo-por-join não é proxy confiável para o custo real de uma query complexa do pacote — sempre
+  validar ponta a ponta com `geocode_core()` antes de aplicar uma mudança dessa família.
+
+- `[LEARN:geocode]` O laço de matching em `geocode_core()` (`R/geocode.R`) pulava etapas só quando a
+  coluna-chave estava **ausente**, nunca quando ela existia mas era inteiramente `NA` (o caso normal de um
+  campo de endereço não declarado, que vira coluna-fantasma `NA_character_`). **Corrigido** em 25/08: nova
+  variável `campos_nao_declarados <- names(missing_cols)`, calculada a partir da lista `campos_endereco` já
+  existente (não dos dados), e usada no guarda do laço junto com o teste de presença. Medido: 20.028
+  endereços só com CEP/bairro/município/UF, 3,28s → 0,78s (4,2×), output `identical()` bit-a-bit antes/depois
+  — ver `quality_reports/diagnoses/2026-08-25_geocode-guard-fix-benchmark.md`. **Por quê:** a primeira versão
+  cogitada usava `all(is.na(input_padrao[[cc]]))`, um scan O(n) por coluna sobre a tabela padronizada
+  inteira — funcionalmente equivalente para o caso comum (campo não declarado), mas com custo proporcional
+  ao tamanho do input a cada chamada de `geocode()`. Preferir sempre reaproveitar informação já computada a
+  partir da *declaração* do usuário (`campos_endereco`/`missing_cols`, um objeto pequeno e fixo) a escanear
+  os *dados* (`input_padrao`, que cresce com o input), quando as duas fontes respondem a mesma pergunta.

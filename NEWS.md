@@ -13,6 +13,14 @@ conexão aberta e um arquivo temporário em disco, o que podia acumular recursos
 usos repetidos ou dentro de laços. No caso da `busca_por_cep()`, a conexão não era 
 fechada nem mesmo quando a função terminava normalmente.
 
+- A função `geocode()` agora pula, sem custo, as etapas internas de busca que 
+dependem de um campo de endereço não declarado em `campos_endereco` (por exemplo, 
+`logradouro` e `numero`, quando o usuário busca só por CEP/bairro/município). Antes, 
+essas etapas eram sempre executadas e materializavam a tabela de referência do CNEFE 
+correspondente mesmo sabendo de antemão que nenhum resultado seria encontrado. Em um 
+teste com 20 mil endereços contendo só CEP, bairro, município e UF, o tempo total 
+caiu de 3,3s para 0,8s (redução de 76%). O resultado retornado não muda.
+
 
 ## Correção de bugs (Bug fixes)
 
