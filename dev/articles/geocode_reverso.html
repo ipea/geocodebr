@@ -111,17 +111,20 @@ encontrados.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">df_enderecos</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Simple feature collection with 3 features and 8 fields</span></span>
+<span><span class="co">#&gt; Simple feature collection with 6 features and 7 fields</span></span>
 <span><span class="co">#&gt; Geometry type: POINT</span></span>
 <span><span class="co">#&gt; Dimension:     XY</span></span>
-<span><span class="co">#&gt; Bounding box:  xmin: -51.49634 ymin: -19.29416 xmax: -39.92601 ymax: 0.3649148</span></span>
+<span><span class="co">#&gt; Bounding box:  xmin: -40.7334 ymin: -20.44142 xmax: -39.92601 ymax: -18.69095</span></span>
 <span><span class="co">#&gt; Geodetic CRS:  SIRGAS 2000</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 9</span></span></span>
-<span><span class="co">#&gt;      id estado municipio  logradouro    numero cep   localidade distancia_metros</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>     1 ES     PANCAS     CORREGO BOA …     32 2975… LAJINHA                561.</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>    11 ES     SAO MATEUS RODOVIA SAO …      6 2994… KM 13                  373.</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>    17 AP     SANTANA    RAMAL MATAO …     14 6892… PIACACA                365.</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 8</span></span></span>
+<span><span class="co">#&gt;      id estado municipio  logradouro           cep   localidade distancia_metros</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>     1 ES     COLATINA   CORREGO BOA VISTA    2970… SAO JOAO …             50.2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>     6 ES     VIANA      ESTRADA BOM JESUS    2913… BOM JESUS…            606. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>     7 ES     COLATINA   FAZENDA SANTA LUCIA… 2970… FAZENDA S…            483. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span>     8 ES     SAO MATEUS FAZENDA ESCADINHA    2994… ESCADINHA             540. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span>    11 ES     SAO MATEUS RODOVIA ES 381       2994… KM 13                 239. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span>    12 ES     SAO MATEUS LADEIRA DE DONA ANA  2994… KM 28                 773. </span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 1 more variable: geometry &lt;POINT [°]&gt;</span></span></span></code></pre></div>
 <p>Por padrão, a função busca pelo endereço mais próximo num raio
 aproximado de 1000 metros. No entanto, o usuário pode ajustar esse valor

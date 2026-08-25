@@ -4,6 +4,12 @@
 
 ### Mudanças grandes (Major changes)
 
+- A função
+  [`geocode_reverso()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode_reverso.md)
+  agora usa como referência de busca a tabela
+  `municipio_logradouro_cep_localidade`, o que pemite captar melhor
+  casos onde não há número no logradouro.
+
 - Nos casos de resultado encontrado com número aproximado (interpolação
   — tipos `da01` a `da04` e `pa01` a `pa03`), as colunas extras do
   output como `contagem_cnefe`, `cod_setor` e `endereco_encontrado`

@@ -74,14 +74,14 @@ df_enderecos <- geocodebr::geocode_reverso(
 #> ℹ Utilizando dados do CNEFE armazenados localmente
 
 head(df_enderecos)
-#> Simple feature collection with 1 feature and 8 fields
+#> Simple feature collection with 1 feature and 7 fields
 #> Geometry type: POINT
 #> Dimension:     XY
 #> Bounding box:  xmin: -40.7334 ymin: -19.29416 xmax: -40.7334 ymax: -19.29416
 #> Geodetic CRS:  SIRGAS 2000
-#> # A tibble: 1 × 9
-#>      id estado municipio logradouro     numero cep   localidade distancia_metros
-#>   <int> <chr>  <chr>     <chr>           <int> <chr> <chr>                 <dbl>
-#> 1     1 ES     PANCAS    CORREGO BOA V…     32 2975… LAJINHA                561.
+#> # A tibble: 1 × 8
+#>      id estado municipio logradouro        cep       localidade distancia_metros
+#>   <int> <chr>  <chr>     <chr>             <chr>     <chr>                 <dbl>
+#> 1     1 ES     COLATINA  CORREGO BOA VISTA 29700-005 SAO JOAO …             50.2
 #> # ℹ 1 more variable: geometry <POINT [°]>
 ```

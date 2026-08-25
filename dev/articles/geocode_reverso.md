@@ -38,17 +38,20 @@ df_enderecos <- geocodebr::geocode_reverso(
 )
 
 head(df_enderecos)
-#> Simple feature collection with 3 features and 8 fields
+#> Simple feature collection with 6 features and 7 fields
 #> Geometry type: POINT
 #> Dimension:     XY
-#> Bounding box:  xmin: -51.49634 ymin: -19.29416 xmax: -39.92601 ymax: 0.3649148
+#> Bounding box:  xmin: -40.7334 ymin: -20.44142 xmax: -39.92601 ymax: -18.69095
 #> Geodetic CRS:  SIRGAS 2000
-#> # A tibble: 3 × 9
-#>      id estado municipio  logradouro    numero cep   localidade distancia_metros
-#>   <int> <chr>  <chr>      <chr>          <int> <chr> <chr>                 <dbl>
-#> 1     1 ES     PANCAS     CORREGO BOA …     32 2975… LAJINHA                561.
-#> 2    11 ES     SAO MATEUS RODOVIA SAO …      6 2994… KM 13                  373.
-#> 3    17 AP     SANTANA    RAMAL MATAO …     14 6892… PIACACA                365.
+#> # A tibble: 6 × 8
+#>      id estado municipio  logradouro           cep   localidade distancia_metros
+#>   <int> <chr>  <chr>      <chr>                <chr> <chr>                 <dbl>
+#> 1     1 ES     COLATINA   CORREGO BOA VISTA    2970… SAO JOAO …             50.2
+#> 2     6 ES     VIANA      ESTRADA BOM JESUS    2913… BOM JESUS…            606. 
+#> 3     7 ES     COLATINA   FAZENDA SANTA LUCIA… 2970… FAZENDA S…            483. 
+#> 4     8 ES     SAO MATEUS FAZENDA ESCADINHA    2994… ESCADINHA             540. 
+#> 5    11 ES     SAO MATEUS RODOVIA ES 381       2994… KM 13                 239. 
+#> 6    12 ES     SAO MATEUS LADEIRA DE DONA ANA  2994… KM 28                 773. 
 #> # ℹ 1 more variable: geometry <POINT [°]>
 ```
 
