@@ -37,50 +37,9 @@ match_cases <- function(
   # precisa ser preenchida sempre, independentemente de `resultado_completo` -- o
   # schema de output_db em geocode.R ja a declara nos dois casos. As demais
   # colunas `*_encontrado` seguem condicionadas a `resultado_completo`.
-  tem_logradouro <- 'logradouro' %in% key_cols
-
-  colunas_encontradas <- if (tem_logradouro) ", logradouro_encontrado" else ""
-  additional_cols <- if (tem_logradouro) {
-    paste0(glue::glue(", {y}.logradouro AS logradouro_encontrado"))
-  } else {
-    ""
-  }
-
-  # whether to keep all columns in the result
-  if (isTRUE(resultado_completo)) {
-    demais_key_cols <- setdiff(key_cols, 'logradouro')
-
-    colunas_extra <- paste0(
-      glue::glue("{demais_key_cols}_encontrado"),
-      collapse = ', '
-    )
-
-    colunas_extra <- gsub(
-      'localidade_encontrado',
-      'localidade_encontrada',
-      colunas_extra
-    )
-    colunas_encontradas <- paste0(colunas_encontradas, ", ", colunas_extra)
-
-    cols_extra <- paste0(
-      glue::glue("{y}.{demais_key_cols} AS {demais_key_cols}_encontrado"),
-      collapse = ', '
-    )
-
-    cols_extra <- gsub(
-      'localidade_encontrado',
-      'localidade_encontrada',
-      cols_extra
-    )
-    additional_cols <- paste0(additional_cols, ", ", cols_extra)
-
-    # adiciona codigo do setor censitario
-    additional_cols <- paste0(additional_cols, glue::glue(", {y}.cod_setor AS cod_setor"))
-    colunas_encontradas <- paste0(colunas_encontradas, ", cod_setor")
-
-  }
-
-
+  extra <- monta_colunas_encontradas(y, key_cols, resultado_completo)
+  colunas_encontradas <- extra$colunas_encontradas
+  additional_cols <- extra$additional_cols
 
   # summarize query
   query_match <- glue::glue(

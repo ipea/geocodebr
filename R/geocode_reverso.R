@@ -96,7 +96,7 @@ geocode_reverso <- function(
 
   # downloading cnefe
   cnefe_dir <- geocodebr::download_cnefe(
-    tabela = 'municipio_logradouro_numero_cep_localidade',
+    tabela = 'municipio_logradouro_cep_localidade',
     verboso = verboso,
     cache = cache
   )
@@ -139,7 +139,7 @@ geocode_reverso <- function(
 
   # build path to local file
   path_to_parquet <- caminho_parquet(
-    "municipio_logradouro_numero_cep_localidade",
+    "municipio_logradouro_cep_localidade",
     cnefe_dir
   )
 
@@ -148,7 +148,6 @@ geocode_reverso <- function(
     "estado",
     "municipio",
     "logradouro",
-    "numero",
     "cep",
     "localidade"
   )
