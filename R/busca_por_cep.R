@@ -67,11 +67,14 @@ busca_por_cep <- function(
   # creating a temporary db and register the input table data
   con <- create_geocodebr_db()
 
+  # garante que a conexao seja fechada em qualquer saida da funcao, inclusive
+  # quando ela aborta porque nenhum cep foi encontrado
+  on.exit(duckdb::dbDisconnect(con), add = TRUE)
+
   # build path to local file
-  path_to_parquet <- fs::path(
-    listar_pasta_cache(),
-    glue::glue("geocodebr_data_release_{data_release}"),
-    paste0("municipio_logradouro_cep_localidade.parquet")
+  path_to_parquet <- caminho_parquet(
+    "municipio_logradouro_cep_localidade",
+    cnefe_dir
   )
 
   # ceps string
@@ -117,7 +120,7 @@ busca_por_cep <- function(
     for (i in h3_res) {
       colname <- paste0(
         'h3_',
-        formatC(h3_res, width = 2, flag = "0")
+        formatC(i, width = 2, flag = "0")
       )
 
       output_df[

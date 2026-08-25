@@ -81,8 +81,8 @@ stop()
 
 
 gc(T,T,T)
-#bench::system_time(
- bench::mark(iterations = 1,
+bench::system_time(
+# bench::mark(iterations = 1,
   cadgeo <- geocodebr::geocode(
     enderecos  = df,
     campos_endereco = campos,
@@ -96,6 +96,8 @@ gc(T,T,T)
     )
 )
 
+# process    real
+#    2.8m   18.1m
 
 # 10 milhoes
 # args: n_cores = 7, resultado_completo = F resolver_empates = T

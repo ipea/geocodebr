@@ -1,7 +1,7 @@
 create_geocodebr_db <- function(
   # nocov start
   db_path = "tempdir",
-  n_cores = parent.frame()$n_cores,
+  n_cores = NULL,
   load_spatial = FALSE
 ) {
   # check input
@@ -15,13 +15,14 @@ create_geocodebr_db <- function(
     db_path <- tempfile(pattern = 'geocodebr', fileext = '.duckdb')
   }
 
-  if (db_path == 'memory') {
-    con <- duckdb::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
-  }
-
   # create db connection
+  # `shared_home` pertence ao construtor duckdb(), nao ao dbConnect(): passado ao
+  # dbConnect() ele e engolido pelo `...` sem erro nem efeito. Declarado aqui, o
+  # cache de extensoes em ~/.duckdb segue sendo reaproveitado -- o que importa
+  # para a extensao espacial usada por geocode_reverso() -- e a mensagem
+  # informativa do duckdb sobre esse diretorio deixa de ser emitida a cada chamada
   con <- duckdb::dbConnect(
-    duckdb::duckdb(bigint = "integer64"),
+    duckdb::duckdb(bigint = "integer64", shared_home = TRUE),
     dbdir = db_path
   ) # db_path ":memory:"
 

@@ -2,7 +2,7 @@
 % Please edit documentation in R/cache.R
 \name{apaga_data_release_antigo}
 \alias{apaga_data_release_antigo}
-\title{Atualiza dados no release local}
+\title{Apaga do cache os dados de releases antigos}
 \usage{
 apaga_data_release_antigo()
 }
@@ -10,8 +10,8 @@ apaga_data_release_antigo()
 Retorna de forma invisível o caminho do diretório de cache.
 }
 \description{
-Detecta automaticamente se o release local esta desatualizado. Se sim, apaga
-a pasta de cache do release local e atualiza a versao do release no caminho
-da pasta
+Detecta se a pasta de cache contem dados de releases anteriores ao utilizado
+pela versao atual do pacote. Se sim, apaga \strong{apenas} as pastas desses
+releases antigos, preservando a pasta do release corrente.
 }
 \keyword{internal}

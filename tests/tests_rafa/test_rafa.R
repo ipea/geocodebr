@@ -213,7 +213,6 @@ pkgdown::build_site()
 
 
 library(geobr)
-library(censobr)
 library(dplyr)
 library(ggplot2)
 

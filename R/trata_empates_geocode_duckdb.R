@@ -1,8 +1,8 @@
 trata_empates_geocode_duckdb <- function(
-  con = parent.frame()$con,
-  resultado_completo = parent.frame()$resultado_completo,
-  resolver_empates = parent.frame()$resolver_empates,
-  verboso = parent.frame()$verboso
+  con,
+  resultado_completo,
+  resolver_empates,
+  verboso
 ) {
   # 1) checa se tem empates --------------------------------------
 
@@ -18,7 +18,16 @@ trata_empates_geocode_duckdb <- function(
   )[[1]]
 
   # 2) se nao tiver mais empates, termina aqui --------------------------------------
+  # mas adiciona uma coluna de empate vazia caso o usuario peça endereco_completo = TRUE
   if (n_casos_empate == 0) {
+
+    query <- glue::glue(
+    "ALTER TABLE output_db
+     ADD COLUMN IF NOT EXISTS empate BOOLEAN DEFAULT FALSE;"
+    )
+
+    DBI::dbExecute(con, query)
+
     return(n_casos_empate)
   }
 
@@ -163,6 +172,11 @@ trata_empates_geocode_duckdb <- function(
             TRUE AS empate {cols_encontradas}
           FROM filtered
           WHERE empate = TRUE
+            -- so match com logradouro pode ser 'perdido': nas categorias sem
+            -- logradouro (dc01, dc02, db01, dm01) o empate e entre enderecos do
+            -- mesmo CEP/bairro/municipio, e a media ponderada e o centroide que
+            -- a precisao correspondente promete
+            AND logradouro_encontrado IS NOT NULL
             AND (
               max_dist > 1000
               OR log_causa_confusao
@@ -172,7 +186,7 @@ trata_empates_geocode_duckdb <- function(
             )
             AND NOT REGEXP_MATCHES(logradouro_encontrado, '\\\\bDE (JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\\\\b')
           QUALIFY ROW_NUMBER()
-            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
+            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
         ),
 
         -- F) empatados salvaveis = restantes (nao em a nem b)
@@ -204,7 +218,7 @@ trata_empates_geocode_duckdb <- function(
             TRUE AS empate {cols_encontradas}
           FROM empates_wavg
           QUALIFY ROW_NUMBER()
-            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
+            OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
         )
 
       -- junta as 3 tabelas numa soh (df_sem_empate, df_empates_perdidos, df_empates_salve)

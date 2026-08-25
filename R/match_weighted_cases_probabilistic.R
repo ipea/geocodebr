@@ -10,7 +10,8 @@ match_weighted_cases_probabilistic <- function(
   output_tb = "output_db",
   key_cols = key_cols,
   match_type = match_type,
-  resultado_completo) {
+  resultado_completo,
+  pasta_dados) {
 
   # match_type = "pn01"
 
@@ -20,13 +21,27 @@ match_weighted_cases_probabilistic <- function(
   key_cols <- get_key_cols(match_type)
 
   # write cnefe table to db
-  register_cnefe_table(con, match_type)
+  register_cnefe_table(con, match_type, pasta_dados)
 
-  # 1st step: create small table with unique logradouros -----------------------
-  unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type)
+  # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
+  # candidato mais proximo do numero buscado vence; empate exato de distancia
+  # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
+  # depois lat/lon -- garante resultado identico entre execucoes, mesmo em
+  # paralelo (ver MEMORY.md [LEARN:duckdb], match_type da0x/pa0x)
+  ordem_first <- "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
 
-  # 2nd step: update input_padrao_db with the most probable logradouro ---------
-  calculate_string_dist(con, match_type, unique_logradouros_tbl)
+  # 1st + 2nd steps: recalcula o logradouro provavel (Jaro)  eatualiza input_padrao_db   --------------------------------------------------------
+  # aqui a gente pula os match_types_jaro_redundante, pq a etapa
+  # "pn0k" anterior ja fez esse trabalho para o mesmo candidato e mesmo corte
+  # (ver comentario em utils.R). Reexecutar ali e um no-op comprovado.
+  if (!match_type %in% match_types_jaro_redundante) {
+
+    # step 1: create small table with unique logradouros
+    unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type, pasta_dados)
+
+    # step 2: update input_padrao_db with the most probable logradouro
+    calculate_string_dist(con, match_type, unique_logradouros_tbl)
+  }
 
   # 3rd step: match deterministico --------------------------------------------------------
 
@@ -58,51 +73,69 @@ match_weighted_cases_probabilistic <- function(
     cols_not_null
   )
 
-  # whether to keep all columns in the result
-  colunas_encontradas <- ""
-  additional_cols_first <- ""
-  additional_cols_second <- ""
+  # `logradouro_encontrado` eh coluna de trabalho interna, e nao apenas uma coluna
+  # de output: a resolucao de empates em trata_empates_geocode_duckdb() usa essa
+  # coluna para aplicar a excecao dos logradouros com nome de data. Por isso ela
+  # precisa ser preenchida sempre, independentemente de `resultado_completo` -- o
+  # schema de output_db em geocode.R ja a declara nos dois casos. As demais
+  # colunas `*_encontrado` seguem condicionadas a `resultado_completo`.
+  tem_logradouro <- 'logradouro' %in% key_cols
 
+  colunas_encontradas <- if (tem_logradouro) ", logradouro_encontrado" else ""
+  additional_cols_first <- if (tem_logradouro) {
+    paste0(glue::glue(", {y}.logradouro AS logradouro_encontrado"))
+  } else {
+    ""
+  }
+  additional_cols_second <- if (tem_logradouro) {
+    glue::glue(", FIRST(logradouro_encontrado {ordem_first}) AS logradouro_encontrado")
+  } else {
+    ""
+  }
+
+  # whether to keep all columns in the result
   if (isTRUE(resultado_completo)) {
-    colunas_encontradas <- paste0(
-      glue::glue("{key_cols}_encontrado"),
+    demais_key_cols <- setdiff(key_cols, 'logradouro')
+
+    colunas_extra <- paste0(
+      glue::glue("{demais_key_cols}_encontrado"),
       collapse = ', '
     )
 
-    colunas_encontradas <- gsub(
+    colunas_extra <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      colunas_encontradas
+      colunas_extra
     )
-    colunas_encontradas <- paste0(", ", colunas_encontradas)
+    colunas_encontradas <- paste0(colunas_encontradas, ", ", colunas_extra)
 
     # additonal cols for the first part of the query
-    additional_cols_first <- paste0(
-      glue::glue("{y}.{key_cols} AS {key_cols}_encontrado"),
+    cols_extra_first <- paste0(
+      glue::glue("{y}.{demais_key_cols} AS {demais_key_cols}_encontrado"),
       collapse = ', '
     )
-    additional_cols_first <- gsub(
+    cols_extra_first <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      additional_cols_first
+      cols_extra_first
     )
-    additional_cols_first <- paste0(", ", additional_cols_first)
+    additional_cols_first <- paste0(additional_cols_first, ", ", cols_extra_first)
 
     # additonal cols for the second part of the query
-    additional_cols_second <- paste0(
-      glue::glue("FIRST({key_cols}_encontrado) AS {key_cols}_encontrado"),
+    cols_extra_second <- paste0(
+      glue::glue("FIRST({demais_key_cols}_encontrado {ordem_first}) AS {demais_key_cols}_encontrado"),
       collapse = ', '
     )
-    additional_cols_second <- gsub(
+    cols_extra_second <- gsub(
       'localidade_encontrado',
       'localidade_encontrada',
-      additional_cols_second
+      cols_extra_second
     )
-    additional_cols_second <- paste0(", ", additional_cols_second)
+    additional_cols_second <- paste0(additional_cols_second, ", ", cols_extra_second)
 
     # adiciona codigo do setor censitario
     additional_cols_first <- paste0(additional_cols_first, glue::glue(", {y}.cod_setor AS cod_setor"))
-    additional_cols_second <- paste0(additional_cols_second, glue::glue(", FIRST(cod_setor)"))
+    additional_cols_second <- paste0(additional_cols_second, glue::glue(", FIRST(cod_setor {ordem_first})"))
     colunas_encontradas <- paste0(colunas_encontradas, ", cod_setor")
 
   }
@@ -135,12 +168,12 @@ match_weighted_cases_probabilistic <- function(
        SELECT tempidgeocodebr,
          SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
          SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
-         FIRST(endereco_encontrado) AS endereco_encontrado,
+         FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
          '{match_type}' AS tipo_resultado,
          AVG(desvio_metros) AS desvio_metros,
-         FIRST(log_causa_confusao) AS log_causa_confusao,
-         FIRST(similaridade_logradouro) AS similaridade_logradouro,
-         FIRST(contagem_cnefe) AS contagem_cnefe {additional_cols_second}
+         FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+         FIRST(similaridade_logradouro {ordem_first}) AS similaridade_logradouro,
+         FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
       FROM temp_db
       GROUP BY tempidgeocodebr, endereco_encontrado;"
   )

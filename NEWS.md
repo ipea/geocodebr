@@ -1,19 +1,89 @@
 # geocodebr (development version)
 
-## Correção de bugs (Bug fixes)
+## Mudanças grandes (Major changes)
 
-- Corrigido o comportamento da resolução de empates da função `geocode()` nos casos
-em que as coordenadas candidatas estão a menos de 300 metros entre si. Nessas 
-situações, o pacote descartava o candidato com **maior** valor de `contagem_cnefe` e 
-retornava o de menor, contrariando a regra de desempate documentada. Agora o 
-candidato com maior `contagem_cnefe` é preservado. A classificação dos empates 
-mais distantes (acima de 1 km) não foi alterada.
+- Nos casos de resultado encontrado com número aproximado (interpolação — tipos
+`da01` a `da04` e `pa01` a `pa03`), as colunas extras do output como `contagem_cnefe`,
+`cod_setor` e `endereco_encontrado` podiam vir de um ponto arbitrário entre os usados
+na interpolação, e podiam mudar entre chamadas idênticas de `geocode()` — inclusive as
+coordenadas de casos de empate, que usam `contagem_cnefe` como critério de desempate.
+Agora essas colunas sempre vêm do ponto com número mais próximo do buscado, e o
+resultado é reprodutível entre chamadas. Como consequência, cerca de 1% dos endereços
+geocodificados a partir de `da02`/`da04`/`pa02` podem retornar coordenadas ligeiramente
+diferentes das versões anteriores do pacote.
 
 ## Mudanças pequenas (Minor changes)
+
+- A função `geocode()` agora pula, sem custo, as etapas internas de busca que 
+dependem de um campo de endereço não declarado em `campos_endereco` (por exemplo, 
+se input do usuário não possui as colunas `logradouro` e `numero`, o geocode agora
+faz a busca só por CEP/bairro/município). Antes, essas etapas eram sempre executadas 
+e materializavam a tabela de referência do CNEFE correspondente mesmo sabendo de 
+antemão que nenhum resultado seria encontrado. Isso traz enorme ganho de performance
+nesses casos. O resultado retornado não muda.
 
 - A documentação da função `geocode()` agora descreve a etapa de resolução de 
 empates entre candidatos separados por menos de 300 metros, que antes não estava 
 documentada. Ver a seção "Lidando com casos de empate" em `?geocode`.
+
+
+## Correção de bugs (Bug fixes)
+
+- As funções `geocode()`, `geocode_reverso()` e `busca_por_cep()` agora fecham a 
+conexão com o banco DuckDB ao final da sua execução, inclusive quando são 
+interrompidas por um erro no meio do caminho. Antes, uma interrupção deixava a 
+conexão aberta e um arquivo temporário em disco, o que podia acumular recursos em 
+usos repetidos ou dentro de laços.
+
+- Bug corrigido na função `geocode_reverso()`, que agrupava os resultados por uma 
+coluna `id` do input em vez de usar o seu identificador interno. Na prática, a função 
+só funcionava quando a tabela de input tinha uma coluna chamada `id` com valores 
+únicos. Agora o resultado independe das colunas presentes na tabela de input.
+
+- Bug corrigido no argumento `h3_res` da função `busca_por_cep()`. Quando se passava 
+um vetor com várias resoluções, a função criava as colunas com os nomes corretos mas 
+preenchia todas elas com os índices de uma única resolução — a última do vetor.
+Agora a função apresenta o comportamento esperado. Este é o  mesmo bug que havia 
+sido corrigido na função `geocode()` na versão v0.6.4.
+
+- Correção interna na etapa de resolução de empates da função `geocode()` nos casos
+em que as coordenadas candidatas estão a menos de 300 metros entre si. Nessas 
+situações, o pacote descartava o candidato com **maior** valor de `contagem_cnefe` e 
+retornava o de menor, contrariando a regra de desempate documentada. Agora o 
+candidato com maior `contagem_cnefe` é preservado.
+
+- Correção interna na etapa de resolução de empates da função `geocode()`. A coluna
+`logradouro_encontrado`, usada internamente para decidir como cada empate é resolvido, só
+era preenchida quando o argumento `resultado_completo = TRUE`. Na prática, isso fazia com
+que `resultado_completo` — que deveria controlar apenas quais colunas aparecem no
+resultado — alterasse também as coordenadas devolvidas: no comportamento padrão, nenhum
+empate era classificado como "perdido", e endereços com logradouros homônimos distantes
+entre si recebiam a média ponderada das coordenadas dos candidatos, em vez das coordenadas
+do candidato com maior `contagem_cnefe`. Agora a coluna é sempre repassada às etapas
+internas, e as coordenadas devolvidas não dependem mais de `resultado_completo`. Na
+amostra `large_sample.parquet` distribuída com o pacote, apenas 558 dos 20.028 (2.7%)
+endereços eram afetados, com diferenças de até 26 km.
+
+- Bug corrigido em função interna de limpeza automática do cache de dados do CNEFE. 
+Quando a pasta de cache continha dados de um release antigo convivendo com os do 
+release corrente, o pacote apagava a pasta de cache inteira — inclusive os dados 
+correntes, que estavam íntegros —, forçando um novo download de todo o conjunto 
+de dados. Agora apenas as pastas dos releases antigos são apagadas. Além disso,
+uma pasta de release com nome fora do padrão esperado fazia a limpeza parar com o
+erro `missing value where TRUE/FALSE needed`, o que interrompia qualquer chamada
+a `geocode()`, `geocode_reverso()` ou `busca_por_cep()` com `cache = TRUE`. Esse
+caso passa a ser tratado como release antigo.
+
+- Bug corrigido no argumento `cache = FALSE` das funções `geocode()`,
+`geocode_reverso()` e `busca_por_cep()`. Nesse modo, os dados do CNEFE são
+baixados para um diretório temporário, mas as funções liam os dados da pasta de
+cache persistente — isto é, de um lugar diferente daquele em que os dados haviam
+acabado de ser gravados. Na prática, quem não tinha os dados em cache recebia o
+erro `IO Error: No files found that match the pattern ...` depois de esperar o
+download inteiro, e quem já tinha obtinha o resultado correto, mas lido do cache,
+com o download recém-feito descartado. Agora a leitura usa a pasta devolvida por
+`download_cnefe()`.
+
 
 
 # geocodebr v0.6.4

@@ -4,10 +4,7 @@
 \alias{cache_message}
 \title{Message when caching file}
 \usage{
-cache_message(
-  local_file = parent.frame()$local_file,
-  cache = parent.frame()$cache
-)
+cache_message(local_file, cache)
 }
 \arguments{
 \item{local_file}{The address of a file passed from the download_file function.}

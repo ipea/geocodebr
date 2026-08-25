@@ -31,10 +31,7 @@ arrow_open_dataset <- function(filename) {
 #' @return A message
 #'
 #' @keywords internal
-cache_message <- function(
-  local_file = parent.frame()$local_file,
-  cache = parent.frame()$cache
-) {
+cache_message <- function(local_file, cache) {
   # nocov start
 
   # name of local file
@@ -213,38 +210,34 @@ merge_results_to_input <- function(
   return(merged_data)
 } # nocov end
 
-
-#' create index
-#'
-#' @keywords internal
-create_index <- function(con, tb, cols, operation, overwrite = TRUE) {
-  # nocov start
-
-  idx <- paste0('idx_', tb)
-  cols_group <- paste(cols, collapse = ", ")
-
-  # check if table already has index
-  i <- DBI::dbGetQuery(
-    con,
-    sprintf("SELECT * FROM duckdb_indexes WHERE table_name = '%s';", tb)
-  )
-
-  if (nrow(i) > 0 & isFALSE(overwrite)) {
-    return(NULL)
-  }
-  if (nrow(i) > 0 & isTRUE(overwrite)) {
-    DBI::dbExecute(con, sprintf('DROP INDEX IF EXISTS %s', idx))
-  }
-
-  query_index <- sprintf(
-    '%s INDEX %s ON %s(%s);',
-    operation,
-    idx,
-    tb,
-    cols_group
-  )
-  DBI::dbExecute(con, query_index)
-} # nocov end
+#create_index <- function(con, tb, cols, operation, overwrite = TRUE) {
+#  # nocov start
+#
+#  idx <- paste0('idx_', tb)
+#  cols_group <- paste(cols, collapse = ", ")
+#
+#  # check if table already has index
+#  i <- DBI::dbGetQuery(
+#    con,
+#    sprintf("SELECT * FROM duckdb_indexes WHERE table_name = '%s';", tb)
+#  )
+#
+#  if (nrow(i) > 0 & isFALSE(overwrite)) {
+#    return(NULL)
+#  }
+#  if (nrow(i) > 0 & isTRUE(overwrite)) {
+#    DBI::dbExecute(con, sprintf('DROP INDEX IF EXISTS %s', idx))
+#  }
+#
+#  query_index <- sprintf(
+#    '%s INDEX %s ON %s(%s);',
+#    operation,
+#    idx,
+#    tb,
+#    cols_group
+#  )
+#  DBI::dbExecute(con, query_index)
+#} # nocov end
 
 
 get_key_cols <- function(match_type) {
@@ -349,6 +342,20 @@ probabilistic_interpolation_types <- c(
   "pa04"
 )
 
+# pa01/pa02/pa03 tem exatamente o mesmo key_cols (get_key_cols()), a mesma
+# tabela de referencia (get_reference_table()) e o mesmo corte de similaridade
+# (get_prob_match_cutoff()) que pn01/pn02/pn03, a etapa imediatamente anterior
+# em all_possible_match_types. calculate_string_dist() so calcula Jaro para
+# linhas com similaridade_logradouro IS NULL -- ou seja, as linhas que sobram
+# para pa0k sao exatamente as que pn0k ja testou contra o mesmo candidato com o
+# mesmo corte e nao passou. Recalcular em pa0k e um no-op garantido (medido:
+# 0 matches em pa01/pa02/pa03 em 20.028 enderecos -- ver
+# quality_reports/diagnoses/2026-08-23_geocode-diagnostico-performance.md §6).
+# NAO inclui "pa04": pn04 esta desativado (# too costly, ver acima), entao nao
+# ha etapa anterior que preencha similaridade_logradouro para pa04 reaproveitar.
+# Se pn04/pa04 forem reativados juntos, pa04 pode entrar aqui; separados, nao.
+match_types_jaro_redundante <- c("pa01", "pa02", "pa03")
+
 exact_types_no_number <- c(
   "dl01",
   "dl02",
@@ -367,7 +374,7 @@ probabilistic_types_no_number <- c(
   "pl04"
 )
 
-exact_types__no_logradouro <- c(
+exact_types_no_logradouro <- c(
   "dc01",
   "dc02",
   "db01",
@@ -411,35 +418,100 @@ assert_and_assign_address_fields <- function(address_fields, addresses_table) {
 } # nocov end
 
 
+# Tabela de referencia do CNEFE lida por cada match_type.
+#
+# O mapeamento NAO e derivavel das key_cols da etapa: varias etapas leem uma
+# tabela mais detalhada do que a sua chave exige. Por exemplo, `dn04` tem chave
+# municipio + logradouro + numero, mas le a tabela ..._numero_localidade, porque
+# so um subconjunto das combinacoes e distribuido (ver `all_files` em
+# `download_cnefe()`). Manter isso como um mapa explicito evita ter de reconstruir
+# essa excecao mentalmente a cada leitura.
+#
+# Cobre os 28 match_types que `get_key_cols()` conhece, inclusive `pn04`, `pa04`
+# e `pl04`, que hoje estao fora de `all_possible_match_types` por serem caros.
+reference_table_by_match_type <- c(
+  dn01 = "municipio_logradouro_numero_cep_localidade",
+  dn02 = "municipio_logradouro_numero_cep_localidade",
+  dn03 = "municipio_logradouro_numero_cep_localidade",
+  dn04 = "municipio_logradouro_numero_localidade",
+
+  da01 = "municipio_logradouro_numero_cep_localidade",
+  da02 = "municipio_logradouro_numero_cep_localidade",
+  da03 = "municipio_logradouro_numero_localidade",
+  da04 = "municipio_logradouro_numero_localidade",
+
+  pn01 = "municipio_logradouro_numero_cep_localidade",
+  pn02 = "municipio_logradouro_numero_cep_localidade",
+  pn03 = "municipio_logradouro_numero_cep_localidade",
+  pn04 = "municipio_logradouro_numero",
+
+  pa01 = "municipio_logradouro_numero_cep_localidade",
+  pa02 = "municipio_logradouro_numero_cep_localidade",
+  pa03 = "municipio_logradouro_numero_localidade",
+  pa04 = "municipio_logradouro_numero",
+
+  dl01 = "municipio_logradouro_cep_localidade",
+  dl02 = "municipio_logradouro_cep_localidade",
+  dl03 = "municipio_logradouro_cep_localidade",
+  dl04 = "municipio_logradouro_localidade",
+
+  pl01 = "municipio_logradouro_cep_localidade",
+  pl02 = "municipio_logradouro_cep_localidade",
+  pl03 = "municipio_logradouro_cep_localidade",
+  pl04 = "municipio_logradouro",
+
+  dc01 = "municipio_cep_localidade",
+  dc02 = "municipio_cep",
+  db01 = "municipio_localidade",
+  dm01 = "municipio"
+)
+
+
 get_reference_table <- function(match_type) {
   # nocov start
 
-  # key_cols = get_key_cols('da03')
+  table_name <- reference_table_by_match_type[match_type]
 
-  key_cols <- get_key_cols(match_type)
-
-  # read corresponding parquet file
-  table_name <- paste(key_cols, collapse = "_")
-  table_name <- gsub('estado_municipio', 'municipio', table_name)
-
-  # reference table
-  if (match_type %like% 'dn02|pn02|da02|pa02|dn03|pn03') {
-    table_name <- "municipio_logradouro_numero_cep_localidade"
+  if (anyNA(table_name)) {
+    desconhecidos <- match_type[is.na(table_name)]
+    cli::cli_abort(
+      "Nao ha tabela de refer\u00eancia definida para o match_type {.val {desconhecidos}}."
+    )
   }
 
-  if (match_type %like% 'da03|pa03|dn04|da04') {
-    table_name <- "municipio_logradouro_numero_localidade"
+  return(unname(table_name))
+} # nocov end
+
+
+# Funcao de match utilizada por cada match_type.
+#
+# Cada match_type pertence a exatamente um dos grupos definidos acima
+# (number_exact_types / exact_types_no_number, number_interpolation_types,
+# probabilistic_exact_types / probabilistic_types_no_number,
+# probabilistic_interpolation_types).
+reference_match_fun_by_match_type <- function(match_type) {
+  # nocov start
+  if (match_type %in% c(number_exact_types, exact_types_no_number)) {
+    return(match_cases)
   }
 
-  if (match_type %like% 'dl02|pl02|dl03|pl03') {
-    table_name <- "municipio_logradouro_cep_localidade"
+  if (match_type %in% number_interpolation_types) {
+    return(match_weighted_cases)
   }
 
-  if (match_type %like% 'dl04') {
-    table_name <- "municipio_logradouro_localidade"
+  if (
+    match_type %in% c(probabilistic_exact_types, probabilistic_types_no_number)
+  ) {
+    return(match_cases_probabilistic)
   }
 
-  return(table_name)
+  if (match_type %in% probabilistic_interpolation_types) {
+    return(match_weighted_cases_probabilistic)
+  }
+
+  cli::cli_abort(
+    "Nao ha fun\u00e7\u00e3o de match definida para o match_type {.val {match_type}}."
+  )
 } # nocov end
 
 

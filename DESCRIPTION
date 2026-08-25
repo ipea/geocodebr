@@ -38,7 +38,7 @@ Imports:
     data.table,
     DBI,
     dplyr,
-    duckdb,
+    duckdb (>= 1.5.5),
     duckspatial (>= 1.0.0),
     enderecobr (>= 0.5.0),
     fs,

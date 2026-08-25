@@ -20,7 +20,6 @@
 #'
 #' @examplesIf identical(tolower(Sys.getenv("NOT_CRAN")), "true")
 #' library(geocodebr)
-#' library(sf)
 #'
 #' # ler amostra de dados
 #' pontos <- readRDS(
@@ -108,6 +107,13 @@ geocode_reverso <- function(
     load_spatial = TRUE
   )
 
+  # rede de seguranca: garante que a conexao seja fechada mesmo se a funcao
+  # falhar no meio do caminho, inclusive quando ela para porque nenhum endereco
+  # proximo foi encontrado. O dbDisconnect() explicito mais abaixo continua sendo
+  # o fechamento normal, e o teste dbIsValid() evita o aviso
+  # "Connection already closed" quando a funcao termina sem erro
+  on.exit(if (DBI::dbIsValid(conn)) duckdb::dbDisconnect(conn), add = TRUE)
+
   # limita escopo de busca aos municipios  -------------------------------------------------------
   # determine potential municipalities
   munis <- system.file("extdata/munis_bbox_2022.parquet", package = "geocodebr") |>
@@ -132,10 +138,9 @@ geocode_reverso <- function(
 
 
   # build path to local file
-  path_to_parquet <- fs::path(
-    listar_pasta_cache(),
-    glue::glue("geocodebr_data_release_{data_release}"),
-    paste0("municipio_logradouro_numero_cep_localidade.parquet")
+  path_to_parquet <- caminho_parquet(
+    "municipio_logradouro_numero_cep_localidade",
+    cnefe_dir
   )
 
   # create filtered_cnefe table, filter on the fly
@@ -180,7 +185,7 @@ geocode_reverso <- function(
     y = 'EPSG:31983',
     conn = conn,
     name = "pontos_utm",
-    overwrite = T,
+    overwrite = TRUE,
     quiet = TRUE
   )
 
@@ -200,7 +205,7 @@ geocode_reverso <- function(
       join = "intersects", # intersects within
       conn = conn,
       name = "join_result",
-      overwrite = T,
+      overwrite = TRUE,
       quiet = TRUE
     )
   )
@@ -226,7 +231,7 @@ geocode_reverso <- function(
         b.* {exclude_clause},
         ST_Distance(a.geometry, b.geometry) AS distancia_metros,
         ROW_NUMBER() OVER (
-          PARTITION BY a.id
+          PARTITION BY a.tempidgeocodebr
           ORDER BY distancia_metros
         ) AS rn
       FROM pontos_utm AS a

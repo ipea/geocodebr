@@ -130,16 +130,16 @@ geocode <- function(
 
 #' @keywords internal
 geocode_core <- function(
-  enderecos = parent.frame()$enderecos,
-  campos_endereco = parent.frame()$campos_endereco,
-  resultado_completo = parent.frame()$resultado_completo,
-  resolver_empates = parent.frame()$resolver_empates,
-  resultado_sf = parent.frame()$resultado_sf,
-  h3_res = parent.frame()$h3_res,
-  padronizar_enderecos = parent.frame()$padronizar_enderecos,
-  verboso = parent.frame()$verboso,
-  cache = parent.frame()$cache,
-  n_cores = parent.frame()$n_cores
+  enderecos,
+  campos_endereco,
+  resultado_completo,
+  resolver_empates,
+  resultado_sf,
+  h3_res,
+  padronizar_enderecos,
+  verboso,
+  cache,
+  n_cores
 ) {
   # ## ---- tiny timing toolkit (self-contained) ------------------------------
   # .make_timer <- function(verbose = TRUE) {
@@ -223,6 +223,13 @@ geocode_core <- function(
 
   # determine which columns are missing, if any
   missing_cols <- campos_endereco[unlist(lapply(campos_endereco, is.null))]
+
+  # nomes dos campos que o usuario nao declarou -- viram coluna-fantasma
+  # NA_character_ logo abaixo, entao nenhum match_type cujo key_cols inclua
+  # um desses campos pode gerar match (o filtro "IS NOT NULL" da query de
+  # match sempre vai zerar). Usado no laco de matching mais abaixo para pular
+  # essas etapas sem materializar a tabela de referencia correspondente.
+  campos_nao_declarados <- names(missing_cols)
 
   if (length(missing_cols)>=1) {
 
@@ -318,6 +325,12 @@ geocode_core <- function(
   # creating a temporary db and register the input table data
   con <- create_geocodebr_db(n_cores = n_cores)
 
+  # rede de seguranca: garante que a conexao seja fechada mesmo se a funcao
+  # falhar no meio do caminho. O dbDisconnect() explicito mais abaixo continua
+  # sendo o fechamento normal, e o teste dbIsValid() evita o aviso
+  # "Connection already closed" quando a funcao termina sem erro
+  on.exit(if (DBI::dbIsValid(con)) duckdb::dbDisconnect(con), add = TRUE)
+
   # register standardized input data
   input_padrao_arrw <- arrow::as_arrow_table(input_padrao)
   DBI::dbWriteTableArrow(
@@ -407,28 +420,18 @@ geocode_core <- function(
     }
 
     # somente busca essa categoria match_type se todas colunas estiverem na base
-    # caso contrario, passa para proxima categoria
-    if (all(key_cols %in% names(input_padrao))) {
+    # e nenhuma delas for um campo que o usuario nao declarou -- caso
+    # contrario, passa para proxima categoria
+    if (all(key_cols %in% names(input_padrao)) && !any(key_cols %in% campos_nao_declarados)) {
       # select match function
-      match_fun <-
-        if (match_type %in% c(number_exact_types, exact_types_no_number)) {
-          match_cases
-        } else if (match_type %in% number_interpolation_types) {
-          match_weighted_cases
-        } else if (
-          match_type %in%
-            c(probabilistic_exact_types, probabilistic_types_no_number)
-        ) {
-          match_cases_probabilistic
-        } else if (match_type %in% probabilistic_interpolation_types) {
-          match_weighted_cases_probabilistic
-        }
+      match_fun <- reference_match_fun_by_match_type(match_type)
 
       n_rows_affected <- match_fun(
         con,
         match_type = match_type,
         key_cols = key_cols,
-        resultado_completo = resultado_completo
+        resultado_completo = resultado_completo,
+        pasta_dados = cnefe_dir
       )
 
       matched_rows <- matched_rows + n_rows_affected

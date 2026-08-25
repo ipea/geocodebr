@@ -25,6 +25,11 @@ importFrom(dplyr,
   mutate,
   select
 )
+importFrom(sf,
+  st_bbox,
+  st_crs,
+  st_geometry_type
+)
 importFrom(stats,
   na.omit,
   weighted.mean

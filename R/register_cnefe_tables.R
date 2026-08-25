@@ -1,4 +1,4 @@
-register_cnefe_table <- function(con, match_type) {
+register_cnefe_table <- function(con, match_type, pasta_dados) {
   # nocov start
 
   # message("register_cnefe_table")
@@ -9,11 +9,7 @@ register_cnefe_table <- function(con, match_type) {
   cnefe_table_name <- get_reference_table(match_type)
 
   # build path to local file
-  files <- geocodebr::listar_dados_cache()
-  path_to_parquet <- files[grepl(paste0(cnefe_table_name, ".parquet"), files)]
-
-  # make sure we get only the one file from current data release
-  path_to_parquet <- path_to_parquet[ grepl(data_release, path_to_parquet) ]
+  path_to_parquet <- caminho_parquet(cnefe_table_name, pasta_dados)
 
 
 
@@ -101,7 +97,7 @@ register_cnefe_table <- function(con, match_type) {
 
 
 # create small table with unique logradouros
-register_unique_logradouros_table <- function(con, match_type) {
+register_unique_logradouros_table <- function(con, match_type, pasta_dados) {
   # nocov start
 
   # match_type = "pn03"
@@ -124,12 +120,7 @@ register_unique_logradouros_table <- function(con, match_type) {
   select_cols <- key_cols[!key_cols %in% c("numero")]
 
   # path to parquet
-  unique_logr_tbl_parquet <- paste0(cnefe_table_name, ".parquet")
-  files <- geocodebr::listar_dados_cache()
-  path_to_parquet <- files[grepl(unique_logr_tbl_parquet, files)]
-
-  # make sure we get only the one file from current data release
-  path_to_parquet <- path_to_parquet[ grepl(data_release, path_to_parquet) ]
+  path_to_parquet <- caminho_parquet(cnefe_table_name, pasta_dados)
 
   # should use DISTINCT rows
   DISTINCT <- "DISTINCT"
@@ -217,11 +208,16 @@ register_unique_logradouros_table <- function(con, match_type) {
             WITH unique_munis AS (
                 SELECT DISTINCT municipio
                 FROM input_padrao_db
+            ),
+            unique_states AS (
+                SELECT DISTINCT estado
+                FROM input_padrao_db
             )
 
           SELECT {DISTINCT} {select_cols}
               FROM read_parquet('{path_to_parquet}') m
-              WHERE m.municipio IN (SELECT municipio FROM unique_munis);"
+              WHERE m.estado IN (SELECT estado FROM unique_states)
+                AND m.municipio IN (SELECT municipio FROM unique_munis);"
     )
   }
   DBI::dbExecute(con, query_unique_logradouros)
