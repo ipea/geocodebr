@@ -20,8 +20,9 @@
 #'   coluna (para o `INSERT INTO ... (...)`), ao qual esta funcao acrescenta
 #'   os seus proprios nomes. Permite ao chamador injetar uma coluna extra
 #'   antes de entrar aqui -- ex.: `similaridade_logradouro` em
-#'   `match_cases_probabilistic()`, que e condicional a `resultado_completo`
-#'   mas nao faz parte de `key_cols`. Por padrao `""`.
+#'   `match_cases_probabilistic()` e `match_weighted_cases_probabilistic()`,
+#'   que e condicional a `resultado_completo` mas nao faz parte de
+#'   `key_cols`. Por padrao `""`.
 #' @param additional_cols String. Fragmento inicial da lista de expressoes do
 #'   `SELECT`, equivalente a `colunas_encontradas` mas do lado das
 #'   expressoes (ex.: `"y.cep AS cep_encontrado"`). Por padrao `""`.

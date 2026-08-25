@@ -75,6 +75,21 @@ match_weighted_cases_probabilistic <- function(
   ordem_first <- "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
 
 
+  # `similaridade_logradouro` eh especifica do caminho probabilistico -- soma
+  # como base antes de chamar o helper comum, no mesmo padrao usado por
+  # match_cases_probabilistic() (ver comentario la): so entra no output_db
+  # quando resultado_completo = TRUE
+  colunas_encontradas_base <- ""
+  additional_cols_first_base <- ""
+  additional_cols_second_base <- ""
+  if (isTRUE(resultado_completo)) {
+    colunas_encontradas_base <- ", similaridade_logradouro"
+    additional_cols_first_base <- glue::glue(", {x}.similaridade_logradouro")
+    additional_cols_second_base <- glue::glue(
+      ", FIRST(similaridade_logradouro {ordem_first}) AS similaridade_logradouro"
+    )
+  }
+
   # parte 1 (CTE, sem agregacao)
   # `logradouro_encontrado` eh coluna de trabalho interna, e nao apenas uma coluna
   # de output: a resolucao de empates em trata_empates_geocode_duckdb() usa essa
@@ -82,7 +97,11 @@ match_weighted_cases_probabilistic <- function(
   # precisa ser preenchida sempre, independentemente de `resultado_completo` -- o
   # schema de output_db em geocode.R ja a declara nos dois casos. As demais
   # colunas `*_encontrado` seguem condicionadas a `resultado_completo`.
-  first <- monta_colunas_encontradas(y, key_cols, resultado_completo)
+  first <- monta_colunas_encontradas(
+    y, key_cols, resultado_completo,
+    colunas_encontradas = colunas_encontradas_base,
+    additional_cols = additional_cols_first_base
+  )
   colunas_encontradas <- first$colunas_encontradas
   additional_cols_first <- first$additional_cols
 
@@ -90,6 +109,7 @@ match_weighted_cases_probabilistic <- function(
   # logradouro_encontrado, embrulhada em FIRST(... ordem_first)
   second <- monta_colunas_encontradas(
     y, key_cols, resultado_completo,
+    additional_cols = additional_cols_second_base,
     agregado = TRUE,
     ordem_first = ordem_first
   )
@@ -106,7 +126,6 @@ match_weighted_cases_probabilistic <- function(
              {y}.numero AS numero_cnefe,
              {y}.lat, {y}.lon,
              REGEXP_REPLACE( {y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
-             {x}.similaridade_logradouro,
              {y}.desvio_metros,
              {x}.log_causa_confusao,
              {y}.n_casos AS contagem_cnefe {additional_cols_first}
@@ -119,7 +138,7 @@ match_weighted_cases_probabilistic <- function(
   -- PART 2: aggregate and interpolate get aprox location
 
   INSERT INTO output_db (tempidgeocodebr, lat, lon, endereco_encontrado, tipo_resultado, desvio_metros,
-                         log_causa_confusao, similaridade_logradouro, contagem_cnefe {colunas_encontradas})
+                         log_causa_confusao, contagem_cnefe {colunas_encontradas})
        SELECT tempidgeocodebr,
          SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
          SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
@@ -127,7 +146,6 @@ match_weighted_cases_probabilistic <- function(
          '{match_type}' AS tipo_resultado,
          AVG(desvio_metros) AS desvio_metros,
          FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
-         FIRST(similaridade_logradouro {ordem_first}) AS similaridade_logradouro,
          FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
       FROM temp_db
       GROUP BY tempidgeocodebr, endereco_encontrado;"

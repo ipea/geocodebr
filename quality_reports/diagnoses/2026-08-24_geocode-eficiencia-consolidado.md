@@ -1,5 +1,15 @@
 # `geocode()` — análise consolidada de eficiência e proposta priorizada — 2026-08-24
 
+> **Status final — 25/08.** Itens 1, 2, 3 e 6 (tabela §1) foram implementados, verificados
+> (`identical()` ponta a ponta + `devtools::test()`) e commitados: `d27b722` (item 1), `282c302` (item 2,
+> já estava feito em 24/08), `0592c83` (item 3 — inclui a correção adicional no `QUALIFY` de
+> `trata_empates_geocode_duckdb.R`, achado durante a verificação, não previsto originalmente), `889e331`
+> (item 6, ver também a fusão das duas funções de apoio numa só, `monta_colunas_encontradas()`, em
+> `R/match_helpers.R`). Item 4 (`TEMP VIEW`) foi testado e **refutado** — não retentar. Itens 5 e 7
+> continuam abertos. Detalhes de cada implementação: `2026-08-25_geocode-guard-fix-benchmark.md` (item 1)
+> e `2026-08-25_first-order-fix-benchmark.md` (item 3). Ver também `[LEARN:geocode]`/`[LEARN:duckdb]` em
+> `MEMORY.md` para as armadilhas encontradas em cada um.
+
 **O que é este documento.** Não é um novo diagnóstico do zero — é uma auditoria de status: cada achado dos
 três relatórios anteriores (`2026-08-23_geocode-diagnostico-performance.md`,
 `2026-08-23_analise-pacote-desempenho-manutencao.md`, `2026-08-24_temp-view-benchmark.md`) foi verificado
