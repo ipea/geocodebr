@@ -67,15 +67,6 @@ ends_geo <- geocode(
   resultado_sf = FALSE,
   verboso = FALSE
   )
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpUxGs66/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
-#> 
 
 head(ends_geo)
 #>   id            nm_logradouro Numero       Cep               Bairro

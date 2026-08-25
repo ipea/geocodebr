@@ -231,7 +231,7 @@
 <p><strong>Etapa 2 — padronização.</strong> <code><a href="https://rdrr.io/pkg/enderecobr/man/padronizar_enderecos.html" class="external-link">enderecobr::padronizar_enderecos()</a></code> com <code>formato_estados = "sigla"</code> e <code>formato_numeros = "integer"</code>. As colunas <code>*_padr</code> resultantes são renomeadas removendo o sufixo, e <code>bairro</code> vira <code>localidade</code> (nome usado no CNEFE). Com <code>padronizar_enderecos = FALSE</code> o pacote verifica que as 6 colunas <code>*_padr</code> existem e aborta com <code>error_input_nao_padronizado()</code> se não existirem. Em seguida cria <code>tempidgeocodebr</code> (a chave que amarra input e output do início ao fim) e duas colunas de trabalho vazias, <code>temp_lograd_determ</code> e <code>similaridade_logradouro</code>, usadas só pelo match probabilístico.</p>
 <p><strong>Etapa 3 — banco DuckDB temporário.</strong> <code>create_geocodebr_db()</code> abre um <code>.duckdb</code> em <code><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile()</a></code> — <strong>em disco, não em memória</strong>, para suportar volumes maiores que a RAM. Define <code>SET threads</code> (por padrão <code>min(availableCores(), freeConnections())</code>). O input padronizado é gravado como <code>input_padrao_db</code> e o <code>output_db</code> é criado vazio a partir de um schema Arrow explícito. <code>cria_col_logradouro_confusao()</code> marca em <code>log_causa_confusao</code> os logradouros ambíguos (<code>RUA A</code>, <code>RUA 10</code>, <code>RUA UM</code>…), com exceção de datas (<code>RUA 15 DE NOVEMBRO</code>). Esse flag é usado duas vezes adiante: exclui a linha do match probabilístico e força o desempate pelo caminho “perdido”.</p>
 <blockquote>
-<p><strong>As tabelas de referência NÃO são criadas todas aqui.</strong> Elas são materializadas <strong>sob demanda</strong>, uma por vez, dentro de cada etapa do laço, por <code>register_cnefe_table()</code> (<code>R/register_cnefe_tables.R</code>), que faz <code>CREATE TEMP TABLE ... AS SELECT * FROM read_parquet(...) WHERE estado IN (...) AND municipio IN (...)</code>, filtrando pelos estados e municípios <strong>ainda presentes</strong> em <code>input_padrao_db</code>. Como o laço vai apagando linhas já encontradas, uma tabela criada numa etapa tardia é filtrada por um conjunto de municípios <strong>menor</strong> do que o original. Cada tabela é criada uma única vez (<code>dbExistsTable()</code> retorna cedo) e reaproveitada por todas as etapas que a compartilham. Essas tabelas <strong>não são indexadas</strong> — o código de índice existe (<code><a href="reference/create_index.html">create_index()</a></code> em <code>R/utils.R</code>) mas está desativado.</p>
+<p><strong>As tabelas de referência NÃO são criadas todas aqui.</strong> Elas são materializadas <strong>sob demanda</strong>, uma por vez, dentro de cada etapa do laço, por <code>register_cnefe_table()</code> (<code>R/register_cnefe_tables.R</code>), que faz <code>CREATE TEMP TABLE ... AS SELECT * FROM read_parquet(...) WHERE estado IN (...) AND municipio IN (...)</code>, filtrando pelos estados e municípios <strong>ainda presentes</strong> em <code>input_padrao_db</code>. Como o laço vai apagando linhas já encontradas, uma tabela criada numa etapa tardia é filtrada por um conjunto de municípios <strong>menor</strong> do que o original. Cada tabela é criada uma única vez (<code>dbExistsTable()</code> retorna cedo) e reaproveitada por todas as etapas que a compartilham. Essas tabelas <strong>não são indexadas</strong> — o código de índice existe (<code>create_index()</code> em <code>R/utils.R</code>) mas está desativado.</p>
 </blockquote>
 <p><strong>Etapa 4 — o laço de matching.</strong> <code>all_possible_match_types</code> (<code>R/utils.R</code>) define <strong>25 etapas em ordem fixa, da mais precisa para a menos precisa</strong>. A cada etapa: (a) <code>get_key_cols()</code> devolve as colunas-chave; (b) se alguma delas não existe no input, a etapa é <strong>pulada</strong>; (c) escolhe-se uma das 4 funções de match; (d) os encontrados são inseridos em <code>output_db</code>; (e) <code><a href="reference/update_input_db.html">update_input_db()</a></code> <strong>apaga</strong> de <code>input_padrao_db</code> os <code>tempidgeocodebr</code> já resolvidos. Se todos forem encontrados, o laço sai mais cedo.</p>
 <table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th>Família</th>
@@ -283,6 +283,63 @@
 <li>
 <code>man/roxygen/templates/precision_section.R</code> e <code>empates_section.R</code> são a documentação de usuário desse pipeline — mudou a lógica aqui, atualize lá.</li>
 </ol></div>
+</div>
+<div class="section level3">
+<h3 id="geocode_reverso">geocode_reverso()<a class="anchor" aria-label="anchor" href="#geocode_reverso"></a></h3>
+<p>Apesar do nome sugerir simetria com <code><a href="reference/geocode.html">geocode()</a></code>, é um pipeline <strong>completamente diferente</strong>: não usa <code>callr</code>, não usa o laço de 25 etapas, não tem desempate, e delega quase tudo à extensão espacial do DuckDB via <code>duckspatial</code>. Roda no processo do próprio usuário.</p>
+<p><strong>Etapa 1 — validação.</strong> Exige <code>sf</code> com geometria <strong><code>POINT</code></strong> e <strong>EPSG 4674</strong> (aborta com outro CRS em vez de reprojetar). <code>dist_max</code> é limitado a <code>[500, 100000]</code> metros — <strong>não é possível pedir raio menor que 500 m</strong>. Por fim, testa se a <code>st_bbox()</code> do conjunto cai dentro de um bounding box do Brasil hardcoded (<code>R/geocode_reverso.R:79-84</code>); como o teste é sobre a bbox <strong>agregada</strong>, um único ponto fora do país derruba a chamada inteira.</p>
+<p><strong>Etapa 2 — dados.</strong> Baixa <strong>uma única tabela</strong>, <code>municipio_logradouro_numero_cep_localidade</code> (a mais detalhada), e abre o DuckDB com <code>load_spatial = TRUE</code>, que instala/carrega a extensão espacial.</p>
+<p><strong>Etapa 3 — recorte geográfico, por geometria e não por coluna.</strong> Esta é a diferença conceitual central em relação ao <code><a href="reference/geocode.html">geocode()</a></code>: aqui o usuário <strong>não informa</strong> município nem UF. O pacote descobre os municípios candidatos com um join espacial <code>within</code> entre os pontos de input e <code>inst/extdata/munis_bbox_2022.parquet</code> — que contém <strong>bounding boxes</strong> dos municípios, não os polígonos reais. Isso devolve deliberadamente um superconjunto (bboxes vizinhas se sobrepõem), o que é seguro para não perder endereços na fronteira. Os códigos IBGE resultantes passam por <code><a href="https://rdrr.io/pkg/enderecobr/man/padronizar_municipios.html" class="external-link">enderecobr::padronizar_municipios()</a></code>, e os nomes são interpolados direto na string SQL — daí o <code>gsub("'", "''")</code> para municípios com apóstrofo (<code>Olho d'Água</code>).</p>
+<p><strong>Etapa 4 — busca espacial em UTM.</strong> CNEFE e pontos de input são reprojetados para <strong>EPSG:31983</strong> (SIRGAS 2000 / UTM 23S) para que as distâncias saiam em metros. Cria-se um buffer de <code>dist_max</code> em volta de cada ponto, faz-se um join <code>intersects</code> contra os endereços do CNEFE, e um <code>ROW_NUMBER() ... ORDER BY distancia_metros</code> mantém o <strong>endereço mais próximo</strong> de cada ponto. O resultado volta para EPSG 4674 antes de ser coletado.</p>
+<blockquote>
+<p><strong>EPSG:31983 é uma única zona UTM aplicada ao país inteiro.</strong> A zona 23S é centrada em -45° de longitude, então a distorção cresce conforme se afasta dela. Medido: erro de +0,2% em São Paulo, +0,7% em Salvador, +3,6% em Manaus e <strong>+8,3% em Rio Branco</strong>. Isso afeta tanto a coluna <code>distancia_metros</code> quanto o raio efetivo de busca do buffer. Ver o relatório de achados em <code>quality_reports/diagnoses/</code>.</p>
+</blockquote>
+<p><strong>Etapa 5 — output.</strong> Retorna o <code>sf</code> de input acrescido das colunas do endereço encontrado e de <code>distancia_metros</code>, com a geometria movida para a última coluna. <strong>O join é <code>INNER</code></strong>: pontos sem nenhum endereço dentro de <code>dist_max</code> são <strong>descartados silenciosamente</strong>, e o output pode ter menos linhas que o input. A função só falha se <em>nenhum</em> ponto encontrar endereço. Isso contrasta com <code><a href="reference/geocode.html">geocode()</a></code>, que preserva todas as linhas via <code>LEFT JOIN</code> e devolve <code>NA</code>.</p>
+</div>
+<div class="section level3">
+<h3 id="busca_por_cep">busca_por_cep()<a class="anchor" aria-label="anchor" href="#busca_por_cep"></a></h3>
+<p>O mais simples dos três: sem <code>callr</code>, sem laço, sem empates, sem extensão espacial — uma única consulta SQL.</p>
+<p><strong>Etapa 1 — normalização.</strong> <code><a href="https://rdrr.io/pkg/enderecobr/man/padronizar_ceps.html" class="external-link">enderecobr::padronizar_ceps()</a></code> e, em seguida, <code><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique()</a></code> + <code><a href="https://rdrr.io/r/stats/na.fail.html" class="external-link">na.omit()</a></code> + remoção de strings vazias. Ou seja, <strong>CEPs duplicados ou inválidos no input são eliminados</strong> e não têm correspondência 1:1 com as linhas do output.</p>
+<p><strong>Etapa 2 — consulta.</strong> Baixa apenas <code>municipio_logradouro_cep_localidade</code> e roda um <code>SELECT ... FROM read_parquet(...) WHERE cep IN (...)</code>. Note que <strong>não há recorte por município ou UF</strong> — é uma varredura do parquet nacional, viável porque o CEP já é discriminante.</p>
+<p><strong>Etapa 3 — CEPs não encontrados.</strong> Os CEPs sem correspondência são anexados de volta ao resultado como linhas com <code>cep</code> preenchido e todo o resto <code>NA</code> (<code>data.table::rbindlist(..., fill = TRUE)</code>), para que o usuário veja o que não foi achado. Se <em>nenhum</em> CEP for encontrado, a função aborta.</p>
+<p><strong>Etapa 4 — output.</strong> Adiciona colunas H3 se <code>h3_res</code> for informado e converte para <code>sf</code> se <code>resultado_sf = TRUE</code>.</p>
+<blockquote>
+<p><strong>A cardinalidade do output não é a do input.</strong> Um CEP costuma cobrir vários logradouros/localidades, e cada combinação vira uma linha. Somado à deduplicação da Etapa 1, o número de linhas do resultado não guarda relação direta com o comprimento do vetor <code>cep</code>.</p>
+</blockquote>
+<div class="section level4">
+<h4 id="diferenças-entre-as-três-funções">Diferenças entre as três funções<a class="anchor" aria-label="anchor" href="#diferen%C3%A7as-entre-as-tr%C3%AAs-fun%C3%A7%C3%B5es"></a></h4>
+<table class="table"><colgroup><col width="25%"><col width="25%"><col width="25%"><col width="25%"></colgroup><thead><tr><th></th>
+<th><code><a href="reference/geocode.html">geocode()</a></code></th>
+<th><code><a href="reference/geocode_reverso.html">geocode_reverso()</a></code></th>
+<th><code><a href="reference/busca_por_cep.html">busca_por_cep()</a></code></th>
+</tr></thead><tbody><tr><td>Isolamento em <code>callr</code>
+</td>
+<td>Sim</td>
+<td>Não</td>
+<td>Não</td>
+</tr><tr><td>Tabelas CNEFE baixadas</td>
+<td>8 (todas)</td>
+<td>1</td>
+<td>1</td>
+</tr><tr><td>Extensão espacial DuckDB</td>
+<td>Não</td>
+<td><strong>Sim</strong></td>
+<td>Não</td>
+</tr><tr><td>Como limita municípios</td>
+<td>Colunas UF+município do input (obrigatórias)</td>
+<td>Join espacial com bboxes</td>
+<td>Não limita</td>
+</tr><tr><td>Linhas do input preservadas</td>
+<td>Sim (<code>LEFT JOIN</code>, <code>NA</code> se não achou)</td>
+<td>
+<strong>Não</strong> (<code>INNER JOIN</code>, descarta)</td>
+<td>Não (dedup + 1:N)</td>
+</tr><tr><td>Desconecta o DuckDB</td>
+<td>Sim</td>
+<td>Sim</td>
+<td>
+<strong>Não</strong> (ver achados)</td>
+</tr></tbody></table></div>
 </div>
 </div>
 </div>
