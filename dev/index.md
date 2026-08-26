@@ -35,7 +35,7 @@ Caso prefira, a versão em desenvolvimento:
 ``` r
 
 # install.packages("remotes")
-remotes::install_github("ipea/geocodebr")
+remotes::install_github("ipea/geocodebr", subdir = "r-package")
 ```
 
 ## Utilização
