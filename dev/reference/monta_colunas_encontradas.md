@@ -46,7 +46,8 @@ monta_colunas_encontradas(
   `INSERT INTO ... (...)`), ao qual esta funcao acrescenta os seus
   proprios nomes. Permite ao chamador injetar uma coluna extra antes de
   entrar aqui – ex.: `similaridade_logradouro` em
-  `match_cases_probabilistic()`, que e condicional a
+  `match_cases_probabilistic()` e
+  `match_weighted_cases_probabilistic()`, que e condicional a
   `resultado_completo` mas nao faz parte de `key_cols`. Por padrao `""`.
 
 - additional_cols:
