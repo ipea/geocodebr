@@ -30,6 +30,11 @@ nesses casos. O resultado retornado não muda.
 empates entre candidatos separados por menos de 300 metros, que antes não estava 
 documentada. Ver a seção "Lidando com casos de empate" em `?geocode`.
 
+- A função `geocode()` agora baixa só as tabelas de referência do CNEFE que as 
+etapas ativas do algoritmo de fato vão usar, em vez de baixar sempre as 8 tabelas 
+disponíveis. No melhor caso (geocodificação só por CEP/bairro/município, sem 
+logradouro/número), o volume baixado cai de ~1,5 GB para ~20 MB.
+
 
 ## Correção de bugs (Bug fixes)
 

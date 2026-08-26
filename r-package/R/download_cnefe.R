@@ -4,7 +4,12 @@
 #' Nacional de Endereços para Fins Estatísticos) que foi criada para o uso deste
 #' pacote.
 #'
-#' @param tabela Nome da tabela para ser baixada. Por padrão, baixa `"todas"`.
+#' @param tabela Nome de uma ou mais tabelas a serem baixadas. Pode ser uma
+#'    única string ou um vetor de caracteres. Por padrão, baixa `"todas"` as
+#'    tabelas de referência do CNEFE (não pode ser combinado com outros
+#'    nomes). Os nomes válidos são os mesmos nomes-base dos arquivos
+#'    `.parquet` distribuídos pelo pacote (e.g. `"municipio_cep"`,
+#'    `"municipio_logradouro_numero_cep_localidade"`).
 #' @template verboso
 #' @template cache
 #'
@@ -12,6 +17,7 @@
 #'
 #' @examplesIf identical(tolower(Sys.getenv("NOT_CRAN")), "true")
 #' download_cnefe(verboso = FALSE)
+#' download_cnefe(tabela = c("municipio", "municipio_cep"), verboso = FALSE)
 #'
 #' @export
 download_cnefe <- function(tabela = "todas", verboso = TRUE, cache = TRUE) {
@@ -32,19 +38,35 @@ download_cnefe <- function(tabela = "todas", verboso = TRUE, cache = TRUE) {
   all_files_basename <- fs::path_ext_remove(all_files)
 
   # check input
+  # min.len = 0: tabelas_necessarias() (R/utils.R) pode devolver character(0)
+  # em input degenerado (ex.: campos_endereco sem 'estado'); nesse caso o
+  # laco de matching de geocode.R nao roda etapa nenhuma de qualquer forma,
+  # entao download_cnefe() so precisa nao travar com um erro cru aqui -- ela
+  # so nao baixa nada, e devolve o cache_dir vazio normalmente.
+  checkmate::assert_character(tabela, min.len = 0, any.missing = FALSE)
   checkmate::assert_logical(verboso, any.missing = FALSE, len = 1)
   checkmate::assert_logical(cache, any.missing = FALSE, len = 1)
 
-  # seleciona tabela
-  if (tabela != "todas") {
-    if (!any(all_files %like% tabela)) {
-      cli::cli_abort(
-        "A 'tabela' deve ser uma das seguintes op\u00e7\u00f5es: {all_files_basename}"
-      )
+  # seleciona tabela(s) -- tabela pode ser uma unica string ou um vetor com
+  # varios nomes; "todas" e um sentinela e nao pode ser combinado com outros
+  # nomes
+  if (!identical(tabela, "todas")) {
+    tabelas_invalidas <- setdiff(tabela, all_files_basename)
+
+    if (length(tabelas_invalidas) > 0) {
+      cli::cli_abort(c(
+        "'tabela' deve ser {.val todas} ou um vetor com uma ou mais das seguintes op\u00e7\u00f5es: {all_files_basename}",
+        "x" = "Valor(es) inv\u00e1lido(s) em {.arg tabela}: {tabelas_invalidas}"
+      ))
     }
 
-    all_files <- all_files_basename[all_files_basename == tabela]
-    all_files <- paste0(all_files, ".parquet")
+    all_files <- all_files_basename[all_files_basename %in% tabela]
+
+    # recycle0 = TRUE: paste0() por padrao recicla um argumento de tamanho
+    # zero para "" em vez de propagar character(0) -- sem isso,
+    # all_files vazio (tabela = character(0), cenario degenerado de
+    # tabelas_necessarias()) viraria erroneamente c(".parquet")
+    all_files <- paste0(all_files, ".parquet", recycle0 = TRUE)
   }
 
   data_urls <- glue::glue(

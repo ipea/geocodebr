@@ -99,3 +99,104 @@ test_that("as etapas ativas so leem tabelas que o pacote baixa", {
   # a tabela correspondente ao download
   expect_true(all(usadas %in% tabelas_distribuidas))
 })
+
+# tabelas_necessarias ----------------------------------------------------------
+
+test_that("tabelas_necessarias() sem campos faltando cobre as 8 tabelas distribuidas", {
+  tabelas_distribuidas <- c(
+    "municipio",
+    "municipio_cep",
+    "municipio_cep_localidade",
+    "municipio_localidade",
+    "municipio_logradouro_cep_localidade",
+    "municipio_logradouro_localidade",
+    "municipio_logradouro_numero_cep_localidade",
+    "municipio_logradouro_numero_localidade"
+  )
+
+  expect_setequal(
+    geocodebr:::tabelas_necessarias(character(0)),
+    tabelas_distribuidas
+  )
+})
+
+test_that("tabelas_necessarias() concorda com o guarda do laco de matching em geocode.R", {
+  # replica, aqui no teste, exatamente o criterio do guarda em geocode.R:
+  # `!any(key_cols %in% campos_nao_declarados)` -- o outro termo do guarda,
+  # `all(key_cols %in% names(input_padrao))`, e sempre TRUE nesse ponto do
+  # fluxo (campos nao declarados viram coluna-fantasma antes do laco rodar)
+  simula_laco <- function(campos_nao_declarados) {
+    tabelas <- character(0)
+    for (mt in geocodebr:::all_possible_match_types) {
+      key_cols <- geocodebr:::get_key_cols(mt)
+      if (!any(key_cols %in% campos_nao_declarados)) {
+        tabelas <- c(tabelas, geocodebr:::get_reference_table(mt))
+      }
+    }
+    unique(unname(tabelas))
+  }
+
+  cenarios <- list(
+    character(0),
+    c("logradouro", "numero"),
+    "cep",
+    "localidade",
+    "numero"
+  )
+
+  for (cn in cenarios) {
+    expect_setequal(geocodebr:::tabelas_necessarias(cn), simula_laco(cn))
+  }
+})
+
+test_that("tabelas_necessarias() nao falha em cenario degenerado (todo match_type excluido)", {
+  # todo match_type tem 'estado' em key_cols (inclusive dm01, o mais
+  # permissivo) -- se por algum motivo 'estado' aparecer em
+  # campos_nao_declarados, o resultado correto e character(0), nunca erro
+  expect_identical(geocodebr:::tabelas_necessarias("estado"), character(0))
+})
+
+test_that("tabelas_necessarias() cobre as tabelas que register_unique_logradouros_table() usaria", {
+  # Por design, nao por coincidencia: register_unique_logradouros_table()
+  # (R/register_cnefe_tables.R) usa, pros match_types probabilisticos
+  # (pn0X/pa0X/pl0X), uma tabela SEM a coluna 'numero' -- a distancia de
+  # Jaro so deve comparar o texto do logradouro, nunca o numero do imovel.
+  # Essa tabela e sempre a do match_type "irmao" sem numero (dl0X), cujo
+  # key_cols e subconjunto do key_cols do probabilistico correspondente --
+  # entao, sempre que um pn0X/pa0X/pl0X sobrevive ao filtro de
+  # tabelas_necessarias(), a tabela que ele precisa ja esta no conjunto
+  # devolvido. Este teste protege essa propriedade de design.
+  tabela_do_match_probabilistico <- function(match_type) {
+    if (match_type %in% c("pn03", "pa03", "pl03")) {
+      "municipio_logradouro_localidade"
+    } else {
+      "municipio_logradouro_cep_localidade"
+    }
+  }
+
+  probabilisticos <- Filter(
+    function(mt) startsWith(mt, "p"),
+    geocodebr:::all_possible_match_types
+  )
+
+  cenarios <- list(
+    character(0),
+    c("logradouro", "numero"),
+    "cep",
+    "localidade",
+    "numero"
+  )
+
+  for (cn in cenarios) {
+    tabelas <- geocodebr:::tabelas_necessarias(cn)
+
+    ativos <- Filter(
+      function(mt) !any(geocodebr:::get_key_cols(mt) %in% cn),
+      probabilisticos
+    )
+
+    esperadas <- unique(vapply(ativos, tabela_do_match_probabilistico, character(1)))
+
+    expect_true(all(esperadas %in% tabelas))
+  }
+})

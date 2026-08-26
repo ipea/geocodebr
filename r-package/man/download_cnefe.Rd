@@ -7,7 +7,12 @@
 download_cnefe(tabela = "todas", verboso = TRUE, cache = TRUE)
 }
 \arguments{
-\item{tabela}{Nome da tabela para ser baixada. Por padrão, baixa \code{"todas"}.}
+\item{tabela}{Nome de uma ou mais tabelas a serem baixadas. Pode ser uma
+única string ou um vetor de caracteres. Por padrão, baixa \code{"todas"} as
+tabelas de referência do CNEFE (não pode ser combinado com outros
+nomes). Os nomes válidos são os mesmos nomes-base dos arquivos
+\code{.parquet} distribuídos pelo pacote (e.g. \code{"municipio_cep"},
+\code{"municipio_logradouro_numero_cep_localidade"}).}
 
 \item{verboso}{Um valor lógico. Indica se barras de progresso e mensagens
 devem ser exibidas durante o download dos dados do CNEFE e a geocodificação
@@ -29,5 +34,6 @@ pacote.
 \examples{
 \dontshow{if (identical(tolower(Sys.getenv("NOT_CRAN")), "true")) withAutoprint(\{ # examplesIf}
 download_cnefe(verboso = FALSE)
+download_cnefe(tabela = c("municipio", "municipio_cep"), verboso = FALSE)
 \dontshow{\}) # examplesIf}
 }

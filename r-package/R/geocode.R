@@ -315,9 +315,12 @@ geocode_core <- function(
   # # sort input data
   # input_padrao <- input_padrao[order(estado, municipio, logradouro, numero, cep, localidade)]
 
-  # downloading cnefe
+  # downloading cnefe -- so as tabelas que as etapas ativas do laco de
+  # matching abaixo (all_possible_match_types, guarda mais adiante) vao de
+  # fato usar, dado quais campos o usuario declarou (campos_nao_declarados,
+  # calculado acima). Ver tabelas_necessarias() em R/utils.R
   cnefe_dir <- download_cnefe(
-    tabela = 'todas',
+    tabela = tabelas_necessarias(campos_nao_declarados),
     verboso = verboso,
     cache = cache
   )

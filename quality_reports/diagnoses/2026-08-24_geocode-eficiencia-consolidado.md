@@ -38,7 +38,7 @@ saber o que mudou, e duas rodadas de `Rprof()` frescas (HEAD atual, 20.028 ender
 
 | # | item | status em 24/08 | evidência |
 |---|---|---|---|
-| 1 | Laço não pula etapas cujo campo-chave está **vazio** (só checa presença da coluna-fantasma) | **ainda aberto** | `geocode.R:417` inalterado; reconfirmado nesta sessão (§2 abaixo) |
+| 1 | Laço não pula etapas cujo campo-chave está **vazio** (só checa presença da coluna-fantasma) | **corrigido** | commit `d27b722` (25/08) — guarda `!any(key_cols %in% campos_nao_declarados)` em `R/geocode.R:425`; §2 abaixo mediu o problema **antes** desse commit, ver nota de correção lá |
 | 2 | `pa01`/`pa02`/`pa03` recalculavam Jaro sem poder resolver nada | **corrigido** | commit `282c302` (24/08) — `match_types_jaro_redundante` em `utils.R:357`, guarda em `match_weighted_cases_probabilistic.R` |
 | 3 | `FIRST()` sem `ORDER BY` em `da*`/`pa*` — não-determinismo | **ainda aberto** | `grep FIRST(` em `match_weighted_cases.R`/`match_weighted_cases_probabilistic.R`: nenhum tem `ORDER BY`; reconfirmado ao vivo em `2026-08-24_temp-view-benchmark.md` (4/20.028 linhas divergentes) |
 | 4 | `CREATE TEMP VIEW` em vez de `TEMP TABLE` em `register_cnefe_table()` | **testado e refutado** | `2026-08-24_temp-view-benchmark.md` — piora 42% ponta a ponta apesar de melhorar a função isolada 3,5× |
@@ -51,7 +51,10 @@ saber o que mudou, e duas rodadas de `Rprof()` frescas (HEAD atual, 20.028 ender
 
 ---
 
-## 2. Reconfirmação do item #1 (maior impacto, ainda não aplicado)
+## 2. Reconfirmação do item #1 (maior impacto, corrigido em seguida — commit `d27b722`, 25/08)
+
+> Esta seção descreve o estado **antes** da correção (medição de 24/08, um dia antes do commit `d27b722`)
+> — é o diagnóstico que justificou a correção, não o comportamento atual. Ver §1 para o status corrente.
 
 O relatório de 23/08 mediu ganho de 3,3×–9× comparando código com bug vs. protótipo corrigido, numa
 `git worktree` em outro commit (`a4b8036`). Para confirmar que o problema **continua com a mesma
@@ -81,9 +84,9 @@ se ela tem algum valor utilizável, então nunca pula etapa nenhuma.
 
 | # | mudança | ganho estimado | esforço | risco | depende de |
 |---|---|---|---|---|---|
-| **1** | Pular etapas de `match_type` cujo campo-chave está **vazio** (não só ausente) — `geocode.R:417` | 3,3×–9× quando faltam campos (reconfirmado §2); no-op quando não faltam | Muito baixo (~8 linhas) | Muito baixo | — |
+| ~~**1**~~ ✅ | ~~Pular etapas de `match_type` cujo campo-chave está **vazio** (não só ausente) — `geocode.R:417`~~ | 3,3×–9× quando faltam campos (reconfirmado §2); no-op quando não faltam | Muito baixo (~8 linhas) | Muito baixo | **Feito** — commit `d27b722` (25/08), não depende mais de nada |
 | **2** | Fechar o não-determinismo: `ORDER BY` explícito nos `FIRST()` de `match_weighted_cases.R`/`match_weighted_cases_probabilistic.R` | reprodutibilidade exata; **pré-requisito para verificar qualquer refactor por igualdade de output** (inclusive #4 e #6 abaixo) | Muito baixo (patch já existe, medido em 23/08: sem custo de tempo) | Baixo — decisão pendente sobre semântica de `contagem_cnefe` (ver `analise-pacote-desempenho-manutencao.md` §4) | — |
-| **3** | Baixar só as tabelas de referência necessárias (`download_cnefe()` aceitar vetor; `geocode()` calcular o subconjunto) | 1.492 MB → 20 MB no melhor caso (só CEP) | Médio (assinatura de `download_cnefe()` muda) | Baixo | Item 1 (mesmo cálculo de "quais campos têm valor") |
+| ~~**3**~~ ✅ | ~~Baixar só as tabelas de referência necessárias (`download_cnefe()` aceitar vetor; `geocode()` calcular o subconjunto)~~ | 1.492 MB → 20 MB no melhor caso (só CEP); confirmado que `tabelas_necessarias()` exclui exatamente as 2 maiores tabelas no cenário só-CEP (§5.6) | Médio (assinatura de `download_cnefe()` muda) | Baixo | **Feito** (26/08, §5.6) — processo planejador→adversário, `identical()` confirmado nos cenários completo/só-CEP, suíte completa (274 testes) verde. Achou e corrigiu de quebra um bug pré-existente (`%like%` vs `==` em `download_cnefe()`, baixava 0 arquivos silenciosamente) e um bug novo introduzido pela própria mudança (`paste0(character(0), ...)` não devolve `character(0)` por padrão — gotcha do `recycle0`) |
 | **4** | Helper único para os quatro `match_*` (extrair montagem de `colunas_encontradas`) | manutenção — bugs already duplicados 2× no histórico (`logradouro_encontrado`, H3) | Médio | Médio — mexe no SQL dos quatro arquivos | Item 2 (para verificar que o refactor não muda resultado) |
 | **5** | Remover código morto de `register_cnefe_tables.R` (161 linhas comentadas) + `cache_message()`/`register_geocodebr_tables()` sem chamador | manutenção | Muito baixo | Nenhum | — |
 | — | Dedup do lado do input em `calculate_string_dist()` (cache `(logradouro_input, logradouro_cnefe) → similarity`) | ~~5-6%~~ | — | — | **Refutado** (26/08, §5.5) — medido 5×–18× **mais lento**, não mais rápido; `jaro_similarity()` já é barato o bastante no DuckDB que o overhead de tabela-cache/`INSERT`/`JOIN` extra perde de longe. Não retentar sem mudar de abordagem |
@@ -335,6 +338,59 @@ no DuckDB.
 padrão do item #4, `TEMP VIEW`, e do item #8): neste código, uma otimização que parece óbvia "no papel"
 (evitar recálculo redundante) pode perder para o custo de infraestrutura SQL extra (tabela, join, DDL)
 quando a operação que se está tentando evitar já é barata o bastante. Medir sempre antes de implementar.
+
+### 5.6 Item #3 implementado — baixar só as tabelas de referência necessárias (26/08)
+
+Diferente dos itens #8/#9, este passou pelo mesmo processo planejador→adversário e **convergiu** ("aprovar
+com mudanças", não rejeição) — implementado em seguida.
+
+**Design final:** novo helper `tabelas_necessarias(campos_nao_declarados)` em `R/utils.R`, reaproveitando
+`all_possible_match_types`/`get_key_cols()`/`reference_table_by_match_type` (nenhuma lógica duplicada) com
+o mesmo critério do guarda do laço de matching em `geocode.R`. `download_cnefe()` passa a aceitar um vetor
+de nomes de tabela (antes só uma string ou `"todas"`); `geocode.R` troca `download_cnefe(tabela = 'todas')`
+por `download_cnefe(tabela = tabelas_necessarias(campos_nao_declarados))`.
+
+**Achados do processo de revisão:**
+- O adversário confirmou a lógica central (testando os dois caminhos de `padronizar_enderecos`, não só o
+  que o planejador testou) e achou um bug de correção real: `campos_nao_declarados` pode incluir `"estado"`
+  num cenário degenerado (`definir_campos(estado = NULL, ...)` não aborta, bug pré-existente e separado),
+  e como todo `match_type` tem `estado` em `key_cols`, `tabelas_necessarias()` devolveria `character(0)` —
+  a assertiva `min.len = 1` originalmente proposta faria isso virar um crash cru do `checkmate`, em vez do
+  comportamento silencioso (0% de match, sem crash) do código atual. Corrigido com `min.len = 0`.
+- Confirmou também um bug latente **pré-existente**, independente desta mudança: a validação de
+  `download_cnefe()` usava `%like%` (substring) mas a seleção usava `==` (exato) — `tabela = "cep"` passava
+  na validação mas baixava silenciosamente zero arquivos. Corrigido como efeito colateral (`%in%`/`setdiff`
+  nos dois lugares).
+- **Esclarecimento do mantenedor durante a revisão:** o adversário apontou como "invariante frágil, não
+  testada" o fato de `register_unique_logradouros_table()` usar uma tabela diferente de
+  `reference_table_by_match_type` para o mesmo `match_type` probabilístico. O mantenedor esclareceu que
+  isso não é acidental — é a distância de Jaro sendo calculada só sobre o texto do logradouro, nunca sobre
+  o número do imóvel, por design. O teste de regressão sugerido pelo adversário foi implementado mesmo
+  assim (protege a propriedade, documentada como tal, não como invariante "torcida").
+- **Bug novo, achado só na implementação** (nenhum dos dois agentes pegou): `paste0(character(0), ".parquet")`
+  em R **não** devolve `character(0)` — devolve `".parquet"` (R recicla um argumento de tamanho zero para
+  `""` por padrão, `?paste0`, argumento `recycle0`). Isso fazia `download_cnefe(tabela = character(0))`
+  tentar baixar um arquivo inexistente (`.../download/<release>/.parquet`) e falhar com um erro de download
+  genérico, em vez de simplesmente não baixar nada. Corrigido com `paste0(..., recycle0 = TRUE)`. Achado
+  rodando o teste `expect_no_error(tester(tabela = character(0), ...))` de verdade — reforça o valor de
+  testar o cenário degenerado explicitamente, não só por inspeção de código.
+
+**Verificação:** `identical()` bit a bit confirmado em dois cenários (completo, só-CEP/bairro/município/UF)
+na amostra de 20.028 endereços, reaproveitando `tests/tests_rafa/benchmark_empty_field_guard.R`; suíte
+completa (280 testes) verde, incluindo 11 testes novos (`test-utils.R`, `test-download_cnefe.R`) — inclui
+2 testes de integração `geocode_core()` → `download_cnefe()` (mock com sentinela de erro, sem precisar de
+dados do CNEFE nem rede) que confirmam a *wiring* de ponta a ponta: o argumento `tabela` recebido por
+`download_cnefe()` é mesmo o subconjunto calculado por `tabelas_necessarias()`, não `'todas'`. Adicionados
+depois que o mantenedor testou `tabelas_necessarias()` chamando-a com códigos de `match_type` em vez de
+nomes de campo (uso incorreto da API, não um bug) — o que expôs que `identical()` sozinho não pegaria uma
+falha de wiring (o resultado do matching seria o mesmo mesmo que o download não tivesse sido reduzido).
+`tabelas_necessarias()` confirmada excluindo exatamente as 2 tabelas maiores (`municipio_logradouro_numero_*`)
+no cenário só-CEP — a mesma economia (1.492 MB → 20 MB) estimada originalmente no diagnóstico de 23/08. A
+diferença de tempo de `register_cnefe_table` capturada no benchmark (0,41s→0,26s) **não** é atribuída ao
+ganho real — o cache local do CNEFE já estava quente (8 tabelas já baixadas de sessões anteriores) nos dois
+lados da comparação, então nenhuma das duas rodadas baixou nada de fato; a diferença é ruído entre rodadas,
+não efeito medido da mudança. O ganho real de banda (a motivação original do item) só se manifesta com cache
+frio, não remedido nesta sessão.
 
 ## Referências
 

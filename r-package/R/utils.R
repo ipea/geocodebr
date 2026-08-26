@@ -483,6 +483,27 @@ get_reference_table <- function(match_type) {
 } # nocov end
 
 
+# Subconjunto de tabelas de referencia do CNEFE que o laco de matching de
+# efetivamente vai usar, dado quais campos de endereco o usuario NAO declarou
+# (`campos_nao_declarados`)
+#
+# os match_types probabilisticos (pn0X/pa0X/pl0X) usam uma tabela diferente da
+# que reference_table_by_match_type por design, nao por acidente: a distancia de
+# Jaro so deve comparar o texto do logradouro, nunca o numero, entao a tabela de
+# candidatos do calculo de string sempre corresponde ao match_type "irmao" sem
+# numero (dl0X/dc0X). Por isso essa tabela nunca fica de fora do conjunto
+# devolvido aqui
+tabelas_necessarias <- function(campos_nao_declarados) {
+  # nocov start
+  match_types_ativos <- Filter(
+    function(mt) !any(get_key_cols(mt) %in% campos_nao_declarados),
+    all_possible_match_types
+  )
+
+  unique(unname(reference_table_by_match_type[match_types_ativos]))
+} # nocov end
+
+
 # Funcao de match utilizada por cada match_type.
 #
 # Cada match_type pertence a exatamente um dos grupos definidos acima
