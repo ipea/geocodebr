@@ -1,0 +1,14 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^tests/tests_rafa$
+^tests/tests_pedro$
+^data_prep
+^CRAN-SUBMISSION$
+^cran-comments\.md$
+^docs$
+.Rhistory
+.RData
+^_pkgdown\.yml$
+^pkgdown$
+^README\.Rmd$
+^codemeta\.json$

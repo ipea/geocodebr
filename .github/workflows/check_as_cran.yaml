@@ -2,9 +2,15 @@ on:
   push:
     branches:
       - main
+    paths:
+      - r-package/**
+      - .github/workflows/check_as_cran.yaml
   pull_request:
     branches:
       - main
+    paths:
+      - r-package/**
+      - .github/workflows/check_as_cran.yaml
 
 name: check_as_cran
 
@@ -37,8 +43,11 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
+          working-directory: r-package
 
       - uses: r-lib/actions/check-r-package@v2
+        with:
+          working-directory: r-package
         env:
           _R_CHECK_CRAN_INCOMING_: false
           NOT_CRAN: false

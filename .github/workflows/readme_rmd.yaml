@@ -3,7 +3,7 @@ name: Render README
 on:
   push:
     paths:
-      - README.Rmd
+      - r-package/README.Rmd
 
 jobs:
   render-readme:
@@ -32,6 +32,7 @@ jobs:
           Rscript -e 'pak::pkg_install(c("rmarkdown", "ipeaGIT/geocodebr", "sf"))'
 
       - name: Render README
+        working-directory: r-package
         run: |
           Rscript -e 'rmarkdown::render("README.Rmd")'
 
@@ -40,6 +41,6 @@ jobs:
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
-          git add README.md
+          git add r-package/README.md
           git commit -m "Render README.md" || echo "No changes"
           git push
