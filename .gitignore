@@ -4,14 +4,13 @@
 .RData
 .Ruserdata
 censobr_*.tar.gz
-vignettes/*.html
+r-package/vignettes/*.html
 .parquet
 .tmp
 *.o
 *.so
 *.swp
 *.dll
-/docs/
 docs
 /data_prep/data/*
 /data_prep/data_raw/*
@@ -19,3 +18,6 @@ docs
 __pycache__/
 .venv/
 geocodebr.Rproj
+
+# Claude Code — config local de máquina (não versionada)
+.claude/settings.local.json

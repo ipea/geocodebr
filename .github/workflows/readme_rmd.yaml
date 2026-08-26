@@ -3,7 +3,7 @@ name: Render README
 on:
   push:
     paths:
-      - README.Rmd
+      - r-package/README.Rmd
 
 jobs:
   render-readme:
@@ -29,17 +29,25 @@ jobs:
       - name: Install R packages
         run: |
           Rscript -e 'install.packages("pak")'
-          Rscript -e 'pak::pkg_install(c("rmarkdown", "ipeaGIT/geocodebr", "sf"))'
+          Rscript -e 'pak::pkg_install(c("rmarkdown", "ipeaGIT/geocodebr/r-package", "sf"))'
 
       - name: Render README
+        working-directory: r-package
         run: |
           Rscript -e 'rmarkdown::render("README.Rmd")'
 
+      - name: Copy README.md to repo root
+        run: |
+          cp r-package/README.md README.md
+          # imagens em README.Rmd usam paths relativos à raiz do pacote
+          # (ex.: man/figures/logo.svg); na cópia da raiz do repo isso
+          # precisa apontar para dentro de r-package/
+          sed -i 's|src="man/figures/|src="r-package/man/figures/|g' README.md
 
       - name: Commit README.md
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
-          git add README.md
+          git add r-package/README.md README.md
           git commit -m "Render README.md" || echo "No changes"
           git push

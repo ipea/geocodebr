@@ -5,6 +5,13 @@
 # rhub::rhub_setup()
 #
 # It is unlikely that you need to modify this file manually.
+#
+# NAO ADAPTADO para o layout monorepo (pacote R movido para r-package/ em
+# 2026-08-25): as actions r-hub/actions/setup-deps@v1 e run-check@v1 foram
+# desenhadas pra pacote na raiz do repo, e nao esta confirmado se aceitam um
+# path customizado (o sister package ipeaGIT/geobr nem tem esse workflow no
+# monorepo dele). Como e workflow manual (workflow_dispatch), nao bloqueia o
+# CI principal -- testar/ajustar separadamente antes do proximo uso real.
 
 name: R-hub
 run-name: "${{ github.event.inputs.id }}: ${{ github.event.inputs.name || format('Manually run by {0}', github.triggering_actor) }}"
