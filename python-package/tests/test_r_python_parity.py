@@ -180,7 +180,7 @@ def _run_r_geocode(
           resultado_sf = FALSE,
           h3_res = NULL,
           padronizar_enderecos = TRUE,
-          verboso = FALSE,
+          verboso = TRUE,
           cache = TRUE,
           n_cores = 1
         )
@@ -210,6 +210,8 @@ def _run_r_geocode(
     )
     if result.returncode != 0:
         pytest.fail(f"R geocode failed with exit code {result.returncode}:\n{result.stdout}")
+    if result.stdout:
+        print(f"\n--- R stdout/stderr ---\n{result.stdout}\n--- end R output ---")
     return pq.read_table(output_path)
 
 

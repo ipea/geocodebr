@@ -6,7 +6,9 @@ from .cache import (
 )
 from .download_cnefe import download_cnefe
 from .fields import definir_campos
-from .geocode import busca_por_cep, geocode
+from .geocode import geocode
+from .cep import busca_por_cep
+from .standardize import enderecobr_padronizar_enderecos
 
 try:
     from .reverse import geocode_reverso
@@ -23,5 +25,6 @@ __all__ = [
     "geocode_reverso",
     "listar_dados_cache",
     "listar_pasta_cache",
+    "enderecobr_padronizar_enderecos",
 ]
 

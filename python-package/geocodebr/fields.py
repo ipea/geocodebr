@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import polars as pl
 
 ADDRESS_FIELDS = ("logradouro", "numero", "cep", "localidade", "municipio", "estado")
 
@@ -49,4 +50,19 @@ def assert_and_assign_address_fields(
 
     complete = {field: address_fields.get(field) for field in ADDRESS_FIELDS}
     return complete
+
+
+def fill_missing_fields(
+    df_input: pl.DataFrame,
+    campos_endereco: dict[str, str | None],
+) -> tuple[pl.DataFrame, dict[str, str]]:
+    campos = dict(campos_endereco)  # cópia
+    for campo in ADDRESS_FIELDS:
+        if campos.get(campo) is None:
+            placeholder = f"_{campo}_tempgeocodebr"
+            df_input = df_input.with_columns(
+                pl.lit(None, dtype=pl.Utf8).alias(placeholder)
+            )
+            campos[campo] = placeholder
+    return df_input, campos
 

@@ -10,8 +10,7 @@ from .cache import listar_pasta_cache
 from .constants import DATA_RELEASE
 from .db import create_geocodebr_db
 from .download_cnefe import download_cnefe
-from .geocode import _register_input, _table_columns
-from .utils import check_clean_colnames, quote_ident
+from .utils import check_clean_colnames, quote_ident, db_table_columns
 
 def geocode_reverso(
     pontos: Any,
@@ -26,14 +25,15 @@ def geocode_reverso(
         raise TypeError("verboso e cache devem ser True ou False.")
 
     download_cnefe(
-        "municipio_logradouro_numero_cep_localidade",
+        "municipio_logradouro_cep_localidade",
         verboso=verboso,
         cache=cache,
     )
+
     con = create_geocodebr_db(n_cores=n_cores, load_spatial=True)
     try:
         _register_points_input(con, pontos)
-        input_columns = _table_columns(con, "pontos_input")
+        input_columns = db_table_columns(con, "pontos_input")
         check_clean_colnames(input_columns)
         lon_col, lat_col = _detect_coordinate_columns(input_columns)
 
@@ -47,16 +47,9 @@ def geocode_reverso(
             FROM pontos_input
             """
         )
-        _validate_points_bbox(con)
 
-        bbox = con.execute(
-            """
-            SELECT
-              MIN(_geocodebr_lon), MIN(_geocodebr_lat),
-              MAX(_geocodebr_lon), MAX(_geocodebr_lat)
-            FROM pontos_db
-            """
-        ).fetchone()
+        bbox = _validate_points_bbox(con)
+
         margin = float(dist_max) / 111_320 + 0.05
         xmin, ymin, xmax, ymax = (
             bbox[0] - margin,
@@ -68,14 +61,14 @@ def geocode_reverso(
         path_to_parquet = (
             Path(listar_pasta_cache())
             / f"geocodebr_data_release_{DATA_RELEASE}"
-            / "municipio_logradouro_numero_cep_localidade.parquet"
+            / "municipio_logradouro_cep_localidade.parquet"
         ).as_posix()
 
         con.execute(
             f"""
             CREATE OR REPLACE TEMP TABLE cnefe_tb AS
             SELECT
-              estado, municipio, logradouro, numero, cep, localidade,
+              estado, municipio, logradouro, cep, localidade,
               lon AS cnefe_lon,
               lat AS cnefe_lat,
               ST_Transform(
@@ -124,7 +117,7 @@ def geocode_reverso(
                 ST_Distance(p.ponto_geom_utm, c.cnefe_geom_utm) AS distancia_metros,
                 ROW_NUMBER() OVER (
                   PARTITION BY p.tempidgeocodebr
-                  ORDER BY ST_Distance(p.ponto_geom_utm, c.cnefe_geom_utm)
+                  ORDER BY distancia_metros
                 ) AS rn,
                 p.tempidgeocodebr
               FROM pontos_utm p
@@ -143,6 +136,24 @@ def geocode_reverso(
         return con.execute("SELECT * FROM geocodebr_reverse_result").to_arrow_table()
     finally:
         con.close()
+
+
+def _register_input(con: duckdb.DuckDBPyConnection, enderecos: Any) -> None:
+    if isinstance(enderecos, (str, Path)):
+        path = Path(enderecos)
+        suffix = path.suffix.lower()
+        path_sql = path.as_posix()
+        if suffix == ".parquet":
+            con.execute(f"CREATE OR REPLACE TEMP TABLE enderecos_input AS SELECT * FROM read_parquet('{path_sql}')")
+        elif suffix in {".csv", ".txt"}:
+            con.execute(f"CREATE OR REPLACE TEMP TABLE enderecos_input AS SELECT * FROM read_csv_auto('{path_sql}')")
+        else:
+            raise ValueError("Arquivos suportados: .parquet, .csv, .txt.")
+        return
+
+    con.register("enderecos_input_view", enderecos)
+    con.execute("CREATE OR REPLACE TEMP TABLE enderecos_input AS SELECT * FROM enderecos_input_view")
+    con.unregister("enderecos_input_view")
 
 
 def _register_points_input(con: duckdb.DuckDBPyConnection, pontos: Any) -> None:
@@ -203,11 +214,13 @@ def _validate_points_bbox(con: duckdb.DuckDBPyConnection) -> None:
         or ymax > bbox_brazil["ymax"]
     ):
         raise ValueError("Coordenadas de input localizadas fora do bounding box do Brasil.")
+    
+    return xmin, ymin, xmax, ymax
 
 
 def _address_select_clause(original_columns: set[str]) -> str:
     parts = []
-    for col in ["estado", "municipio", "logradouro", "numero", "cep", "localidade"]:
+    for col in ["estado", "municipio", "logradouro", "cep", "localidade"]:
         out_col = col if col not in original_columns else f"{col}_encontrado"
         parts.append(f"c.{col} AS {out_col}")
     return ", ".join(parts)

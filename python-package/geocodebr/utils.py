@@ -8,6 +8,21 @@ import duckdb
 from .constants import DATA_RELEASE
 
 
+def assert_bool(value: bool, name: str) -> None:
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} deve ser True ou False.")
+
+
+def normalize_h3_res(h3_res: int | list[int] | tuple[int, ...] | None) -> list[int]:
+    if h3_res is None:
+        return []
+    values = [h3_res] if isinstance(h3_res, int) else list(h3_res)
+    for value in values:
+        if not isinstance(value, int) or value < 0 or value > 15:
+            raise ValueError("h3_res deve conter inteiros entre 0 e 15.")
+    return values
+
+
 def quote_ident(name: str) -> str:
     if not re.match(r"^[A-Za-z0-9_]+$", name):
         raise ValueError(f"Nome SQL invalido: {name}")
@@ -87,6 +102,10 @@ def find_cached_parquet(cache_files: list[str], table_name: str) -> str:
             f"Arquivo {suffix} nao encontrado no cache. Execute download_cnefe()."
         )
     return matches[0].replace("\\", "/")
+
+
+def db_table_columns(con: duckdb.DuckDBPyConnection, table_name: str) -> list[str]:
+    return [row[1] for row in con.execute(f"PRAGMA table_info('{table_name}')").fetchall()]
 
 
 def update_input_db(
@@ -198,4 +217,37 @@ def cria_col_logradouro_confusao(con: duckdb.DuckDBPyConnection) -> None:
           AND NOT REGEXP_MATCHES(logradouro, '\bDE (JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\b')
         """
     )
+
+
+def add_h3_columns(
+    con: duckdb.DuckDBPyConnection,
+    table_name: str,
+    h3_values: list[int],
+) -> None:
+    if not h3_values:
+        return
+    import h3
+
+    def h3_cell(lat: float | None, lon: float | None, res: int) -> str | None:
+        if lat is None or lon is None:
+            return None
+        if hasattr(h3, "latlng_to_cell"):
+            return h3.latlng_to_cell(lat, lon, res)
+        return h3.geo_to_h3(lat, lon, res)
+
+    try:
+        con.create_function("_geocodebr_h3", h3_cell, ["DOUBLE", "DOUBLE", "INTEGER"], "VARCHAR")
+    except duckdb.InvalidInputException:
+        pass
+
+    for value in h3_values:
+        colname = f"h3_{value:02d}"
+        con.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident(colname)} TEXT")
+        con.execute(
+            f"""
+            UPDATE {quote_ident(table_name)}
+            SET {quote_ident(colname)} = _geocodebr_h3(lat, lon, {value})
+            WHERE lat IS NOT NULL
+            """
+        )
 
