@@ -30,8 +30,9 @@ colunas ficam de fora.}
 coluna (para o \verb{INSERT INTO ... (...)}), ao qual esta funcao acrescenta
 os seus proprios nomes. Permite ao chamador injetar uma coluna extra
 antes de entrar aqui -- ex.: \code{similaridade_logradouro} em
-\code{match_cases_probabilistic()}, que e condicional a \code{resultado_completo}
-mas nao faz parte de \code{key_cols}. Por padrao \code{""}.}
+\code{match_cases_probabilistic()} e \code{match_weighted_cases_probabilistic()},
+que e condicional a \code{resultado_completo} mas nao faz parte de
+\code{key_cols}. Por padrao \code{""}.}
 
 \item{additional_cols}{String. Fragmento inicial da lista de expressoes do
 \code{SELECT}, equivalente a \code{colunas_encontradas} mas do lado das

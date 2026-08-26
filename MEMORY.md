@@ -13,21 +13,26 @@ conteúdo do [CLAUDE.md](CLAUDE.md)) — registre o que não é derivável lendo
 ## Revisão de código em andamento
 
 Os achados da revisão das três funções exportadas principais estão em
-[`quality_reports/diagnoses/`](quality_reports/diagnoses/), com evidência e reprodução de cada item:
+[`quality_reports/diagnoses/`](quality_reports/diagnoses/), com evidência e reprodução de cada item.
+A lista priorizada de eficiência do `geocode()` — a referência viva para retomar o trabalho — é
+`2026-08-24_geocode-eficiencia-consolidado.md`; ela é atualizada a cada item concluído e é o primeiro
+lugar a checar no início de uma sessão nova. Status em 25/08 (ver essa lista para detalhes de cada um):
+
+| # | item | status |
+|---|---|---|
+| 1 | Laço pula etapas com campo não declarado | ✅ commitado (`d27b722`) |
+| 2 | Jaro redundante em `pa01-03` | ✅ commitado (`282c302`) |
+| 3 | `FIRST()`/`QUALIFY` sem `ORDER BY` (não-determinismo) | ✅ commitado (`0592c83`) |
+| 4 | `TEMP VIEW` em vez de `TEMP TABLE` | ❌ testado e **refutado** — não retentar |
+| 5 | Baixar só as tabelas de referência necessárias | ⏳ aberto |
+| 6 | Dedup dos quatro `match_*()` | ✅ commitado (`889e331`) — `R/match_helpers.R` |
+| 7 | Código morto em `register_cnefe_tables.R` | ⏳ aberto |
+
+Relatórios de diagnóstico mais antigos, ainda com contexto útil:
 
 - `2026-08-22_geocode-pipeline-achados.md` — `geocode()`
 - `2026-08-23_geocode-reverso-e-busca-por-cep-achados.md` — `geocode_reverso()` e `busca_por_cep()`
-- `2026-08-24_geocode-revisao-critica.md` — rodada de acompanhamento do relatório de 22/08: status de cada
-  item antigo + achado novo (não-determinismo em `da0x`/`pa0x`, ver `[LEARN:duckdb]` abaixo)
-
-Cada relatório tem uma tabela-resumo no final marcando o que já foi corrigido. **Um item crítico segue
-aberto no `geocode()`:** `FIRST()` sem `ORDER BY` em `match_weighted_cases.R`/`match_weighted_cases_probabilistic.R`
-faz `da0x`/`pa0x` devolverem coordenadas diferentes em execuções idênticas quando há candidatos empatados
-(ver `[LEARN:duckdb]` abaixo). O item 1 do relatório de 22/08 (erro de SQL quando `resultado_completo = TRUE`
-e não há empates) **foi corrigido** em 2026-08-24. O item 2 do mesmo relatório (`resultado_completo` alterando
-coordenadas) teve sua causa original corrigida, mas foi **substituído** por este novo item — mesmo sintoma,
-causa-raiz diferente e mais séria (não é sobre `resultado_completo`, é não-determinismo entre quaisquer duas
-chamadas).
+- `2026-08-24_geocode-revisao-critica.md` — rodada de acompanhamento do relatório de 22/08
 
 ---
 
@@ -170,3 +175,31 @@ chamadas).
   problema — rodar duas chamadas idênticas de ponta a ponta e comparar de novo depois de cada fix, porque
   pode haver mais de uma fonte no mesmo caminho de código, e um desempate parcial (poucas colunas) pode
   reduzir sem zerar a divergência.
+
+- `[LEARN:geocode]` Os quatro `match_*()` (`match_cases`, `match_cases_probabilistic`,
+  `match_weighted_cases`, `match_weighted_cases_probabilistic`) tinham ~80% de código idêntico na montagem
+  das colunas `*_encontrado`/`cod_setor`/`logradouro_encontrado`. **Deduplicado em 25/08** em
+  `R/match_helpers.R`, função única `monta_colunas_encontradas(y, key_cols, resultado_completo,
+  colunas_encontradas, additional_cols, agregado, ordem_first)` — `agregado = TRUE` embrulha cada coluna
+  (inclusive `logradouro_encontrado` e `cod_setor`) em `FIRST(... ordem_first)`, para a segunda parte
+  (agregada por `GROUP BY`) das queries ponderadas. Duas armadilhas que só apareceram ao estender a função
+  para os quatro arquivos, não só o mais simples: (1) o tratamento de `cod_setor` **não era**
+  `agregado`-consciente na primeira versão — só `demais_key_cols` tinha o `if (agregado)`; sem o teste teria
+  saído `{y}.cod_setor` em vez de `FIRST(cod_setor {ordem_first})` na parte agregada, um bug silencioso.
+  (2) o `FIRST(logradouro_encontrado {ordem_first})` da parte 2 nunca passava pelo helper nas duas primeiras
+  rodadas — era reconstruído à mão em cada um dos dois arquivos ponderados, e um tinha `AS
+  logradouro_encontrado` e o outro não (inconsistência que só a fusão final eliminou). **Por quê:** ao
+  estender um helper de 1 caso de uso para 4, testar `identical()` em TODOS os `match_type` (as 25
+  categorias), não só no cenário que motivou a extração — o bug do `cod_setor` só existe nas etapas `da0x`/
+  `pa0x`, que `match_cases.R` (o primeiro arquivo migrado) nunca exercita.
+
+- `[LEARN:geocode]` Antes de "corrigir" um valor que parece vazar indevidamente para o output, checar se
+  ele já é filtrado a jusante. `match_weighted_cases_probabilistic.R` sempre calculava/agregava
+  `similaridade_logradouro` mesmo com `resultado_completo = FALSE`, o que parecia um bug (a regra do
+  pacote é: colunas extra só aparecem com `resultado_completo = TRUE`). Mas `merge_results_to_input()`
+  (`R/utils.R:147-170`) **já exclui** `similaridade_logradouro` da lista de colunas selecionadas quando
+  `resultado_completo = FALSE`, então o valor nunca chegava ao usuário — confirmado com `identical()`
+  antes/depois da "correção" (0 diferença nos dois casos). A mudança foi revertida por não ter efeito
+  observável e adicionar complexidade sem necessidade. **Por quê:** um sintoma "essa coluna deveria ser
+  condicional e não é" pode já estar coberto por um filtro mais a jusante no pipeline — ler até o fim do
+  caminho do dado (aqui, `merge_results_to_input()`) antes de assumir que a origem precisa mudar.

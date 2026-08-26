@@ -2,6 +2,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - r-package/**
+      - .github/workflows/pkgdown.yaml
 
 name: pkgdown
 
@@ -23,8 +26,10 @@ jobs:
         with:
           extra-packages: any::pkgdown, local::.
           needs: website
+          working-directory: r-package
 
       - name: Build and deploy pkgdown site
+        working-directory: r-package
         run: |
           git config --local user.name "GitHub Actions"
           git config --local user.email "actions@github.com"

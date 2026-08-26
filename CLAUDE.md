@@ -1,8 +1,10 @@
 # CLAUDE.md — geocodebr
 
-**Projeto:** geocodebr — pacote R para geolocalização de endereços brasileiros, baseado no CNEFE
+**Projeto:** geocodebr — geolocalização de endereços brasileiros, baseado no CNEFE
 (Cadastro Nacional de Endereços para Fins Estatísticos), publicado pelo IBGE. Geocodificação em massa,
-sem limite de consultas, a partir de dados abertos.
+sem limite de consultas, a partir de dados abertos. **Monorepo**: o pacote R vive em `r-package/`; um
+porte para Python está planejado em `python-package/` (hoje só um placeholder). Toda a documentação
+abaixo, salvo indicação contrária, se refere ao pacote R.
 **Mantenedor:** Rafael H. M. Pereira (aut, cre — Ipea) · **Autores:** Daniel Herszenhut, Gabriel Garcia de Almeida
 **Financiamento/copyright:** Ipea; ITpS — Instituto Todos pela Saúde
 **Repo:** https://github.com/ipeaGIT/geocodebr · **Branch:** main · **Versão:** 0.6.4 (dev 0.6.4.900)
@@ -33,59 +35,73 @@ em `~/.claude` (compartilhados com flightsbr / enderecobr) e chegam aqui por pat
 
 ## Estrutura de pastas
 
+Monorepo: infraestrutura de workflow e CI compartilhada na raiz; cada linguagem no seu próprio
+subdiretório. Salvo indicação contrária, o resto deste arquivo se refere ao pacote R.
+
 ```
 geocodebr/
 ├── CLAUDE.md                     # Este arquivo
 ├── MEMORY.md                     # Aprendizados [LEARN] entre sessões
-├── DESCRIPTION / NAMESPACE       # Metadados / exports GERADOS (nunca editar NAMESPACE à mão)
-├── NEWS.md                       # Changelog voltado ao usuário, em pt-BR (bump por release)
-├── cran-comments.md              # Notas de submissão CRAN (justificativa de cada NOTE)
-├── CRAN-SUBMISSION               # Registro da última submissão (versão, data, SHA)
-├── codemeta.json                 # GERADO — precisa ser atualizado quando a DESCRIPTION muda
-├── R/                            # Fonte do pacote (ver "Arquitetura interna")
-├── tests/testthat/               # testthat edition 3, incl. _snaps/ para texto de mensagens
-├── man/
-│   ├── *.Rd                      # GERADOS — editar o roxygen em R/
-│   └── roxygen/templates/        # @template compartilhados (cache, verboso, n_cores, h3_res, ...)
-├── inst/
-│   ├── CITATION                  # Como citar o pacote
-│   └── extdata/                  # Amostras: small_sample.csv, large_sample.parquet, pontos.rds, bboxes
-├── vignettes/                    # geocodebr.Rmd, geocode.Rmd, geocode_reverso.Rmd
-├── pkgdown/_pkgdown.yml          # Config do site pkgdown
-├── python-package/               # Apenas placeholder.txt — porte para Python ainda não começou
+├── README.md                     # Landing page curta do repo, aponta pra r-package/ e python-package/
+├── LICENSE                       # Duplicado em r-package/LICENSE (CRAN exige relativo à raiz do pacote)
+├── codecov.yml                   # Fica na raiz — é onde o backend do Codecov procura por padrão
 ├── .github/workflows/            # check, check_as_cran, pkgdown, readme_rmd, rhub, test-coverage
-├── quality_reports/              # Planos, specs, logs de sessão, relatórios de merge, diagnoses
-└── templates/                    # Templates de log de sessão / spec / relatório de qualidade
+├── quality_reports/               # Planos, specs, logs de sessão, relatórios de merge, diagnoses
+├── templates/                    # Templates de log de sessão / spec / relatório de qualidade
+├── python-package/                # Apenas placeholder.txt — porte para Python ainda não começou
+└── r-package/                     # O pacote R {geocodebr} — raiz de tudo que segue abaixo
+    ├── DESCRIPTION / NAMESPACE    # Metadados / exports GERADOS (nunca editar NAMESPACE à mão)
+    ├── NEWS.md                    # Changelog voltado ao usuário, em pt-BR (bump por release)
+    ├── cran-comments.md           # Notas de submissão CRAN (justificativa de cada NOTE)
+    ├── CRAN-SUBMISSION            # Registro da última submissão (versão, data, SHA)
+    ├── codemeta.json              # GERADO — precisa ser atualizado quando a DESCRIPTION muda
+    ├── LICENSE                    # Cópia de LICENSE na raiz — exigido pelo CRAN dentro do pacote
+    ├── README.Rmd / README.md     # README completo do pacote (badges, instalação, exemplos)
+    ├── R/                         # Fonte do pacote (ver "Arquitetura interna")
+    ├── tests/testthat/            # testthat edition 3, incl. _snaps/ para texto de mensagens
+    ├── man/
+    │   ├── *.Rd                   # GERADOS — editar o roxygen em R/
+    │   └── roxygen/templates/     # @template compartilhados (cache, verboso, n_cores, h3_res, ...)
+    ├── inst/
+    │   ├── CITATION                # Como citar o pacote
+    │   └── extdata/                 # Amostras: small_sample.csv, large_sample.parquet, pontos.rds, bboxes
+    ├── vignettes/                  # geocodebr.Rmd, geocode.Rmd, geocode_reverso.Rmd
+    └── pkgdown/_pkgdown.yml        # Config do site pkgdown
 ```
 
 ---
 
 ## Comandos
 
+O pacote R vive em `r-package/` — rode os comandos abaixo com `r-package` como diretório de trabalho
+(`setwd("r-package")` ou abra `r-package/geocodebr.Rproj`), ou passe o path explicitamente
+(`devtools::document("r-package")`).
+
 ```r
 # Regenerar docs + NAMESPACE após editar blocos roxygen em R/
-devtools::document()
+devtools::document("r-package")
 
 # Rodar a suíte de testes
-devtools::test()
+devtools::test("r-package")
 
 # Check completo de prontidão CRAN (lento, ~4 min — rodar em background em execuções longas)
-devtools::check(args = "--as-cran")
+devtools::check("r-package", args = "--as-cran")
 
 # Cobertura de testes
-covr::package_coverage()
+covr::package_coverage("r-package")
 
 # Construir o site pkgdown
-pkgdown::build_site()
+pkgdown::build_site("r-package")
 ```
 
 ```bash
 # Equivalente local ao check da CI
-R CMD build . && R CMD check --as-cran geocodebr_*.tar.gz
+cd r-package && R CMD build . && R CMD check --as-cran geocodebr_*.tar.gz
 ```
 
-**Submissão CRAN:** atualizar `NEWS.md` + bump da `Version` na `DESCRIPTION`, atualizar `cran-comments.md`
-com justificativa para cada NOTE restante, e então `devtools::release()` (só o mantenedor, não automatizado).
+**Submissão CRAN:** atualizar `r-package/NEWS.md` + bump da `Version` na `r-package/DESCRIPTION`,
+atualizar `r-package/cran-comments.md` com justificativa para cada NOTE restante, e então
+`devtools::release("r-package")` (só o mantenedor, não automatizado).
 
 ---
 
@@ -95,11 +111,13 @@ com justificativa para cada NOTE restante, e então `devtools::release()` (só o
 
 | Hook | O que exige |
 |---|---|
-| `readme-rmd-rendered` | `README.md` regenerado a partir de `README.Rmd` — nunca editar o `.md` direto |
-| `codemeta-description-updated` | `codemeta.json` atualizado sempre que a `DESCRIPTION` mudar (`codemetar::write_codemeta()`) |
+| `readme-rmd-rendered` | `r-package/README.md` regenerado a partir de `r-package/README.Rmd` — nunca editar o `.md` direto |
+| `codemeta-description-updated` | `r-package/codemeta.json` atualizado sempre que a `r-package/DESCRIPTION` mudar (`codemetar::write_codemeta()`) |
 | `pkgdown` | Config do pkgdown consistente com as funções exportadas |
 
-Ou seja: mexeu na `DESCRIPTION`, atualize o `codemeta.json`; mexeu no `README.Rmd`, renderize o `README.md`.
+Ou seja: mexeu na `DESCRIPTION`, atualize o `codemeta.json`; mexeu no `README.Rmd`, renderize o `README.md`
+(ambos dentro de `r-package/`). O `.pre-commit-config.yaml` continua na raiz do repo — pre-commit só lê
+um config por repositório — mas os três hooks operam sobre os arquivos de `r-package/`.
 
 ---
 
@@ -114,12 +132,15 @@ Ou seja: mexeu na `DESCRIPTION`, atualize o `codemeta.json`; mexeu no `README.Rm
 | Matriz de CI | Windows, macOS e Ubuntu (devel/release/oldrel) verdes — `.github/workflows/check.yaml` |
 
 Padrão completo: `r-package-conventions.md` (regra global, path-scoped para `R/**/*.R`, `tests/**/*.R`,
-`man/**/*.Rd`, `DESCRIPTION`, `NAMESPACE`, `NEWS.md`).
+`man/**/*.Rd`, `DESCRIPTION`, `NAMESPACE`, `NEWS.md` — esses globs continuam batendo com os arquivos
+agora que vivem em `r-package/R/**/*.R` etc., mas ainda não foi confirmado com um teste real; se a regra
+parar de disparar, o glob path-scoped precisa ser ajustado em `~/.claude/rules/r-package-conventions.md`).
 
 **Nota sobre `/commit`:** os Steps 0 e 0b da skill global chamam `scripts/quality_score.py` e
 `scripts/check-surface-sync.sh` — construídos para o projeto-template de slides Beamer/Quarto. **Nenhum dos
-dois existe aqui; pular os Steps 0/0b.** O portão real é `/r-package-check`, rodado separadamente antes do
-merge. Os Steps 1–7 (branch, stage, commit, PR, merge) seguem normalmente.
+dois existe aqui; pular os Steps 0/0b.** O portão real é `/r-package-check r-package` (passar o path
+explicitamente, já que a raiz do repo não tem mais `DESCRIPTION` pra autodetectar), rodado separadamente
+antes do merge. Os Steps 1–7 (branch, stage, commit, PR, merge) seguem normalmente.
 
 ---
 

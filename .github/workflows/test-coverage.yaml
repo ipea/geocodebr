@@ -2,9 +2,15 @@ on:
   push:
     branches:
       - main
+    paths:
+      - r-package/**
+      - .github/workflows/test-coverage.yaml
   pull_request:
     branches:
       - main
+    paths:
+      - r-package/**
+      - .github/workflows/test-coverage.yaml
 
 name: test-coverage
 
@@ -23,8 +29,10 @@ jobs:
         with:
           extra-packages: any::covr, any::xml2
           needs: coverage
+          working-directory: r-package
 
       - name: Test coverage
+        working-directory: r-package
         run: |
           cov <- covr::package_coverage(
             quiet = FALSE,
@@ -38,10 +46,12 @@ jobs:
         with:
           # Fail if error if not on PR, or if on PR and token is given
           fail_ci_if_error: ${{ github.event_name != 'pull_request' || secrets.CODECOV_TOKEN }}
-          file: ./cobertura.xml
+          file: r-package/cobertura.xml
           plugin: noop
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: r
+          name: codecov-r
 
       - name: Show testthat output
         if: always()
