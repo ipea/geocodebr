@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# geocodebr: Geolocalização de Endereços Brasileiros <img align="right" src="man/figures/logo.svg" alt="" width="180">
+# geocodebr: Geolocalização de Endereços Brasileiros <img align="right" src="r-package/man/figures/logo.svg" alt="" width="180">
 
 [![CRAN
 status](https://www.r-pkg.org/badges/version/geocodebr)](https://CRAN.R-project.org/package=geocodebr)
@@ -36,7 +36,7 @@ Caso prefira, a versão em desenvolvimento:
 
 ``` r
 # install.packages("remotes")
-remotes::install_github("ipea/geocodebr")
+remotes::install_github("ipea/geocodebr", subdir = "r-package")
 ```
 
 ## Utilização
@@ -141,7 +141,7 @@ df_ceps <- geocodebr::busca_por_cep(
  )
 ```
 
-## Nota <a href="https://www.ipea.gov.br"><img src="man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>
+## Nota <a href="https://www.ipea.gov.br"><img src="r-package/man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>
 
 Os dados originais do CNEFE são coletados pelo Instituto Brasileiro de
 Geografia e Estatística (IBGE). O **{geocodebr}** foi desenvolvido por
