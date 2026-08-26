@@ -14,7 +14,12 @@ download_cnefe(tabela = "todas", verboso = TRUE, cache = TRUE)
 
 - tabela:
 
-  Nome da tabela para ser baixada. Por padrão, baixa `"todas"`.
+  Nome de uma ou mais tabelas a serem baixadas. Pode ser uma única
+  string ou um vetor de caracteres. Por padrão, baixa `"todas"` as
+  tabelas de referência do CNEFE (não pode ser combinado com outros
+  nomes). Os nomes válidos são os mesmos nomes-base dos arquivos
+  `.parquet` distribuídos pelo pacote (e.g. `"municipio_cep"`,
+  `"municipio_logradouro_numero_cep_localidade"`).
 
 - verboso:
 
@@ -37,4 +42,5 @@ Retorna o caminho para o diretório onde os dados foram salvos.
 
 ``` r
 download_cnefe(verboso = FALSE)
+download_cnefe(tabela = c("municipio", "municipio_cep"), verboso = FALSE)
 ```

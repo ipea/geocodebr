@@ -64,7 +64,12 @@ pacote.</p>
 
 
 <dl><dt id="arg-tabela">tabela<a class="anchor" aria-label="anchor" href="#arg-tabela"></a></dt>
-<dd><p>Nome da tabela para ser baixada. Por padrão, baixa <code>"todas"</code>.</p></dd>
+<dd><p>Nome de uma ou mais tabelas a serem baixadas. Pode ser uma
+única string ou um vetor de caracteres. Por padrão, baixa <code>"todas"</code> as
+tabelas de referência do CNEFE (não pode ser combinado com outros
+nomes). Os nomes válidos são os mesmos nomes-base dos arquivos
+<code>.parquet</code> distribuídos pelo pacote (e.g. <code>"municipio_cep"</code>,
+<code>"municipio_logradouro_numero_cep_localidade"</code>).</p></dd>
 
 
 <dt id="arg-verboso">verboso<a class="anchor" aria-label="anchor" href="#arg-verboso"></a></dt>
@@ -88,6 +93,7 @@ diretório temporário.</p></dd>
     <div class="section level2">
     <h2 id="ref-examples">Exemplos<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">download_cnefe</span><span class="op">(</span>verboso <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">download_cnefe</span><span class="op">(</span>tabela <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"municipio"</span>, <span class="st">"municipio_cep"</span><span class="op">)</span>, verboso <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Índice"><h2>Nesta página</h2>
