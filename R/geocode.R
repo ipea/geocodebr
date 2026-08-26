@@ -371,7 +371,7 @@ geocode_core <- function(
       municipio_encontrado = arrow::string(),
       estado_encontrado = arrow::string(),
       similaridade_logradouro = arrow::float16(),
-      cod_setor = arrow::string(),
+      cod_setor = arrow::string()
     )
   }
 
