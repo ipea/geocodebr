@@ -2,6 +2,7 @@
 ^\.Rproj\.user$
 ^tests/tests_rafa$
 ^tests/tests_pedro$
+^df_sample_empates\.parquet$
 ^data_prep
 ^CRAN-SUBMISSION$
 ^cran-comments\.md$

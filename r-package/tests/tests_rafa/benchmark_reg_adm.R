@@ -27,7 +27,7 @@ set.seed(42)
 
 
 # cad unico --------------------------------------------------------------------
-sample_size <- 1000000
+sample_size <- 10000000
 
 cad_con <- ipeadatalake::ler_cadunico(
   data = 202312,
@@ -64,7 +64,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  dplyr::slice_sample(n = sample_size) |> # sample 20K
+  # dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -82,8 +82,8 @@ stop()
 
 
 gc(T,T,T)
-bench::system_time(
-#bench::mark(iterations = 1,
+#bench::system_time(
+bench::mark(iterations = 1,
   cadgeo <- geocodebr::geocode(
     enderecos  = df,
     campos_endereco = campos,
@@ -106,7 +106,7 @@ bench::system_time(
 # v0.5.0 CRAN     6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.6.4 CRAN     5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.7.0  dev     4.36m  4.36m   0.00382    1016MB  0.00764     1     2      4.36m <df>   <Rprofmem> <bench_tm> <tibble>
-
+# v0.7.0 dev+ties 4.07m  4.07m   0.00410    1012MB  0.00820     1     2      4.07m <df>   <Rprofmem>
 
 
 # v0.5.0 CRAN     2.39m !!!! em paralelo
@@ -122,7 +122,7 @@ bench::system_time(
 # v0.5.0 CRAN     24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
 # v0.6.4 CRAN     18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.7.0  dev     17.0m    17m  0.000979    4.12GB 0.000979     1     1        17m <df>   <Rprofmem> <bench_tm> <tibble>
-
+# v0.7.0 dev+ties
 
 
  # v0.5.0  8.99m  !!!! em paralelo por uf

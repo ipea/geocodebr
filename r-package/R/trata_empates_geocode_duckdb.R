@@ -224,11 +224,17 @@ trata_empates_geocode_duckdb <- function(
             AND (
               max_dist > 1000
               OR log_causa_confusao
-              OR REGEXP_MATCHES(endereco_encontrado,
-                  '(RUA (QUATRO|QUATORZE|QUINZE|DEZESSEIS|DEZESSETE|DEZOITO|DEZENOVE|VINTE|TRINTA|QUARENTA|CINQUENTA|SESSENTA|SETENTA|OITENTA|NOVENTA))'
+              -- o regex de numeros por extenso casa por substring (pega 'RUA
+              -- QUINZE' dentro de 'RUA QUINZE DE NOVEMBRO'), entao a excecao
+              -- de ruas-data neutraliza APENAS este braco: nomes-data seguem
+              -- podendo ser 'perdidos' pela distancia (max_dist) acima
+              OR (
+                REGEXP_MATCHES(endereco_encontrado,
+                    '(RUA (QUATRO|QUATORZE|QUINZE|DEZESSEIS|DEZESSETE|DEZOITO|DEZENOVE|VINTE|TRINTA|QUARENTA|CINQUENTA|SESSENTA|SETENTA|OITENTA|NOVENTA))'
+                )
+                AND NOT REGEXP_MATCHES(logradouro_encontrado, '\\bDE (JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\\b')
               )
             )
-            AND NOT REGEXP_MATCHES(logradouro_encontrado, '\\\\bDE (JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\\\\b')
           QUALIFY ROW_NUMBER()
             OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
         ),

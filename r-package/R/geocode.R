@@ -169,11 +169,11 @@ geocode_core <- function(
         step_sec = vapply(.marks, `[[`, 0.0, "step"),
         total_sec = vapply(.marks, `[[`, 0.0, "total"),
         stringsAsFactors = FALSE
-      ) |>
-        dplyr::mutate(step_relative = round(step_sec / max(total_sec)*100, 1))
+      )
+      df$step_relative <- round(df$step_sec / max(df$total_sec) * 100, 1)
 
       if (print_summary) {
-        message("— Timing summary —")
+        message("-- Timing summary --")
         print(df, row.names = FALSE)
       }
       df

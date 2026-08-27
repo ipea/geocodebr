@@ -45,6 +45,23 @@ com `FALSE`, medido em 1 milhão de endereços). O resultado retornado não muda
 voltavam como linhas duplicadas sem nenhuma coluna que permitisse identificá-los 
 (a mensagem de aviso instruía a inspecionar uma coluna que não estava no output).
 
+- Na resolução de empates (`resolver_empates = TRUE`), a exceção que protege ruas com
+nome de data (e.g. "Rua Quinze de Novembro") de serem tratadas como logradouro ambíguo
+nunca era aplicada, por um erro de escape de regex (`\\b` chegava ao motor como barra
+literal). Com a correção, endereços dessas ruas com coordenadas candidatas a menos de
+1 km entre si passam a ser resolvidos pela média ponderada (comportamento documentado),
+em vez de descartar candidatos. A exceção vale apenas para o critério de nome ambíguo:
+candidatos a mais de 1 km continuam sendo desempatados pelo caso mais provável. Afeta
+~14 endereços por milhão (medido em amostra de 1M com alta incidência de empates).
+
+- A lista interna de logradouros ambíguos (usada para excluir nomes genéricos do
+match probabilístico e para o desempate) enumerava "Rua Um" a "Rua Treze" mas pulava
+"Rua Quatro". A lacuna permitia, por exemplo, que "Rua Quatro" casasse por similaridade
+com "Rua Quatorze" (Jaro 0,91, acima de todos os limiares do pacote). Endereços em
+"Rua Quatro" sem match exato agora caem para categorias de menor precisão (CEP,
+localidade ou município) em vez de arriscar um match probabilístico errado. Afeta
+~26 endereços por milhão (medido na mesma amostra).
+
 
 ## Correção de bugs (Bug fixes)
 

@@ -584,6 +584,7 @@ cria_col_logradouro_confusao <- function(con) {
         'UM',
         'DOIS',
         'TRES',
+        'QUATRO',
         'CINCO',
         'SEIS',
         'SETE',
