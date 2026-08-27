@@ -351,14 +351,31 @@ df <- geocodebr::geocode(
   campos_endereco = fields,
   resolver_empates = TRUE
   )
+#> [Start] +0.009 s (total 0.009 s)
 #> ℹ Padronizando endereços de entrada
+#> [Padronizacao] +0.096 s (total 0.105 s)
 #> ℹ Utilizando dados do CNEFE armazenados localmente
+#> [Register standardized input] +0.596 s (total 0.701 s)
 #> ℹ Geolocalizando endereços
 #>  Casos processados: 0/2 ■                                  0% - dn01 
 #>  Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! 
 #> 
+#> [Matching] +0.355 s (total 1.056 s)
 #> ℹ Preparando resultados
-#> 
+#> [Resolve empates] +0.013 s (total 1.069 s)
+#> [Write original input back] +0.049 s (total 1.118 s)
+#> [Add precision] +0.004 s (total 1.122 s)
+#> [Merge results] +0.004 s (total 1.126 s)
+#> — Timing summary —
+#>                         step step_sec total_sec step_relative
+#>                        Start    0.009     0.009           0.8
+#>                 Padronizacao    0.096     0.105           8.5
+#>  Register standardized input    0.596     0.701          52.9
+#>                     Matching    0.355     1.056          31.5
+#>              Resolve empates    0.013     1.069           1.2
+#>    Write original input back    0.049     1.118           4.4
+#>                Add precision    0.004     1.122           0.4
+#>                Merge results    0.004     1.126           0.4
 
 head(df)
 #>   id            nm_logradouro Numero       Cep     Bairro    nm_municipio
