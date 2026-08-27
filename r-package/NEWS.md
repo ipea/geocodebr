@@ -35,6 +35,16 @@ etapas ativas do algoritmo de fato vão usar, em vez de baixar sempre as 8 tabel
 disponíveis. No melhor caso (geocodificação só por CEP/bairro/município, sem 
 logradouro/número), o volume baixado cai de ~1,5 GB para ~20 MB.
 
+- A etapa interna de tratamento de empates de `geocode()` ficou mais eficiente: as 
+janelas de cálculo agora rodam apenas sobre os casos efetivamente empatados, em vez 
+de sobre o resultado inteiro (~2,4x mais rápida com `resolver_empates = TRUE`, ~5x 
+com `FALSE`, medido em 1 milhão de endereços). O resultado retornado não muda.
+
+- Com `resolver_empates = FALSE`, o output de `geocode()` agora inclui a coluna 
+`empate` mesmo quando `resultado_completo = FALSE`. Antes, os casos empatados 
+voltavam como linhas duplicadas sem nenhuma coluna que permitisse identificá-los 
+(a mensagem de aviso instruía a inspecionar uma coluna que não estava no output).
+
 
 ## Correção de bugs (Bug fixes)
 

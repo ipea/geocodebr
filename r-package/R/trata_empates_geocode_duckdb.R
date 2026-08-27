@@ -4,17 +4,24 @@ trata_empates_geocode_duckdb <- function(
   resolver_empates,
   verboso
 ) {
-  # 1) checa se tem empates --------------------------------------
+  # 1) identifica e materializa os casos de empate --------------------------------
+  # a tabela ids_empatados fica criada mesmo nos ramos de retorno antecipado
+  # abaixo: o custo e trivial (so os ids com mais de um resultado) e o caminho
+  # resolver_empates = TRUE a reaproveita para separar empatados de
+  # nao-empatados antes das window functions
+
+  DBI::dbExecute(
+    con,
+    "CREATE OR REPLACE TEMP TABLE ids_empatados AS
+      SELECT tempidgeocodebr
+      FROM output_db
+      GROUP BY tempidgeocodebr
+      HAVING COUNT(*) > 1;"
+  )
 
   n_casos_empate <- DBI::dbGetQuery(
     conn = con,
-    statement = "SELECT COUNT(*) AS n_casos_empate
-                    FROM (
-                      SELECT tempidgeocodebr
-                      FROM output_db
-                      GROUP BY tempidgeocodebr
-                      HAVING COUNT(*) > 1
-                    ) AS repeated;"
+    statement = "SELECT COUNT(*) AS n_casos_empate FROM ids_empatados;"
   )[[1]]
 
   # 2) se nao tiver mais empates, termina aqui --------------------------------------
@@ -36,13 +43,26 @@ trata_empates_geocode_duckdb <- function(
   # - gera warning
   # - retorna resultado assim mesmo
   if (isFALSE(resolver_empates)) {
-    # adicionar coluna de empate
+    # marca o flag de empate in-place e renomeia, em vez de copiar output_db
+    # inteira: o resto do pipeline (add_precision_col / merge_results_to_input)
+    # usa o nome 'output_db2' sempre que n_casos_empate > 0, e nada mais
+    # referencia 'output_db' depois deste ponto.
+    # tempidgeocodebr nunca e NULL (id sequencial criado na padronizacao); se
+    # um dia for, o IN () abaixo deixaria o flag FALSE onde a window function
+    # antiga (COUNT(*) OVER) agrupava os NULLs juntos.
     DBI::dbExecute(
       conn = con,
-      statement = "CREATE OR REPLACE TEMP TABLE output_db2 AS
-                    SELECT *,
-                    (COUNT(*) OVER (PARTITION BY tempidgeocodebr) > 1) AS empate
-                    FROM output_db;"
+      statement = "ALTER TABLE output_db
+                    ADD COLUMN IF NOT EXISTS empate BOOLEAN DEFAULT FALSE;"
+    )
+    DBI::dbExecute(
+      conn = con,
+      statement = "UPDATE output_db SET empate = TRUE
+                    WHERE tempidgeocodebr IN (SELECT tempidgeocodebr FROM ids_empatados);"
+    )
+    DBI::dbExecute(
+      conn = con,
+      statement = "ALTER TABLE output_db RENAME TO output_db2;"
     )
 
     cli::cli_warn(
@@ -72,7 +92,7 @@ trata_empates_geocode_duckdb <- function(
   "
   )
 
-  # 3 se for para resolver empates, trata de 3 casos separados -----------------
+  # 4) se for para resolver empates, trata de 3 casos separados -----------------
   # D) nao empatados
   # E) empatados perdidos (dist > 1Km e lograoduros ambiguos)
   #    solucao: usa caso com maior contagem_cnefe
@@ -84,6 +104,7 @@ trata_empates_geocode_duckdb <- function(
 
   additional_cols_final <- ""
   cols_encontradas <- ""
+  cols_passthrough <- ""
 
   if (isTRUE(resultado_completo)) {
     additional_cols_final <- glue::glue(
@@ -97,19 +118,35 @@ trata_empates_geocode_duckdb <- function(
         localidade_encontrada, municipio_encontrado, estado_encontrado,
         similaridade_logradouro, cod_setor"
     )
+
+    # o passthrough dos nao-empatados le direto de output_db, que nao tem a
+    # coluna 'empate' -- ela nasce aqui como literal FALSE, na mesma posicao
+    # em que additional_cols_final a coloca nos demais ramos do UNION ALL
+    cols_passthrough <- glue::glue(
+      ", logradouro_encontrado, numero_encontrado, cep_encontrado,
+        localidade_encontrada, municipio_encontrado, estado_encontrado,
+        similaridade_logradouro, contagem_cnefe, FALSE AS empate, cod_setor"
+    )
   }
 
-  sql_resolve <- glue::glue(
-    "CREATE OR REPLACE TEMP TABLE output_db2 AS
+  # 4a) pipeline de classificacao, SOMENTE sobre os grupos empatados ------------
+  # As window functions abaixo (ROW_NUMBER, LAG + haversine, COUNT/MAX OVER)
+  # custavam O(output_db inteiro); com o recorte por ids_empatados custam
+  # O(linhas empatadas). Materializar como TEMP TABLE (e nao CTE referenciada
+  # varias vezes) garante que o pipeline roda uma unica vez e permite
+  # inspecionar o resultado intermediario ao depurar.
 
-      -- A) tabela *base* calculate empates iniciais (inclui mesmo aqueles a menos de 300 metros)
+  sql_classif <- glue::glue(
+    "CREATE OR REPLACE TEMP TABLE empates_classif AS
       WITH
+      -- A) tabela *base* ranqueia os candidatos de cada grupo empatado
+      -- (inclui mesmo aqueles a menos de 300 metros)
         base AS (
           SELECT
-            *,
-            (COUNT(*) OVER (PARTITION BY tempidgeocodebr) > 1) AS empate_inicial,
+            o.*,
             ROW_NUMBER() OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) AS id
-          FROM output_db
+          FROM output_db o
+          WHERE EXISTS (SELECT 1 FROM ids_empatados i WHERE i.tempidgeocodebr = o.tempidgeocodebr)
         ),
 
       -- B) tabela *distd* calculate distancia entre os casos empatados
@@ -117,34 +154,41 @@ trata_empates_geocode_duckdb <- function(
       -- contra a linha ANTERIOR, que por construcao do 'id' tem contagem_cnefe
       -- maior ou igual. Assim, quando o filtro (C) descarta um par a menos de
       -- 300 metros, quem sai eh sempre a linha de MENOR contagem_cnefe.
+      -- Na primeira linha de cada grupo o LAG e NULL e a haversine propaga NULL.
       distd AS (
           SELECT
             b.*,
-            CASE WHEN empate_inicial THEN
-              haversine(
-                lat, lon,
-                LAG(lat) OVER (PARTITION BY tempidgeocodebr ORDER BY id),
-                LAG(lon) OVER (PARTITION BY tempidgeocodebr ORDER BY id)
-              )
-            END AS dist_geocodebr_metros
+            haversine(
+              lat, lon,
+              LAG(lat) OVER (PARTITION BY tempidgeocodebr ORDER BY id),
+              LAG(lon) OVER (PARTITION BY tempidgeocodebr ORDER BY id)
+            ) AS dist_geocodebr_metros
           FROM base b
-        ),
+        )
 
-      -- C) tabela *filtered* pra manter apenas casos de empate que estao a mais de 300 metros e atualiza coluna de empate
+      -- C) mantem apenas casos de empate que estao a mais de 300 metros e
+      -- recalcula a coluna de empate sobre os sobreviventes
       -- A linha com dist NULL eh a primeira da particao (id = 1), i.e. a de maior
       -- contagem_cnefe, que por isso eh sempre preservada.
-      filtered AS (
-          SELECT
-            d.*,
-            (COUNT(*) OVER (PARTITION BY tempidgeocodebr) > 1) AS empate,
-            MAX(dist_geocodebr_metros) OVER (PARTITION BY tempidgeocodebr) AS max_dist
-          FROM distd d
-          WHERE (empate_inicial IS FALSE)
-             OR (empate_inicial AND dist_geocodebr_metros IS NULL)
-             OR (empate_inicial AND dist_geocodebr_metros > 300)
-        ),
+      SELECT
+        d.*,
+        (COUNT(*) OVER (PARTITION BY tempidgeocodebr) > 1) AS empate,
+        MAX(dist_geocodebr_metros) OVER (PARTITION BY tempidgeocodebr) AS max_dist
+      FROM distd d
+      WHERE dist_geocodebr_metros IS NULL
+         OR dist_geocodebr_metros > 300;"
+  )
 
-      -- D) tabela *df_sem_empate* com os casos sem empate
+  DBI::dbExecute(con, sql_classif)
+
+  # 4b) monta output_db2: nao-empatados passam direto de output_db (sem nenhuma
+  # window function); D/E/F sao derivados de empates_classif
+
+  sql_resolve <- glue::glue(
+    "CREATE OR REPLACE TEMP TABLE output_db2 AS
+      WITH
+      -- D) tabela *df_sem_empate* com os casos que deixaram de ser empate
+      -- apos o colapso de 300 metros
       df_sem_empate AS (
           SELECT
             tempidgeocodebr,
@@ -155,7 +199,7 @@ trata_empates_geocode_duckdb <- function(
             contagem_cnefe,
             desvio_metros,
             empate {cols_encontradas}
-          FROM filtered
+          FROM empates_classif
           WHERE empate = FALSE
         ),
 
@@ -170,7 +214,7 @@ trata_empates_geocode_duckdb <- function(
             contagem_cnefe,
             desvio_metros,
             TRUE AS empate {cols_encontradas}
-          FROM filtered
+          FROM empates_classif
           WHERE empate = TRUE
             -- so match com logradouro pode ser 'perdido': nas categorias sem
             -- logradouro (dc01, dc02, db01, dm01) o empate e entre enderecos do
@@ -189,12 +233,13 @@ trata_empates_geocode_duckdb <- function(
             OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
         ),
 
-        -- F) empatados salvaveis = restantes (nao em a nem b)
+        -- F) empatados salvaveis = restantes (empatados que nao cairam em E)
+        -- 'empate' e constante por tempidgeocodebr, entao empate = TRUE ja
+        -- exclui os grupos de df_sem_empate (D) sem precisar de anti-join
         empates_restantes AS (
           SELECT f.*
-          FROM filtered f
+          FROM empates_classif f
           WHERE f.empate = TRUE
-            AND NOT EXISTS (SELECT 1 FROM df_sem_empate s WHERE s.tempidgeocodebr = f.tempidgeocodebr)
             AND NOT EXISTS (SELECT 1 FROM df_empates_perdidos p WHERE p.tempidgeocodebr = f.tempidgeocodebr)
         ),
         empates_wavg AS (
@@ -221,7 +266,8 @@ trata_empates_geocode_duckdb <- function(
             OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
         )
 
-      -- junta as 3 tabelas numa soh (df_sem_empate, df_empates_perdidos, df_empates_salve)
+      -- junta as 3 tabelas (df_sem_empate, df_empates_perdidos, df_empates_salve)
+      -- e o passthrough dos casos que nunca tiveram empate
       SELECT
         tempidgeocodebr, lat, lon, tipo_resultado, desvio_metros,
         endereco_encontrado {additional_cols_final}
@@ -235,7 +281,13 @@ trata_empates_geocode_duckdb <- function(
       SELECT
         tempidgeocodebr, lat, lon, tipo_resultado, desvio_metros,
         endereco_encontrado {additional_cols_final}
-      FROM df_empates_salve;"
+      FROM df_empates_salve
+      UNION ALL
+      SELECT
+        tempidgeocodebr, lat, lon, tipo_resultado, desvio_metros,
+        endereco_encontrado {cols_passthrough}
+      FROM output_db o
+      WHERE NOT EXISTS (SELECT 1 FROM ids_empatados i WHERE i.tempidgeocodebr = o.tempidgeocodebr);"
   )
 
   DBI::dbExecute(con, sql_resolve)

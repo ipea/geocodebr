@@ -4,6 +4,7 @@ library(ipeadatalake)
 library(dplyr)
 library(data.table)
 library(enderecobr)
+# library(geocodebr)
 # library(mapview)
 # library(sfheaders)
 # library(sf)
@@ -26,7 +27,7 @@ set.seed(42)
 
 
 # cad unico --------------------------------------------------------------------
-sample_size <- 10000000
+sample_size <- 1000000
 
 cad_con <- ipeadatalake::ler_cadunico(
   data = 202312,
@@ -81,8 +82,8 @@ stop()
 
 
 gc(T,T,T)
-#bench::system_time(
-bench::mark(iterations = 1,
+bench::system_time(
+#bench::mark(iterations = 1,
   cadgeo <- geocodebr::geocode(
     enderecos  = df,
     campos_endereco = campos,
@@ -104,6 +105,9 @@ bench::mark(iterations = 1,
 # v0.4.0 CRAN     33.5m  33.5m  0.000497    8.06GB  0.00746     1    15      33.5m <NULL> <Rprofmem>
 # v0.5.0 CRAN     6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.6.4 CRAN     5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0  dev     4.36m  4.36m   0.00382    1016MB  0.00764     1     2      4.36m <df>   <Rprofmem> <bench_tm> <tibble>
+
+
 
 # v0.5.0 CRAN     2.39m !!!! em paralelo
 # v0.6.0 dev      2.16m !!!! em paralelo
@@ -117,6 +121,9 @@ bench::mark(iterations = 1,
 # v0.4.0 CRAN      3.3h   3.3h 0.0000843    34.5GB  0.00244     1    29       3.3h <dt>   <Rprofmem> <bench_tm> <tibble>
 # v0.5.0 CRAN     24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
 # v0.6.4 CRAN     18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0  dev     17.0m    17m  0.000979    4.12GB 0.000979     1     1        17m <df>   <Rprofmem> <bench_tm> <tibble>
+
+
 
  # v0.5.0  8.99m  !!!! em paralelo por uf
  # v0.6.0  7.24m  !!!! em paralelo por uf

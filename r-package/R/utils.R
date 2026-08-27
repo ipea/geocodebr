@@ -140,7 +140,8 @@ merge_results_to_input <- function(
   y,
   key_column,
   select_columns,
-  resultado_completo
+  resultado_completo,
+  incluir_empate = FALSE
 ) {
   # nocov start
 
@@ -152,6 +153,14 @@ merge_results_to_input <- function(
     'desvio_metros',
     'endereco_encontrado'
   )
+
+  # com resolver_empates = FALSE os casos empatados voltam em duplicidade
+  # (uma linha por candidato), entao a coluna 'empate' precisa acompanhar o
+  # output mesmo sem resultado_completo, para o usuario identificar essas
+  # linhas. Com resultado_completo = TRUE ela ja entra na lista abaixo.
+  if (isTRUE(incluir_empate) && isFALSE(resultado_completo)) {
+    select_columns_y <- c(select_columns_y, 'empate')
+  }
 
   if (isTRUE(resultado_completo)) {
     # select additional columns to output

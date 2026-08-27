@@ -25,8 +25,11 @@
 #'    mesmo nome em uma mesma cidade). Esses casos são trados como 'empate' e o
 #'    parâmetro `resolver_empates` indica se a função deve resolver esses empates
 #'    automaticamente. Por padrão, é `TRUE`, e a função retorna apenas o caso
-#'    mais provável. Para mais detalhes sobre como é feito o processo de
-#'    desempate, consulte abaixo a seção "Detalhes".
+#'    mais provável, preservando uma linha de output por linha de input. Com
+#'    `FALSE`, cada endereço empatado retorna uma linha por coordenada candidata
+#'    (o output pode ter mais linhas que o input) e a coluna `empate` é incluída
+#'    no output para identificar esses casos. Para mais detalhes sobre como é
+#'    feito o processo de desempate, consulte abaixo a seção "Detalhes".
 #' @template resultado_sf
 #' @template h3_res
 #' @param padronizar_enderecos Lógico. Indica se os dados de endereço de entrada
@@ -141,53 +144,53 @@ geocode_core <- function(
   cache,
   n_cores
 ) {
-  # ## ---- tiny timing toolkit (self-contained) ------------------------------
-  # .make_timer <- function(verbose = TRUE) {
-  #   .marks <- list()
-  #   .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
-  #   .t_prev <- .t0_rt
-  #
-  #   fmt <- function(secs) sprintf("%.3f s", secs)
-  #
-  #   mark <- function(label) {
-  #     now <- proc.time()[["elapsed"]]
-  #     step  <- now - .t_prev
-  #     total <- now - .t0_rt
-  #     .marks <<- append(.marks, list(list(label = label, step = step, total = total)))
-  #     .t_prev <<- now
-  #     if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
-  #     invisible(now)
-  #   }
-  #
-  #   summary <- function(print_summary = verbose) {
-  #     if (length(.marks) == 0) return(invisible(data.frame()))
-  #     df <- data.frame(
-  #       step = vapply(.marks, `[[`, "", "label"),
-  #       step_sec = vapply(.marks, `[[`, 0.0, "step"),
-  #       total_sec = vapply(.marks, `[[`, 0.0, "total"),
-  #       stringsAsFactors = FALSE
-  #     ) |>
-  #       dplyr::mutate(step_relative = round(step_sec / max(total_sec)*100, 1))
-  #
-  #     if (print_summary) {
-  #       message("— Timing summary —")
-  #       print(df, row.names = FALSE)
-  #     }
-  #     df
-  #   }
-  #
-  #   time_it <- function(label, expr) {
-  #     force(label)
-  #     res <- eval.parent(substitute(expr))
-  #     mark(label)
-  #     invisible(res)
-  #   }
-  #
-  #   list(mark = mark, summary = summary, time_it = time_it)
-  # }
-  # timer <- .make_timer(verbose = isTRUE(verboso))
-  # on.exit(timer$summary(), add = TRUE)
-  # ## -----------------------------------------------------------------------
+  ## ---- tiny timing toolkit (self-contained) ------------------------------
+  .make_timer <- function(verbose = TRUE) {
+    .marks <- list()
+    .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
+    .t_prev <- .t0_rt
+
+    fmt <- function(secs) sprintf("%.3f s", secs)
+
+    mark <- function(label) {
+      now <- proc.time()[["elapsed"]]
+      step  <- now - .t_prev
+      total <- now - .t0_rt
+      .marks <<- append(.marks, list(list(label = label, step = step, total = total)))
+      .t_prev <<- now
+      if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
+      invisible(now)
+    }
+
+    summary <- function(print_summary = verbose) {
+      if (length(.marks) == 0) return(invisible(data.frame()))
+      df <- data.frame(
+        step = vapply(.marks, `[[`, "", "label"),
+        step_sec = vapply(.marks, `[[`, 0.0, "step"),
+        total_sec = vapply(.marks, `[[`, 0.0, "total"),
+        stringsAsFactors = FALSE
+      ) |>
+        dplyr::mutate(step_relative = round(step_sec / max(total_sec)*100, 1))
+
+      if (print_summary) {
+        message("— Timing summary —")
+        print(df, row.names = FALSE)
+      }
+      df
+    }
+
+    time_it <- function(label, expr) {
+      force(label)
+      res <- eval.parent(substitute(expr))
+      mark(label)
+      invisible(res)
+    }
+
+    list(mark = mark, summary = summary, time_it = time_it)
+  }
+  timer <- .make_timer(verbose = isTRUE(verboso))
+  on.exit(timer$summary(), add = TRUE)
+  ## -----------------------------------------------------------------------
 
   # check input
   checkmate::assert_data_frame(enderecos)
@@ -210,7 +213,7 @@ geocode_core <- function(
 
 
   # systime start 66666 ----------------
-  # timer$mark("Start")
+  timer$mark("Start")
 
   # fix eventual missing fields in input data -------------------------------------------------------
   # geocodebr requires all address fields to be declared
@@ -302,7 +305,7 @@ geocode_core <- function(
   }
 
   # systime padronizacao 66666 ----------------
-  # timer$mark("Padronizacao")
+  timer$mark("Padronizacao")
 
   # create temp id
   data.table::setDT(enderecos)[, tempidgeocodebr := 1:nrow(input_padrao)]
@@ -448,8 +451,8 @@ geocode_core <- function(
     finish_progress_bar(matched_rows)
   }
 
-  # systime matching 66666 ----------------
-  # timer$mark("Matching")
+  ## systime matching 66666 ----------------
+  timer$mark("Matching")
 
   if (verboso) {
     message_preparando_output()
@@ -465,7 +468,7 @@ geocode_core <- function(
   )
 
   # systime resolve empates 66666 ----------------
-  # timer$mark("Resolve empates")
+  timer$mark("Resolve empates")
 
   # bring original input back -----------------------------------------------
 
@@ -482,7 +485,7 @@ geocode_core <- function(
   #                        overwrite = TRUE, temporary = TRUE)
 
   # systime write original input back 66666 ----------------
-  # timer$mark("Write original input back")
+  timer$mark("Write original input back")
 
   # add precision column ----------------
   output_table_to_use <- ifelse(
@@ -503,11 +506,12 @@ geocode_core <- function(
     y = output_table_to_use,
     key_column = 'tempidgeocodebr',
     select_columns = x_columns,
-    resultado_completo = resultado_completo
+    resultado_completo = resultado_completo,
+    incluir_empate = isFALSE(resolver_empates)
   )
 
-  # systime merge results 66666 ----------------
-  # timer$mark("Merge results")
+  ## systime merge results 66666 ----------------
+  timer$mark("Merge results")
 
   data.table::setDT(output_df)
 
