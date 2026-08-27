@@ -122,8 +122,7 @@ bench::mark(iterations = 1,
 # v0.5.0 CRAN     24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
 # v0.6.4 CRAN     18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.7.0  dev     17.0m    17m  0.000979    4.12GB 0.000979     1     1        17m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 dev+ties
-
+# v0.7.0 dev+ties 15.7m  15.7m   0.00106    4.11GB  0.00106     1     1      15.7m <df>   <Rprofmem>
 
  # v0.5.0  8.99m  !!!! em paralelo por uf
  # v0.6.0  7.24m  !!!! em paralelo por uf
@@ -132,11 +131,19 @@ bench::mark(iterations = 1,
 1- sum(is.na(cadgeo$cod_setor)) / nrow(cadgeo)
 # v0.6.0: 0.6438606
 
+# # v0.7.0 dev+ties
+#                           step_sec total_sec step_relative
+#                     Start     0.01      0.01           0.0
+#              Padronizacao    98.91     98.92          14.7
+#                  Matching   464.78    563.70          69.2
+#           Resolve empates     9.86    573.56           1.5
+# Write original input back    18.91    592.47           2.8
+#             Merge results    78.81    671.28          11.7
 
-# nao era para ser empate
-# 5 "da02" "da02"   mesmo rua e cep
-# [1] "RUA PAULO SIMOES DA COSTA, 32 (aprox) - JARDIM ANGELA, SAO PAULO - SP, 04929-140"
-# [2] "RUA PAULO SIMOES DA COSTA, 32 (aprox) - ALTO DO RIVIERA, SAO PAULO - SP, 04929-140"
+
+
+
+
 
 
 

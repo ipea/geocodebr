@@ -39,11 +39,8 @@ indicar diferentes coordenadas possíveis (e.g. duas ruas diferentes com o
 mesmo nome em uma mesma cidade). Esses casos são trados como 'empate' e o
 parâmetro \code{resolver_empates} indica se a função deve resolver esses empates
 automaticamente. Por padrão, é \code{TRUE}, e a função retorna apenas o caso
-mais provável, preservando uma linha de output por linha de input. Com
-\code{FALSE}, cada endereço empatado retorna uma linha por coordenada candidata
-(o output pode ter mais linhas que o input) e a coluna \code{empate} é incluída
-no output para identificar esses casos. Para mais detalhes sobre como é
-feito o processo de desempate, consulte abaixo a seção "Detalhes".}
+mais provável. Para mais detalhes sobre como é feito o processo de
+desempate, consulte abaixo a seção "Detalhes".}
 
 \item{resultado_sf}{Lógico. Indica se o resultado deve ser um objeto espacial
 da classe \code{sf}. Por padrão, é \code{FALSE}, e o resultado é um \code{data.frame} com

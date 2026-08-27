@@ -25,11 +25,8 @@
 #'    mesmo nome em uma mesma cidade). Esses casos são trados como 'empate' e o
 #'    parâmetro `resolver_empates` indica se a função deve resolver esses empates
 #'    automaticamente. Por padrão, é `TRUE`, e a função retorna apenas o caso
-#'    mais provável, preservando uma linha de output por linha de input. Com
-#'    `FALSE`, cada endereço empatado retorna uma linha por coordenada candidata
-#'    (o output pode ter mais linhas que o input) e a coluna `empate` é incluída
-#'    no output para identificar esses casos. Para mais detalhes sobre como é
-#'    feito o processo de desempate, consulte abaixo a seção "Detalhes".
+#'    mais provável. Para mais detalhes sobre como é feito o processo de
+#'    desempate, consulte abaixo a seção "Detalhes".
 #' @template resultado_sf
 #' @template h3_res
 #' @param padronizar_enderecos Lógico. Indica se os dados de endereço de entrada
@@ -169,11 +166,11 @@ geocode_core <- function(
         step_sec = vapply(.marks, `[[`, 0.0, "step"),
         total_sec = vapply(.marks, `[[`, 0.0, "total"),
         stringsAsFactors = FALSE
-      )
-      df$step_relative <- round(df$step_sec / max(df$total_sec) * 100, 1)
+      ) |>
+        dplyr::mutate(step_relative = round(step_sec / max(total_sec)*100, 1))
 
       if (print_summary) {
-        message("-- Timing summary --")
+        message("— Timing summary —")
         print(df, row.names = FALSE)
       }
       df
@@ -348,7 +345,7 @@ geocode_core <- function(
   )
 
   # systime register standardized 66666 ----------------
-  # timer$mark("Register standardized input")
+  timer$mark("Register standardized input")
 
   # cria coluna "log_causa_confusao" identificando logradouros que geram confusao
   # issue https://github.com/ipeaGIT/geocodebr/issues/67
@@ -451,7 +448,7 @@ geocode_core <- function(
     finish_progress_bar(matched_rows)
   }
 
-  ## systime matching 66666 ----------------
+  # systime matching 66666 ----------------
   timer$mark("Matching")
 
   if (verboso) {
@@ -496,7 +493,7 @@ geocode_core <- function(
   add_precision_col(con, update_tb = output_table_to_use)
 
   # systime add precision 66666 ----------------
-  # timer$mark("Add precision")
+  timer$mark("Add precision")
 
   x_columns <- names(enderecos)
 
@@ -506,11 +503,10 @@ geocode_core <- function(
     y = output_table_to_use,
     key_column = 'tempidgeocodebr',
     select_columns = x_columns,
-    resultado_completo = resultado_completo,
-    incluir_empate = isFALSE(resolver_empates)
+    resultado_completo = resultado_completo
   )
 
-  ## systime merge results 66666 ----------------
+  # systime merge results 66666 ----------------
   timer$mark("Merge results")
 
   data.table::setDT(output_df)
@@ -551,7 +547,7 @@ geocode_core <- function(
     }
 
     # systime add h3 66666 ----------------
-    # timer$mark("Add H3")
+    timer$mark("Add H3")
   }
 
   # drop eventual mock columns with empty strings
@@ -575,7 +571,7 @@ geocode_core <- function(
     sf::st_crs(output_sf) <- 4674
 
     # systime convert to sf 66666 ----------------
-    # timer$mark("Convert to sf")
+    timer$mark("Convert to sf")
 
     return(output_sf)
   }
