@@ -25,8 +25,11 @@
 #'    mesmo nome em uma mesma cidade). Esses casos são trados como 'empate' e o
 #'    parâmetro `resolver_empates` indica se a função deve resolver esses empates
 #'    automaticamente. Por padrão, é `TRUE`, e a função retorna apenas o caso
-#'    mais provável. Para mais detalhes sobre como é feito o processo de
-#'    desempate, consulte abaixo a seção "Detalhes".
+#'    mais provável, preservando uma linha de output por linha de input. Com
+#'    `FALSE`, cada endereço empatado retorna uma linha por coordenada candidata
+#'    (o output pode ter mais linhas que o input) e a coluna `empate` é incluída
+#'    no output para identificar esses casos. Para mais detalhes sobre como é
+#'    feito o processo de desempate, consulte abaixo a seção "Detalhes".
 #' @template resultado_sf
 #' @template h3_res
 #' @param padronizar_enderecos Lógico. Indica se os dados de endereço de entrada
@@ -141,53 +144,53 @@ geocode_core <- function(
   cache,
   n_cores
 ) {
-  ## ---- tiny timing toolkit (self-contained) ------------------------------
-  .make_timer <- function(verbose = TRUE) {
-    .marks <- list()
-    .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
-    .t_prev <- .t0_rt
-
-    fmt <- function(secs) sprintf("%.3f s", secs)
-
-    mark <- function(label) {
-      now <- proc.time()[["elapsed"]]
-      step  <- now - .t_prev
-      total <- now - .t0_rt
-      .marks <<- append(.marks, list(list(label = label, step = step, total = total)))
-      .t_prev <<- now
-      if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
-      invisible(now)
-    }
-
-    summary <- function(print_summary = verbose) {
-      if (length(.marks) == 0) return(invisible(data.frame()))
-      df <- data.frame(
-        step = vapply(.marks, `[[`, "", "label"),
-        step_sec = vapply(.marks, `[[`, 0.0, "step"),
-        total_sec = vapply(.marks, `[[`, 0.0, "total"),
-        stringsAsFactors = FALSE
-      ) |>
-        dplyr::mutate(step_relative = round(step_sec / max(total_sec)*100, 1))
-
-      if (print_summary) {
-        message("— Timing summary —")
-        print(df, row.names = FALSE)
-      }
-      df
-    }
-
-    time_it <- function(label, expr) {
-      force(label)
-      res <- eval.parent(substitute(expr))
-      mark(label)
-      invisible(res)
-    }
-
-    list(mark = mark, summary = summary, time_it = time_it)
-  }
-  timer <- .make_timer(verbose = isTRUE(verboso))
-  on.exit(timer$summary(), add = TRUE)
-  ## -----------------------------------------------------------------------
+  # ## ---- tiny timing toolkit (self-contained) ------------------------------
+  # .make_timer <- function(verbose = TRUE) {
+  #   .marks <- list()
+  #   .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
+  #   .t_prev <- .t0_rt
+  #
+  #   fmt <- function(secs) sprintf("%.3f s", secs)
+  #
+  #   mark <- function(label) {
+  #     now <- proc.time()[["elapsed"]]
+  #     step  <- now - .t_prev
+  #     total <- now - .t0_rt
+  #     .marks <<- append(.marks, list(list(label = label, step = step, total = total)))
+  #     .t_prev <<- now
+  #     if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
+  #     invisible(now)
+  #   }
+  #
+  #   summary <- function(print_summary = verbose) {
+  #     if (length(.marks) == 0) return(invisible(data.frame()))
+  #     df <- data.frame(
+  #       step = vapply(.marks, `[[`, "", "label"),
+  #       step_sec = vapply(.marks, `[[`, 0.0, "step"),
+  #       total_sec = vapply(.marks, `[[`, 0.0, "total"),
+  #       stringsAsFactors = FALSE
+  #     )
+  #     df$step_relative <- round(df$step_sec / max(df$total_sec) * 100, 1)
+  #
+  #     if (print_summary) {
+  #       message("-- Timing summary --")
+  #       print(df, row.names = FALSE)
+  #     }
+  #     df
+  #   }
+  #
+  #   time_it <- function(label, expr) {
+  #     force(label)
+  #     res <- eval.parent(substitute(expr))
+  #     mark(label)
+  #     invisible(res)
+  #   }
+  #
+  #   list(mark = mark, summary = summary, time_it = time_it)
+  # }
+  # timer <- .make_timer(verbose = isTRUE(verboso))
+  # on.exit(timer$summary(), add = TRUE)
+  # ## -----------------------------------------------------------------------
 
   # check input
   checkmate::assert_data_frame(enderecos)
@@ -210,7 +213,7 @@ geocode_core <- function(
 
 
   # systime start 66666 ----------------
-  timer$mark("Start")
+  # timer$mark("Start")
 
   # fix eventual missing fields in input data -------------------------------------------------------
   # geocodebr requires all address fields to be declared
@@ -302,7 +305,7 @@ geocode_core <- function(
   }
 
   # systime padronizacao 66666 ----------------
-  timer$mark("Padronizacao")
+  # timer$mark("Padronizacao")
 
   # create temp id
   data.table::setDT(enderecos)[, tempidgeocodebr := 1:nrow(input_padrao)]
@@ -325,6 +328,9 @@ geocode_core <- function(
     cache = cache
   )
 
+  # systime padronizacao 66666 ----------------
+  # timer$mark("Download cnefe")
+
   # creating a temporary db and register the input table data
   con <- create_geocodebr_db(n_cores = n_cores)
 
@@ -334,18 +340,25 @@ geocode_core <- function(
   # "Connection already closed" quando a funcao termina sem erro
   on.exit(if (DBI::dbIsValid(con)) duckdb::dbDisconnect(con), add = TRUE)
 
+  # systime padronizacao 66666 ----------------
+  # timer$mark("Criacao do duckdb")
+
   # register standardized input data
-  input_padrao_arrw <- arrow::as_arrow_table(input_padrao)
-  DBI::dbWriteTableArrow(
+  # escreve o data.frame direto, sem converter para arrow antes: a conversao
+  # (arrow::as_arrow_table) dominava o custo desta etapa e nao traz beneficio
+  # aqui, ja que a tabela precisa ser materializada e mutavel de todo modo
+  # (o laco de matching faz DELETE/UPDATE nela). Medicoes em
+  # quality_reports/plans/ -- benchmark de 1M, 5 variantes de registro
+  duckdb::dbWriteTable(
     con,
-    name = "input_padrao_db",
-    input_padrao_arrw,
+    "input_padrao_db",
+    input_padrao,
     overwrite = TRUE,
     temporary = TRUE
   )
 
   # systime register standardized 66666 ----------------
-  timer$mark("Register standardized input")
+  # timer$mark("Register standardized input")
 
   # cria coluna "log_causa_confusao" identificando logradouros que geram confusao
   # issue https://github.com/ipeaGIT/geocodebr/issues/67
@@ -449,7 +462,7 @@ geocode_core <- function(
   }
 
   # systime matching 66666 ----------------
-  timer$mark("Matching")
+  # timer$mark("Matching")
 
   if (verboso) {
     message_preparando_output()
@@ -465,7 +478,7 @@ geocode_core <- function(
   )
 
   # systime resolve empates 66666 ----------------
-  timer$mark("Resolve empates")
+  # timer$mark("Resolve empates")
 
   # bring original input back -----------------------------------------------
 
@@ -482,7 +495,7 @@ geocode_core <- function(
   #                        overwrite = TRUE, temporary = TRUE)
 
   # systime write original input back 66666 ----------------
-  timer$mark("Write original input back")
+  # timer$mark("Write original input back")
 
   # add precision column ----------------
   output_table_to_use <- ifelse(
@@ -493,7 +506,7 @@ geocode_core <- function(
   add_precision_col(con, update_tb = output_table_to_use)
 
   # systime add precision 66666 ----------------
-  timer$mark("Add precision")
+  # timer$mark("Add precision")
 
   x_columns <- names(enderecos)
 
@@ -503,16 +516,20 @@ geocode_core <- function(
     y = output_table_to_use,
     key_column = 'tempidgeocodebr',
     select_columns = x_columns,
-    resultado_completo = resultado_completo
+    resultado_completo = resultado_completo,
+    incluir_empate = isFALSE(resolver_empates)
   )
 
+  # Disconnect from DuckDB when done
+  duckdb::dbDisconnect(con)
+
   # systime merge results 66666 ----------------
-  timer$mark("Merge results")
+  # timer$mark("Merge results")
 
   data.table::setDT(output_df)
 
-  # drop geocodebr temp id column
-  output_df[, tempidgeocodebr := NULL]
+  # nota: 'tempidgeocodebr' nao precisa ser removida aqui -- ela ja fica de fora
+  # do SELECT em merge_results_to_input(), embora siga valida no JOIN/ORDER BY
 
   # # col precisao como ordered factor
   # ordem_precisao <- c(
@@ -529,8 +546,6 @@ geocode_core <- function(
   #   ordered = TRUE
   # )]
 
-  # Disconnect from DuckDB when done
-  duckdb::dbDisconnect(con)
 
   # add H3
   if (!is.null(h3_res)) {
@@ -547,7 +562,7 @@ geocode_core <- function(
     }
 
     # systime add h3 66666 ----------------
-    timer$mark("Add H3")
+    # timer$mark("Add H3")
   }
 
   # drop eventual mock columns with empty strings
@@ -571,7 +586,7 @@ geocode_core <- function(
     sf::st_crs(output_sf) <- 4674
 
     # systime convert to sf 66666 ----------------
-    timer$mark("Convert to sf")
+    # timer$mark("Convert to sf")
 
     return(output_sf)
   }

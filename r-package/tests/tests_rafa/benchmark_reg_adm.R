@@ -1,4 +1,4 @@
-devtools::load_all('.')
+# devtools::load_all('.')
 
 library(ipeadatalake)
 library(dplyr)
@@ -27,7 +27,7 @@ set.seed(42)
 
 
 # cad unico --------------------------------------------------------------------
-sample_size <- 10000000
+sample_size <- 1000000
 
 cad_con <- ipeadatalake::ler_cadunico(
   data = 202312,
@@ -82,8 +82,8 @@ stop()
 
 
 gc(T,T,T)
-#bench::system_time(
-bench::mark(iterations = 1,
+bench::system_time(
+#bench::mark(iterations = 1,
   cadgeo <- geocodebr::geocode(
     enderecos  = df,
     campos_endereco = campos,
@@ -93,10 +93,11 @@ bench::mark(iterations = 1,
     resolver_empates = T,
     padronizar_enderecos = T
     )
-)
+  )
 
+# 43 milhoes
 # process    real
-#    2.8m   18.1m
+#    2.45m  16.43m
 
 # 10 milhoes
 # args: n_cores = 7, resultado_completo = F resolver_empates = T
@@ -122,7 +123,7 @@ bench::mark(iterations = 1,
 # v0.5.0 CRAN     24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
 # v0.6.4 CRAN     18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.7.0  dev     17.0m    17m  0.000979    4.12GB 0.000979     1     1        17m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 dev+ties 15.7m  15.7m   0.00106    4.11GB  0.00106     1     1      15.7m <df>   <Rprofmem>
+# v0.7.0 dev      16.7m  16.7m  0.000997    4.12GB 0.000997     1     1      16.7m <df>   <Rprofmem>
 
  # v0.5.0  8.99m  !!!! em paralelo por uf
  # v0.6.0  7.24m  !!!! em paralelo por uf
@@ -131,21 +132,19 @@ bench::mark(iterations = 1,
 1- sum(is.na(cadgeo$cod_setor)) / nrow(cadgeo)
 # v0.6.0: 0.6438606
 
-# # v0.7.0 dev+ties
-#                           step_sec total_sec step_relative
-#                     Start     0.01      0.01           0.0
-#              Padronizacao    98.91     98.92          14.7
-#                  Matching   464.78    563.70          69.2
-#           Resolve empates     9.86    573.56           1.5
-# Write original input back    18.91    592.47           2.8
-#             Merge results    78.81    671.28          11.7
 
-
-
-
-
-
-
+# # v0.7.0 dev+ties /= merge results + register
+#                             step_sec total_sec step_relative
+#                       Start     0.01      0.01           0.0
+#                Padronizacao   100.25    100.26          15.4
+#              Download cnefe     4.96    105.22           0.8
+#           Criacao do duckdb     0.28    105.50           0.0
+# Register standardized input    17.25    122.75           2.7
+#                    Matching   396.11    518.86          60.9
+#             Resolve empates    12.86    531.72           2.0
+#   Write original input back    22.67    554.39           3.5
+#               Add precision     2.44    556.83           0.4
+#               Merge results    93.51    650.34          14.4
 
 ## cadunico cada passo ----------------
 
