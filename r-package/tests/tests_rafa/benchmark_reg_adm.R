@@ -87,7 +87,7 @@ bench::system_time(
   cadgeo <- geocodebr::geocode(
     enderecos  = df,
     campos_endereco = campos,
-    n_cores = 7, # 7
+    # n_cores = 7, # 7
     verboso = T,
     resultado_completo = F,
     resolver_empates = T,
