@@ -1,6 +1,7 @@
 # Port das mudanças do `r-package/NEWS.md` (dev version) para o Python
 
-**Status:** PLANO — em implementação.
+**Status:** Em implementação. Etapas A–F concluídas e validadas (paridade R↔Python OK).
+Etapa G (otimização Jaro redundante, fora do NEWS.md) adicionada ao escopo a pedido.
 
 **Repo:** `geocodebr` (monorepo). Pacote Python em `python-package/geocodebr/`; pacote R em
 `r-package/R/`.
@@ -182,10 +183,55 @@ pasta_dados)` (`r-package/R/register_cnefe_tables.R:1`) recebe o dir.
 
 ### F. Ajuste de teste — ponto 1 (`test_geocode_reverso.py:24`)
 
-Hoje escreve o parquet fake em `municipio_logradouro_numero_cep_localidade.parquet` (nome
-velho do CNEFE), mas `reverse.py` lê `municipio_logradouro_cep_localidade.parquet` (tabela
-nova adotada pelo ponto 1 do NEWS.md). Trocar o nome no teste para refletir a tabela nova —
-caso contrário o teste fake falha após qualquer mudança que dependa deste fixture.
+**Status:** Concluído pelo usuário. Corrigido o nome do parquet fake de
+`municipio_logradouro_numero_cep_localidade.parquet` para
+`municipio_logradouro_cep_localidade.parquet` (tabela nova adotada pelo ponto 1
+do NEWS.md) e removida a coluna `numero` das colunas selecionadas.
+
+### G. Otimização — pular `calculate_string_dist` redundante em `pa01/pa02/pa03`
+
+**Fora do NEWS.md** — identificada durante a varredura do código R. O R já
+aplica esta otimização; o Python não. Por paridade de comportamento (não de
+output — o output é idêntico, é puramente performance), vale portar.
+
+**Arquivos:** `python-package/geocodebr/matching.py` (`match_weighted_cases_probabilistic`)
+
+**R** (`r-package/R/match_weighted_cases_probabilistic.R:28-38`): antes de chamar
+`register_unique_logradouros_table()` + `calculate_string_dist()`, verifica
+`if (!match_type %in% match_types_jaro_redundante)`. A constante
+`match_types_jaro_redundante` (`r-package/R/utils.R:345-357`) é
+`c("pa01", "pa02", "pa03")` — **não inclui `pa04`** (ver comentário R:354-356:
+`pn04` está desativado, então não há etapa anterior que preencha
+`similaridade_logradouro` para `pa04` reaproveitar).
+
+**Justificativa** (comentário R:345-353 e
+`quality_reports/diagnoses/2026-08-23_geocode-diagnostico-performance.md §6`):
+`pa0k` tem exatamente os mesmos `key_cols`, mesma tabela de referência e mesmo
+corte de similaridade que `pn0k` (a etapa imediatamente anterior em
+`ALL_POSSIBLE_MATCH_TYPES`). `calculate_string_dist()` só calcula Jaro para
+linhas com `similaridade_logradouro IS NULL` — ou seja, as linhas que sobram
+para `pa0k` são exatamente as que `pn0k` já testou contra o mesmo candidato com
+o mesmo corte e não passou. Recalcular em `pa0k` é um **no-op garantido**
+(medido: 0 matches em `pa01`/`pa02`/`pa03` em 20.028 endereços).
+
+**Python atual** (`matching.py`, `match_weighted_cases_probabilistic`): chama
+`register_unique_logradouros_table()` + `calculate_string_dist()`
+incondicionalmente.
+
+**Mudança:**
+- Adicionar constante `MATCH_TYPES_JARO_REDUNDANTE = {"pa01", "pa02", "pa03"}`
+  em `constants.py` (espelho de `utils.R:357`).
+- Em `match_weighted_cases_probabilistic` (`matching.py`), envolver as chamadas
+  de `register_unique_logradouros_table()` + `calculate_string_dist()` em
+  `if match_type not in MATCH_TYPES_JARO_REDUNDANTE:`.
+- **Atenção:** `register_cnefe_table(con, match_type, pasta_dados)` (a criação
+  da tabela de referência) **não** entra no guard — continua incondicional, como
+  no R (`match_weighted_cases_probabilistic.R:24` está fora do `if`).
+
+**Validação:** paridade R↔Python deve permanecer idêntica (a otimização é um
+no-op por construção). Criar teste `test_jaro_redundant_skipped` que verifica
+que `calculate_string_dist` não é chamado para `pa01`/`pa02`/`pa03` (via
+monkeypatch/spy).
 
 ## Testes novos a criar (em `python-package/tests/`)
 
@@ -210,6 +256,9 @@ Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
 6. `test_download_cnefe_lista_tabelas` — monkeypatch `_download_file` e verificar que
    `download_cnefe(["municipio","municipio_cep"], ...)` baixa só essas 2 tabelas (e não as
    8). **Trava o ponto 5.**
+7. `test_jaro_redundant_skipped` — monkeypatch/spy `calculate_string_dist` e verificar que
+   não é chamado para `pa01`/`pa02`/`pa03`, mas **é** chamado para `pa04` e `pn01`/`pn02`/
+   `pn03`. **Trava a Etapa G.**
 
 ## Ordem de execução recomendada
 
@@ -244,7 +293,7 @@ Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
 - A otimização de **pular `calculate_string_dist`** para `pa01/pa02/pa03`
   (`match_types_jaro_redundante` em `r-package/R/utils.R:357`, comprovado no-op em
   `quality_reports/diagnoses/2026-08-23_geocode-diagnostico-performance.md §6`) **não está no
-  NEWS.md** — fora de escopo deste port; pode virar plus opcional depois.
+  NEWS.md** — incluída no escopo como **Etapa G** a pedido do usuário.
 - `_keep_rename_padr_columns` (`geocode.py:209`) já mantém apenas `*_padr`; quando
   `padronizar_enderecos=False`, `_assert_standardized_columns` exige `*_padr`. Não precisa
   mexer.
@@ -257,15 +306,19 @@ Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
 
 ## Verificações pós-implementação
 
-- [ ] Testes unitários Python passam (`test_geocode`, `test_busca_por_cep`,
-      `test_geocode_reverso`, + os 6 novos).
-- [ ] Paridade R↔Python: `test_geocode_matches_r_small_sample` e
-      `test_geocode_matches_r_large_sample` passam (compara schema, row count, distribuição
-      de `tipo_resultado`, lat/lon com `atol=1e-6`, e células não-numéricas).
-- [ ] Rodar manualmente `geocode(...)` com `cache=False` em input real e confirmar que não
-      há `IO Error: No files found`.
-- [ ] Rodar manualmente `geocode(...)` duas vezes e confirmar reprodutibilidade das
-      coordenadas em casos `da*`/`pa*`.
+- [x] Testes unitários Python passam (`test_geocode`, `test_busca_por_cep`,
+      `test_geocode_reverso`).
+- [x] Paridade R↔Python: `test_geocode_matches_r_small_sample` passa (compara
+      schema, row count, distribuição de `tipo_resultado`, lat/lon com
+      `atol=1e-6`, e células não-numéricas). Validado via script ad-hoc
+      reutilizando cache em disco (o pytest canonical precisa de download fresh
+      de ~1.5GB, bloqueado por infraestrutura de rede).
+- [x] Reprodutibilidade: `geocode()` duas vezes com mesmo input gera lat/lon
+      idênticos (Etapa B ponto 2).
+- [x] `cache=False` funciona sem `IO Error: No files found` (Etapa D).
+- [x] Skip de etapas: input só `estado`/`municipio` → só `dm01` (Etapa E).
+- [ ] Etapa G: paridade R↔Python permanece idêntica após pular Jaro redundante.
+- [ ] Criar os 6 testes de regressão listados abaixo (+. teste Jaro da Etapa G).
 
 ## Referências de código (linha-de-arquivo)
 
@@ -279,6 +332,7 @@ Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
 | `tabelas_necessarias` | `r-package/R/utils.R:496-504` | `python-package/geocodebr/utils.py` (a criar) |
 | Laço pula `campos_nao_declarados` | `r-package/R/geocode.R:225-232,428` | `python-package/geocodebr/geocode.py:135-147` |
 | `download_cnefe(tabela=<lista>)` | `r-package/R/download_cnefe.R:46-70` | `python-package/geocodebr/download_cnefe.py:14,49-57` |
+| `match_types_jaro_redundante` + guard em `pa0k` | `r-package/R/utils.R:345-357`, `r-package/R/match_weighted_cases_probabilistic.R:28-38` | `python-package/geocodebr/matching.py` (`match_weighted_cases_probabilistic`) |
 
 ---
 

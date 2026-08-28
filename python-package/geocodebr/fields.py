@@ -55,14 +55,26 @@ def assert_and_assign_address_fields(
 def fill_missing_fields(
     df_input: pl.DataFrame,
     campos_endereco: dict[str, str | None],
-) -> tuple[pl.DataFrame, dict[str, str]]:
+) -> tuple[pl.DataFrame, dict[str, str], list[str]]:
+    """Preenche campos nao declarados com colunas-fantasma NA.
+
+    Espelha ``r-package/R/geocode.R:224-243``: para cada campo em
+    ``ADDRESS_FIELDS`` cujo valor em ``campos_endereco`` e ``None``, cria uma
+    coluna ``<campo>_tempgeocodebr`` preenchida com ``NA``. Retorna tambem a
+    lista de ``campos_nao_declarados`` -- usada no laço de matching para pular
+    etapas cujas key_cols incluam um desses campos, e em
+    ``tabelas_necessarias()`` para baixar apenas as tabelas de referencia
+    relevantes.
+    """
     campos = dict(campos_endereco)  # cópia
+    campos_nao_declarados: list[str] = []
     for campo in ADDRESS_FIELDS:
         if campos.get(campo) is None:
+            campos_nao_declarados.append(campo)
             placeholder = f"_{campo}_tempgeocodebr"
             df_input = df_input.with_columns(
                 pl.lit(None, dtype=pl.Utf8).alias(placeholder)
             )
             campos[campo] = placeholder
-    return df_input, campos
+    return df_input, campos, campos_nao_declarados
 

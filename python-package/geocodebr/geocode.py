@@ -40,7 +40,8 @@ from .utils import (
     db_table_columns,
     merge_results_to_input,
     quote_ident,
-    add_h3_columns
+    add_h3_columns,
+    tabelas_necessarias,
 )
 
 
@@ -70,7 +71,6 @@ def geocode(
     if campos_endereco is None:
         campos_endereco = definir_campos(estado="estado", municipio="municipio")
 
-    cnefe_dir = download_cnefe("todas", verboso=verboso, cache=cache)
     con = create_geocodebr_db(n_cores=n_cores)
     try:
 
@@ -83,7 +83,16 @@ def geocode(
         # geocode requires all adress fields to be present
         # if one or more fileds are missing, we add mock empty columns
         campos_endereco = assert_and_assign_address_fields(campos_endereco, input_columns)
-        df_input, campos_endereco = fill_missing_fields(df_input, campos_endereco)
+        df_input, campos_endereco, campos_nao_declarados = fill_missing_fields(df_input, campos_endereco)
+
+        # downloading cnefe -- so as tabelas que as etapas ativas do laco de
+        # matching abaixo vao de fato usar, dado quais campos o usuario
+        # declarou (campos_nao_declarados, calculado acima)
+        cnefe_dir = download_cnefe(
+            tabelas_necessarias(campos_nao_declarados),
+            verboso=verboso,
+            cache=cache,
+        )
 
 
         if padronizar_enderecos:
@@ -134,7 +143,9 @@ def geocode(
         ) as pbar:
              for match_type in ALL_POSSIBLE_MATCH_TYPES:
                 key_cols = get_key_cols(match_type)
-                if all(col in input_padrao_columns for col in key_cols):
+                if all(col in input_padrao_columns for col in key_cols) and not any(
+                    col in campos_nao_declarados for col in key_cols
+                ):
                     pbar.set_postfix_str(match_type)
                     match_fun = select_match_function(match_type)
                     affected = match_fun(

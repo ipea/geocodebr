@@ -5,7 +5,7 @@ from pathlib import Path
 
 import duckdb
 
-from .constants import DATA_RELEASE
+from .constants import ALL_POSSIBLE_MATCH_TYPES, DATA_RELEASE
 
 
 def assert_bool(value: bool, name: str) -> None:
@@ -84,6 +84,22 @@ def get_reference_table(match_type: str) -> str:
         table_name = "municipio_logradouro_localidade"
 
     return table_name
+
+
+def tabelas_necessarias(campos_nao_declarados: list[str]) -> list[str]:
+    """Subconjunto de tabelas do CNEFE que o laço de matching vai usar.
+
+    Espelha ``tabelas_necessarias()`` em ``r-package/R/utils.R:496-504``:
+    filtra ``ALL_POSSIBLE_MATCH_TYPES`` excluindo os match_types cujas
+    ``key_cols`` incluam algum campo em ``campos_nao_declarados``, mapeia
+    via ``get_reference_table`` e dedup.
+    """
+    ativos = [
+        mt
+        for mt in ALL_POSSIBLE_MATCH_TYPES
+        if not any(col in campos_nao_declarados for col in get_key_cols(mt))
+    ]
+    return list(dict.fromkeys(get_reference_table(mt) for mt in ativos))
 
 
 def get_prob_match_cutoff(match_type: str) -> float:
