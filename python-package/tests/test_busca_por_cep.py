@@ -11,7 +11,7 @@ def test_busca_por_cep_duckdb_flow(tmp_path):
     data_dir.mkdir()
     table = pa.table(
         {
-            "cep": ["70390025", "20071001"],
+            "cep": ["70390-025", "20071-001"],
             "estado": ["DF", "RJ"],
             "municipio": ["BRASILIA", "RIO DE JANEIRO"],
             "logradouro": ["AVENIDA TESTE", "RUA TESTE"],
