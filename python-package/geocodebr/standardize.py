@@ -65,7 +65,7 @@ def _padronizar_numero_expr(
         ).otherwise(pl.col(col_orig))
 
         if formato == "integer":
-            return expr_sem_zero.cast(pl.Int32, strict=False)
+            return expr_sem_zero.cast(pl.Int64, strict=False)
 
         # Para formato character: Null deve virar "S/N" e o fill_null(0) garante isso,
         # já que padronizar_numeros_para_string(0) -> "S/N".
@@ -80,7 +80,7 @@ def _padronizar_numero_expr(
         # múltiplos números, etc
         return _col_to_str(col_orig).map_elements(
             enderecobr.padronizar_numeros_para_int,
-            return_dtype=pl.Int32,
+            return_dtype=pl.Int64,
         )
 
     # Para formato character: Nulo e vazio devem virar "S/N".

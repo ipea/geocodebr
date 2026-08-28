@@ -111,10 +111,10 @@ def geocode(
             pl.lit(None).alias("similaridade_logradouro"),
         )
 
-        con.register("input_db_arrw", df_input.to_arrow())
-        con.execute("CREATE TEMP TABLE input_db AS SELECT * FROM input_db_arrw")
-        con.register("input_padrao_arrw", df_padrao.to_arrow())
-        con.execute("CREATE TEMP TABLE input_padrao_db AS SELECT * FROM input_padrao_arrw")
+        con.register("input_db", df_input)
+
+        con.register("input_padrao_view", df_padrao)
+        con.execute("CREATE TEMP TABLE input_padrao_db AS SELECT * FROM input_padrao_view")
 
         cria_col_logradouro_confusao(con)
         create_output_db(con, resultado_completo)

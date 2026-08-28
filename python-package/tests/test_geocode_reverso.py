@@ -14,14 +14,13 @@ def test_geocode_reverso_with_duckdb_spatial(tmp_path):
             "estado": ["DF", "DF"],
             "municipio": ["BRASILIA", "BRASILIA"],
             "logradouro": ["AVENIDA PROXIMA", "AVENIDA DISTANTE"],
-            "numero": [100, 200],
             "cep": ["70000000", "70000001"],
             "localidade": ["CENTRO", "CENTRO"],
             "lon": [-47.9000, -48.5000],
             "lat": [-15.8000, -16.3000],
         }
     )
-    pq.write_table(cnefe, data_dir / "municipio_logradouro_numero_cep_localidade.parquet")
+    pq.write_table(cnefe, data_dir / "municipio_logradouro_cep_localidade.parquet")
     pontos = pa.table({"id": [1], "lon": [-47.9001], "lat": [-15.8001]})
 
     out = geocode_reverso(pontos, dist_max=1000, verboso=False)

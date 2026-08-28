@@ -32,13 +32,13 @@ def test_geocode_matches_r_small_sample(repo_root, tmp_path):
     r_output = _run_r_geocode(
         repo_root=repo_root,
         dataset="small",
-        input_path=repo_root / "inst" / "extdata" / "small_sample.csv",
+        input_path=repo_root / "r-package" / "inst" / "extdata" / "small_sample.csv",
         cache_dir=cache_dir,
         output_path=tmp_path / "r_small.parquet",
     )
     py_output = _run_python_geocode(
         dataset="small",
-        input_path=repo_root / "inst" / "extdata" / "small_sample.csv",
+        input_path=repo_root / "r-package" / "inst" / "extdata" / "small_sample.csv",
         cache_dir=cache_dir,
     )
 
@@ -58,13 +58,13 @@ def test_geocode_matches_r_large_sample(repo_root, tmp_path):
     r_output = _run_r_geocode(
         repo_root=repo_root,
         dataset="large",
-        input_path=repo_root / "inst" / "extdata" / "large_sample.parquet",
+        input_path=repo_root / "r-package" / "inst" / "extdata" / "large_sample.parquet",
         cache_dir=cache_dir,
         output_path=tmp_path / "r_large.parquet",
     )
     py_output = _run_python_geocode(
         dataset="large",
-        input_path=repo_root / "inst" / "extdata" / "large_sample.parquet",
+        input_path=repo_root / "r-package" / "inst" / "extdata" / "large_sample.parquet",
         cache_dir=cache_dir,
     )
 
@@ -149,7 +149,7 @@ def _run_r_geocode(
 
         install_result <- system2(
           file.path(R.home("bin"), "R"),
-          c("CMD", "INSTALL", "-l", lib, repo_root),
+          c("CMD", "INSTALL", "-l", lib, file.path(repo_root, "r-package")),
           stdout = TRUE,
           stderr = TRUE
         )

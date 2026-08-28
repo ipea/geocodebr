@@ -56,7 +56,7 @@ def match_cases(
 
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in key_cols)
-    colunas_encontradas, additional_cols = _complete_columns(y, key_cols, resultado_completo)
+    colunas_encontradas, additional_cols = _build_found_columns(y, key_cols, resultado_completo)
 
     con.execute(
         f"""
@@ -96,7 +96,10 @@ def match_weighted_cases(
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in original_key_cols)
     key_cols = [col for col in original_key_cols if col != "numero"]
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
-    colunas_encontradas, additional_first, additional_second = _complete_weighted_columns(y, key_cols, resultado_completo)
+    ordem_first = "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
+    colunas_encontradas, additional_first, additional_second = _complete_weighted_columns(
+        y, key_cols, resultado_completo, ordem_first
+    )
 
     con.execute(
         f"""
@@ -122,17 +125,11 @@ def match_weighted_cases(
         SELECT tempidgeocodebr,
           SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
           SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
-          CASE WHEN BOOL_OR(log_causa_confusao)
-            THEN FIRST(endereco_encontrado ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
-            ELSE FIRST(endereco_encontrado)
-          END AS endereco_encontrado,
+          FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,
-          FIRST(log_causa_confusao) AS log_causa_confusao,
-          CASE WHEN BOOL_OR(log_causa_confusao)
-            THEN FIRST(contagem_cnefe ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
-            ELSE FIRST(contagem_cnefe)
-          END AS contagem_cnefe {additional_second}
+          FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+          FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_second}
         FROM temp_db
         GROUP BY tempidgeocodebr, endereco_encontrado
         """
@@ -158,7 +155,16 @@ def match_cases_probabilistic(
     join_condition = join_condition.replace("input_padrao_db.logradouro", "input_padrao_db.temp_lograd_determ")
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in key_cols)
     cols_not_null = cols_not_null.replace(".logradouro", ".temp_lograd_determ")
-    colunas_encontradas, additional_cols = _complete_columns(y, key_cols, resultado_completo, probabilistic=True)
+    colunas_prefix = ""
+    additional_prefix = ""
+    if resultado_completo:
+        colunas_prefix = ", similaridade_logradouro"
+        additional_prefix = f", {x}.similaridade_logradouro AS similaridade_logradouro"
+    colunas_encontradas, additional_cols = _build_found_columns(
+        y, key_cols, resultado_completo,
+        colunas_prefix=colunas_prefix,
+        additional_prefix=additional_prefix,
+    )
 
     con.execute(
         f"""
@@ -202,7 +208,22 @@ def match_weighted_cases_probabilistic(
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
     join_condition = join_condition.replace("input_padrao_db.logradouro", "input_padrao_db.temp_lograd_determ")
     cols_not_null_match = cols_not_null.replace(".logradouro", ".temp_lograd_determ")
-    colunas_encontradas, additional_first, additional_second = _complete_weighted_columns(y, key_cols, resultado_completo)
+    ordem_first = "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
+    colunas_prefix = ""
+    additional_prefix_first = ""
+    additional_prefix_second = ""
+    if resultado_completo:
+        colunas_prefix = ", similaridade_logradouro"
+        additional_prefix_first = f", {x}.similaridade_logradouro"
+        additional_prefix_second = (
+            f", FIRST(similaridade_logradouro {ordem_first}) AS similaridade_logradouro"
+        )
+    colunas_encontradas, additional_first, additional_second = _complete_weighted_columns(
+        y, key_cols, resultado_completo, ordem_first,
+        colunas_prefix=colunas_prefix,
+        additional_prefix_first=additional_prefix_first,
+        additional_prefix_second=additional_prefix_second,
+    )
 
     con.execute(
         f"""
@@ -213,7 +234,6 @@ def match_weighted_cases_probabilistic(
                  ABS({x}.numero - {y}.numero) AS distancia_numero,
                  {y}.lat, {y}.lon,
                  REGEXP_REPLACE({y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
-                 {x}.similaridade_logradouro,
                  {y}.desvio_metros,
                  {x}.log_causa_confusao,
                  {y}.n_casos AS contagem_cnefe {additional_first}
@@ -224,23 +244,16 @@ def match_weighted_cases_probabilistic(
         )
         INSERT INTO output_db (
           tempidgeocodebr, lat, lon, endereco_encontrado, tipo_resultado,
-          desvio_metros, log_causa_confusao, similaridade_logradouro, contagem_cnefe {colunas_encontradas}
+          desvio_metros, log_causa_confusao, contagem_cnefe {colunas_encontradas}
         )
         SELECT tempidgeocodebr,
           SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
           SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
-          CASE WHEN BOOL_OR(log_causa_confusao)
-            THEN FIRST(endereco_encontrado ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
-            ELSE FIRST(endereco_encontrado)
-          END AS endereco_encontrado,
+          FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,
-          FIRST(log_causa_confusao) AS log_causa_confusao,
-          FIRST(similaridade_logradouro) AS similaridade_logradouro,
-          CASE WHEN BOOL_OR(log_causa_confusao)
-            THEN FIRST(contagem_cnefe ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END)
-            ELSE FIRST(contagem_cnefe)
-          END AS contagem_cnefe {additional_second}
+          FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+          FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_second}
         FROM temp_db
         GROUP BY tempidgeocodebr, endereco_encontrado
         """
@@ -338,8 +351,8 @@ def trata_empates_geocode_duckdb(
               CASE WHEN empate_inicial THEN
                 haversine(
                   lat, lon,
-                  LEAD(lat) OVER (PARTITION BY tempidgeocodebr ORDER BY id),
-                  LEAD(lon) OVER (PARTITION BY tempidgeocodebr ORDER BY id)
+                  LAG(lat) OVER (PARTITION BY tempidgeocodebr ORDER BY id),
+                  LAG(lon) OVER (PARTITION BY tempidgeocodebr ORDER BY id)
                 )
               END AS dist_geocodebr_metros
             FROM base b
@@ -364,6 +377,7 @@ def trata_empates_geocode_duckdb(
               contagem_cnefe, desvio_metros, TRUE AS empate {cols_encontradas}
             FROM filtered
             WHERE empate = TRUE
+              AND logradouro_encontrado IS NOT NULL
               AND (
                 max_dist > 1000
                 OR log_causa_confusao
@@ -372,7 +386,7 @@ def trata_empates_geocode_duckdb(
                 )
               )
               AND NOT REGEXP_MATCHES(logradouro_encontrado, '\\bDE (JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\\b')
-            QUALIFY ROW_NUMBER() OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
           ),
           empates_restantes AS (
             SELECT f.*
@@ -394,7 +408,7 @@ def trata_empates_geocode_duckdb(
               endereco_encontrado, tipo_resultado, contagem_cnefe,
               desvio_metros, TRUE AS empate {cols_encontradas}
             FROM empates_wavg
-            QUALIFY ROW_NUMBER() OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC) = 1
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY tempidgeocodebr ORDER BY contagem_cnefe DESC, desvio_metros, endereco_encontrado) = 1
           )
         SELECT tempidgeocodebr, lat, lon, tipo_resultado, desvio_metros,
           endereco_encontrado {additional_cols_final}
@@ -416,51 +430,106 @@ def trata_empates_geocode_duckdb(
     return n_casos_empate
 
 
-def _complete_columns(
+def _build_found_columns(
     y: str,
     key_cols: list[str],
     resultado_completo: bool,
-    probabilistic: bool = False,
+    colunas_prefix: str = "",
+    additional_prefix: str = "",
+    agregado: bool = False,
+    ordem_first: str = "",
 ) -> tuple[str, str]:
-    if not resultado_completo:
-        return "", ""
+    """Monta as colunas `*_encontrado` da query de match.
 
-    output_cols = [_found_col_name(col) for col in key_cols]
-    select_cols = [f"{y}.{col} AS {_found_col_name(col)}" for col in key_cols]
-    if probabilistic:
-        output_cols.append("similaridade_logradouro")
-        select_cols.append("input_padrao_db.similaridade_logradouro AS similaridade_logradouro")
-    output_cols.append("cod_setor")
-    select_cols.append(f"{y}.cod_setor AS cod_setor")
-    return ", " + ", ".join(output_cols), ", " + ", ".join(select_cols)
+    Espelha ``monta_colunas_encontradas()`` em ``r-package/R/match_helpers.R``.
+
+    ``logradouro_encontrado`` e coluna de trabalho interna (a resolucao de
+    empates em ``trata_empates_geocode_duckdb()`` a usa para aplicar a excecao
+    dos logradouros com nome de data). Por isso e populada sempre que
+    ``'logradouro'`` esta em ``key_cols``, independentemente de
+    ``resultado_completo``. As demais colunas ``*_encontrado`` e ``cod_setor``
+    so entram quando ``resultado_completo=True``.
+
+    ``colunas_prefix``/``additional_prefix`` permitem ao chamador injetar
+    colunas extras antes deste helper (ex.: ``similaridade_logradouro`` nos
+    caminhos probabilisticos, condicional a ``resultado_completo`` mas nao
+    parte de ``key_cols``).
+
+    Com ``agregado=True``, cada coluna e embrulhada em
+    ``FIRST(... {ordem_first})`` em vez do ``SELECT`` direto -- usado na
+    segunda parte da query (agregada por ``GROUP BY``) de
+    ``match_weighted_cases()`` e ``match_weighted_cases_probabilistic()``.
+    """
+    colunas_encontradas = colunas_prefix
+    additional_cols = additional_prefix
+
+    if "logradouro" in key_cols:
+        if agregado:
+            select_lograd = (
+                f"FIRST(logradouro_encontrado {ordem_first}) AS logradouro_encontrado"
+            )
+        else:
+            select_lograd = f"{y}.logradouro AS logradouro_encontrado"
+        colunas_encontradas = f"{colunas_encontradas}, logradouro_encontrado"
+        additional_cols = f"{additional_cols}, {select_lograd}"
+
+    if not resultado_completo:
+        return colunas_encontradas, additional_cols
+
+    demais_key_cols = [c for c in key_cols if c != "logradouro"]
+    if demais_key_cols:
+        nomes = ", ".join(_found_col_name(c) for c in demais_key_cols)
+        if agregado:
+            select = ", ".join(
+                f"FIRST({_found_col_name(c)} {ordem_first}) AS {_found_col_name(c)}"
+                for c in demais_key_cols
+            )
+        else:
+            select = ", ".join(
+                f"{y}.{c} AS {_found_col_name(c)}" for c in demais_key_cols
+            )
+        colunas_encontradas = f"{colunas_encontradas}, {nomes}"
+        additional_cols = f"{additional_cols}, {select}"
+
+    if agregado:
+        cod_select = f", FIRST(cod_setor {ordem_first}) AS cod_setor"
+    else:
+        cod_select = f", {y}.cod_setor AS cod_setor"
+    additional_cols = f"{additional_cols}{cod_select}"
+    colunas_encontradas = f"{colunas_encontradas}, cod_setor"
+
+    return colunas_encontradas, additional_cols
 
 
 def _complete_weighted_columns(
     y: str,
     key_cols: list[str],
     resultado_completo: bool,
+    ordem_first: str,
+    colunas_prefix: str = "",
+    additional_prefix_first: str = "",
+    additional_prefix_second: str = "",
 ) -> tuple[str, str, str]:
-    if not resultado_completo:
-        return "", "", ""
+    """Wrapper para os dois passes (temp_db + agregado) dos ``match_weighted_*``.
 
-    output_cols = [_found_col_name(col) for col in key_cols] + ["cod_setor"]
-    first_cols = [f"{y}.{col} AS {_found_col_name(col)}" for col in key_cols]
-    first_cols.append(f"{y}.cod_setor AS cod_setor")
-    def first_expr(col: str) -> str:
-        return (
-            f"CASE WHEN BOOL_OR(log_causa_confusao) "
-            f"THEN FIRST({col} ORDER BY CASE WHEN numero_cnefe < numero THEN 0 ELSE 1 END, "
-            f"CASE WHEN numero_cnefe < numero THEN -contagem_cnefe ELSE distancia_numero END, "
-            f"CASE WHEN numero_cnefe < numero THEN -numero_cnefe ELSE numero_cnefe END) "
-            f"ELSE FIRST({col}) END"
-        )
-
-    second_cols = [
-        f"{first_expr(_found_col_name(col))} AS {_found_col_name(col)}"
-        for col in key_cols
-    ]
-    second_cols.append(f"{first_expr('cod_setor')} AS cod_setor")
-    return ", " + ", ".join(output_cols), ", " + ", ".join(first_cols), ", " + ", ".join(second_cols)
+    Espelha a estrutura de ``r-package/R/match_weighted_cases.R`` (chamada
+    dupla de ``monta_colunas_encontradas``): o primeiro passe (nao agregado)
+    popula o ``temp_db``; o segundo (agregado, ``FIRST(... ordem_first)``)
+    alimenta o SELECT final apos o ``GROUP BY``.
+    """
+    colunas_encontradas, additional_first = _build_found_columns(
+        y, key_cols, resultado_completo,
+        colunas_prefix=colunas_prefix,
+        additional_prefix=additional_prefix_first,
+    )
+    _, additional_second = _build_found_columns(
+        y, key_cols, resultado_completo,
+        colunas_prefix=colunas_prefix,
+        additional_prefix=additional_prefix_second,
+        agregado=True,
+        ordem_first=ordem_first,
+    )
+    return colunas_encontradas, additional_first, additional_second
 
 
 def _found_col_name(col: str) -> str:
