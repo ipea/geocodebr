@@ -67,6 +67,18 @@
   mensagem de aviso instruía a inspecionar uma coluna que não estava no
   output).
 
+- A função
+  [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+  agora rejeita, com mensagem de erro, tabelas de input que já contenham
+  colunas com nomes usados no output do próprio pacote (`lat`, `lon`,
+  `precisao`, `tipo_resultado`, `desvio_metros`, `endereco_encontrado`,
+  `empate`, `cod_setor`, as colunas `*_encontrado`/`*_encontrada` e
+  `tempidgeocodebr`). Antes, esses casos passavam silenciosamente e o
+  resultado ficava com colunas duplicadas de mesmo nome, o que fazia as
+  etapas seguintes (como a criação de colunas H3) lerem a coluna errada.
+  Se o seu input tiver alguma dessas colunas, renomeie-a antes de chamar
+  a função.
+
 - Na resolução de empates (`resolver_empates = TRUE`), a exceção que
   protege ruas com nome de data (e.g. “Rua Quinze de Novembro”) de serem
   tratadas como logradouro ambíguo nunca era aplicada, por um erro de

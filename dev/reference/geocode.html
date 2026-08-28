@@ -111,8 +111,11 @@ indicar diferentes coordenadas possíveis (e.g. duas ruas diferentes com o
 mesmo nome em uma mesma cidade). Esses casos são trados como 'empate' e o
 parâmetro <code>resolver_empates</code> indica se a função deve resolver esses empates
 automaticamente. Por padrão, é <code>TRUE</code>, e a função retorna apenas o caso
-mais provável. Para mais detalhes sobre como é feito o processo de
-desempate, consulte abaixo a seção "Detalhes".</p></dd>
+mais provável, preservando uma linha de output por linha de input. Com
+<code>FALSE</code>, cada endereço empatado retorna uma linha por coordenada candidata
+(o output pode ter mais linhas que o input) e a coluna <code>empate</code> é incluída
+no output para identificar esses casos. Para mais detalhes sobre como é
+feito o processo de desempate, consulte abaixo a seção "Detalhes".</p></dd>
 
 
 <dt id="arg-resultado-sf">resultado_sf<a class="anchor" aria-label="anchor" href="#arg-resultado-sf"></a></dt>
@@ -334,31 +337,14 @@ coluna <code>cod_setor</code> é <code>NA</code>.</p>
 <span class="r-in"><span>  campos_endereco <span class="op">=</span> <span class="va">fields</span>,</span></span>
 <span class="r-in"><span>  resolver_empates <span class="op">=</span> <span class="cn">TRUE</span></span></span>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Start] +0.009 s (total 0.009 s)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Padronizando endereços de entrada</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Padronizacao] +0.096 s (total 0.105 s)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Utilizando dados do CNEFE armazenados localmente</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Register standardized input] +0.596 s (total 0.701 s)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Geolocalizando endereços</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 0/2 ■                                  0% - dn01 </span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! </span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Matching] +0.355 s (total 1.056 s)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Preparando resultados</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Resolve empates] +0.013 s (total 1.069 s)</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Write original input back] +0.049 s (total 1.118 s)</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Add precision] +0.004 s (total 1.122 s)</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">[Merge results] +0.004 s (total 1.126 s)</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">— Timing summary —</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                         step step_sec total_sec step_relative</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                        Start    0.009     0.009           0.8</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                 Padronizacao    0.096     0.105           8.5</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  Register standardized input    0.596     0.701          52.9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                     Matching    0.355     1.056          31.5</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>              Resolve empates    0.013     1.069           1.2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    Write original input back    0.049     1.118           4.4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                Add precision    0.004     1.122           0.4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                Merge results    0.004     1.126           0.4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   id            nm_logradouro Numero       Cep     Bairro    nm_municipio</span>
