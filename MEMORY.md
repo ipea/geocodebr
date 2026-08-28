@@ -193,6 +193,28 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   categorias), não só no cenário que motivou a extração — o bug do `cod_setor` só existe nas etapas `da0x`/
   `pa0x`, que `match_cases.R` (o primeiro arquivo migrado) nunca exercita.
 
+- `[LEARN:duckdb]` Num regex passado ao DuckDB via string R comum, `\\\\b` no fonte chega ao RE2 como
+  *backslash literal + "b"*, não como fronteira de palavra — a forma certa no fonte R é `\\b` (ou raw
+  string `r"{...\b...}"`, como `cria_col_logradouro_confusao()` em `utils.R` já faz). Consequência real
+  encontrada em 26/08: a exceção de ruas-data (`NOT REGEXP_MATCHES(logradouro_encontrado, '\\bDE
+  (JANEIRO|...)\\b')`) em `trata_empates_geocode_duckdb.R` é **código morto** — nunca casa — então uma
+  "RUA QUINZE DE NOVEMBRO" empatada a <1 km cai no ramo "perdidos" (fica o candidato top) em vez de
+  "salváveis" (média ponderada), contra a intenção documentada no próprio comentário. Repro mínimo:
+  `REGEXP_MATCHES('RUA QUINZE DE NOVEMBRO', <padrão>)` → `FALSE` com `\\b` duplo no fonte, `TRUE` com
+  simples. Fix pendente (é mudança de comportamento; tratar junto com a unificação das listas de
+  logradouro ambíguo). **Por quê:** o mesmo padrão visual (`\\\\b`) funciona em outras engines que
+  processam escapes na string SQL, e o erro é silencioso — a cláusula simplesmente nunca filtra.
+
+- `[LEARN:testes]` Em bases grandes com `n_cores` default, `identical()` bit-a-bit é critério
+  **inatingível** para o caminho de empates: a média ponderada (`SUM(lat*contagem_cnefe) OVER (...)`)
+  acumula em ordem dependente do paralelismo do DuckDB, e duas execuções do MESMO código sobre
+  `df_sample_empates.parquet` (1M linhas, 84.238 empates) diferiram em ~500 valores de `lat`/`lon` com
+  diferença máxima de ~4e-14 grau (nanômetros). Verificado em 26/08 antes de atribuir a divergência a uma
+  edição — a mesma divergência existe entre run1 e run2 da versão intocada. **Por quê:** para A/B nesse
+  caminho, ou rodar pequeno/single-thread (bitwise estável, como o harness sintético de todos os ramos),
+  ou comparar com `all.equal()` e inspecionar que as diferenças são só `lat`/`lon` em nível de ulp;
+  `identical() == FALSE` sozinho não é evidência de regressão.
+
 - `[LEARN:geocode]` Antes de "corrigir" um valor que parece vazar indevidamente para o output, checar se
   ele já é filtrado a jusante. `match_weighted_cases_probabilistic.R` sempre calculava/agregava
   `similaridade_logradouro` mesmo com `resultado_completo = FALSE`, o que parecia um bug (a regra do

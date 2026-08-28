@@ -35,6 +35,42 @@ etapas ativas do algoritmo de fato vão usar, em vez de baixar sempre as 8 tabel
 disponíveis. No melhor caso (geocodificação só por CEP/bairro/município, sem 
 logradouro/número), o volume baixado cai de ~1,5 GB para ~20 MB.
 
+- A etapa interna de tratamento de empates de `geocode()` ficou mais eficiente: as 
+janelas de cálculo agora rodam apenas sobre os casos efetivamente empatados, em vez 
+de sobre o resultado inteiro (~2,4x mais rápida com `resolver_empates = TRUE`, ~5x 
+com `FALSE`, medido em 1 milhão de endereços). O resultado retornado não muda.
+
+- Com `resolver_empates = FALSE`, o output de `geocode()` agora inclui a coluna 
+`empate` mesmo quando `resultado_completo = FALSE`. Antes, os casos empatados 
+voltavam como linhas duplicadas sem nenhuma coluna que permitisse identificá-los 
+(a mensagem de aviso instruía a inspecionar uma coluna que não estava no output).
+
+- A função `geocode()` agora rejeita, com mensagem de erro, tabelas de input que 
+já contenham colunas com nomes usados no output do próprio pacote (`lat`, `lon`, 
+`precisao`, `tipo_resultado`, `desvio_metros`, `endereco_encontrado`, `empate`, 
+`cod_setor`, as colunas `*_encontrado`/`*_encontrada` e `tempidgeocodebr`). Antes, 
+esses casos passavam silenciosamente e o resultado ficava com colunas duplicadas 
+de mesmo nome, o que fazia as etapas seguintes (como a criação de colunas H3) 
+lerem a coluna errada. Se o seu input tiver alguma dessas colunas, renomeie-a 
+antes de chamar a função.
+
+- Na resolução de empates (`resolver_empates = TRUE`), a exceção que protege ruas com
+nome de data (e.g. "Rua Quinze de Novembro") de serem tratadas como logradouro ambíguo
+nunca era aplicada, por um erro de escape de regex (`\\b` chegava ao motor como barra
+literal). Com a correção, endereços dessas ruas com coordenadas candidatas a menos de
+1 km entre si passam a ser resolvidos pela média ponderada (comportamento documentado),
+em vez de descartar candidatos. A exceção vale apenas para o critério de nome ambíguo:
+candidatos a mais de 1 km continuam sendo desempatados pelo caso mais provável. Afeta
+~14 endereços por milhão (medido em amostra de 1M com alta incidência de empates).
+
+- A lista interna de logradouros ambíguos (usada para excluir nomes genéricos do
+match probabilístico e para o desempate) enumerava "Rua Um" a "Rua Treze" mas pulava
+"Rua Quatro". A lacuna permitia, por exemplo, que "Rua Quatro" casasse por similaridade
+com "Rua Quatorze" (Jaro 0,91, acima de todos os limiares do pacote). Endereços em
+"Rua Quatro" sem match exato agora caem para categorias de menor precisão (CEP,
+localidade ou município) em vez de arriscar um match probabilístico errado. Afeta
+~26 endereços por milhão (medido na mesma amostra).
+
 
 ## Correção de bugs (Bug fixes)
 
