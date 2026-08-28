@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import duckdb
 
-from .cache import listar_dados_cache
-from .utils import find_cached_parquet, get_key_cols, get_reference_table, quote_ident
+from .cache import caminho_parquet
+from .utils import get_key_cols, get_reference_table, quote_ident
 
 
-def register_cnefe_table(con: duckdb.DuckDBPyConnection, match_type: str) -> bool:
+def register_cnefe_table(
+    con: duckdb.DuckDBPyConnection,
+    match_type: str,
+    pasta_dados: str | None = None,
+) -> bool:
     cnefe_table_name = get_reference_table(match_type)
     exists = con.execute(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
@@ -15,7 +19,7 @@ def register_cnefe_table(con: duckdb.DuckDBPyConnection, match_type: str) -> boo
     if exists:
         return True
 
-    path_to_parquet = find_cached_parquet(listar_dados_cache(), cnefe_table_name)
+    path_to_parquet = caminho_parquet(cnefe_table_name, pasta_dados)
     con.execute(
         f"""
         CREATE TEMP TABLE IF NOT EXISTS {quote_ident(cnefe_table_name)} AS
@@ -34,7 +38,11 @@ def register_cnefe_table(con: duckdb.DuckDBPyConnection, match_type: str) -> boo
     return True
 
 
-def register_unique_logradouros_table(con: duckdb.DuckDBPyConnection, match_type: str) -> str:
+def register_unique_logradouros_table(
+    con: duckdb.DuckDBPyConnection,
+    match_type: str,
+    pasta_dados: str | None = None,
+) -> str:
     key_cols = get_key_cols(match_type)
     cnefe_table_name = (
         "municipio_logradouro_localidade"
@@ -76,7 +84,7 @@ def register_unique_logradouros_table(con: duckdb.DuckDBPyConnection, match_type
             """
         )
     else:
-        path_to_parquet = find_cached_parquet(listar_dados_cache(), cnefe_table_name)
+        path_to_parquet = caminho_parquet(cnefe_table_name, pasta_dados)
         con.execute(
             f"""
             CREATE TEMP TABLE IF NOT EXISTS {quote_ident(table_name)} AS

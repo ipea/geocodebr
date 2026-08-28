@@ -49,10 +49,11 @@ def match_cases(
     key_cols: list[str] | None = None,
     match_type: str = "",
     resultado_completo: bool = False,
+    pasta_dados: str | None = None,
 ) -> int:
     y = get_reference_table(match_type)
     key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type)
+    register_cnefe_table(con, match_type, pasta_dados)
 
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in key_cols)
@@ -88,10 +89,11 @@ def match_weighted_cases(
     key_cols: list[str] | None = None,
     match_type: str = "",
     resultado_completo: bool = False,
+    pasta_dados: str | None = None,
 ) -> int:
     y = get_reference_table(match_type)
     original_key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type)
+    register_cnefe_table(con, match_type, pasta_dados)
 
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in original_key_cols)
     key_cols = [col for col in original_key_cols if col != "numero"]
@@ -144,11 +146,12 @@ def match_cases_probabilistic(
     key_cols: list[str] | None = None,
     match_type: str = "",
     resultado_completo: bool = False,
+    pasta_dados: str | None = None,
 ) -> int:
     y = get_reference_table(match_type)
     key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type)
-    unique_logradouros_tbl = register_unique_logradouros_table(con, match_type)
+    register_cnefe_table(con, match_type, pasta_dados)
+    unique_logradouros_tbl = register_unique_logradouros_table(con, match_type, pasta_dados)
     calculate_string_dist(con, match_type, unique_logradouros_tbl)
 
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
@@ -196,11 +199,12 @@ def match_weighted_cases_probabilistic(
     key_cols: list[str] | None = None,
     match_type: str = "",
     resultado_completo: bool = False,
+    pasta_dados: str | None = None,
 ) -> int:
     y = get_reference_table(match_type)
     original_key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type)
-    unique_logradouros_tbl = register_unique_logradouros_table(con, match_type)
+    register_cnefe_table(con, match_type, pasta_dados)
+    unique_logradouros_tbl = register_unique_logradouros_table(con, match_type, pasta_dados)
     calculate_string_dist(con, match_type, unique_logradouros_tbl)
 
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in original_key_cols)

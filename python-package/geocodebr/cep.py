@@ -1,11 +1,9 @@
 import enderecobr
 
-from pathlib import Path
 import duckdb
 import pyarrow as pa
 
-from .constants import DATA_RELEASE
-from .cache import listar_pasta_cache
+from .cache import caminho_parquet
 from .db import create_geocodebr_db
 from .download_cnefe import download_cnefe
 from .utils import (
@@ -30,14 +28,12 @@ def busca_por_cep(
     h3_values = normalize_h3_res(h3_res)
     ceps = _normalize_ceps(cep)
     
-    download_cnefe("municipio_logradouro_cep_localidade", verboso=verboso, cache=cache)
+    cnefe_dir = download_cnefe("municipio_logradouro_cep_localidade", verboso=verboso, cache=cache)
     con = create_geocodebr_db()
     try:
-        path_to_parquet = (
-            Path(listar_pasta_cache())
-            / f"geocodebr_data_release_{DATA_RELEASE}"
-            / "municipio_logradouro_cep_localidade.parquet"
-        ).as_posix()
+        path_to_parquet = caminho_parquet(
+            "municipio_logradouro_cep_localidade", cnefe_dir
+        )
         unique_ceps = ", ".join(sql_string(value) for value in sorted(set(ceps)))
         con.execute(
             f"""

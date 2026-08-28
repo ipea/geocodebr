@@ -13,6 +13,26 @@ except ModuleNotFoundError:  # pragma: no cover
         return str(Path.home() / "AppData" / "Roaming" / appname)
 
 from .messages import message_cache
+from .constants import DATA_RELEASE
+
+
+def caminho_parquet(nome_tabela: str, pasta_dados: str | None = None) -> str:
+    """Monta o caminho de um arquivo parquet do CNEFE no disco.
+
+    Espelha ``caminho_parquet()`` em ``r-package/R/cache.R``. ``pasta_dados`` e
+    o ``data_release`` vigente ja foram resolvidos pelo chamador (via
+    ``download_cnefe``), nao sao redescobertos aqui. O arquivo nao precisa
+    existir.
+    """
+    if not isinstance(nome_tabela, str):
+        raise TypeError("nome_tabela deve ser uma string.")
+    if pasta_dados is None:
+        pasta_dados = listar_pasta_cache()
+    if not isinstance(pasta_dados, str):
+        raise TypeError("pasta_dados deve ser uma string.")
+
+    path = Path(pasta_dados) / f"geocodebr_data_release_{DATA_RELEASE}" / f"{nome_tabela}.parquet"
+    return path.as_posix()
 
 
 def listar_pasta_cache_padrao() -> str:

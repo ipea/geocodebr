@@ -70,7 +70,7 @@ def geocode(
     if campos_endereco is None:
         campos_endereco = definir_campos(estado="estado", municipio="municipio")
 
-    download_cnefe("todas", verboso=verboso, cache=cache)
+    cnefe_dir = download_cnefe("todas", verboso=verboso, cache=cache)
     con = create_geocodebr_db(n_cores=n_cores)
     try:
 
@@ -140,6 +140,7 @@ def geocode(
                     affected = match_fun(
                         con, match_type=match_type, key_cols=key_cols,
                         resultado_completo=resultado_completo,
+                        pasta_dados=cnefe_dir,
                     )
                     matched_rows += affected
                     pbar.update(affected)

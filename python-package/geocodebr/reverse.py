@@ -6,8 +6,7 @@ from typing import Any
 import duckdb
 import pyarrow as pa
 
-from .cache import listar_pasta_cache
-from .constants import DATA_RELEASE
+from .cache import caminho_parquet
 from .db import create_geocodebr_db
 from .download_cnefe import download_cnefe
 from .utils import check_clean_colnames, quote_ident, db_table_columns
@@ -24,7 +23,7 @@ def geocode_reverso(
     if not isinstance(verboso, bool) or not isinstance(cache, bool):
         raise TypeError("verboso e cache devem ser True ou False.")
 
-    download_cnefe(
+    cnefe_dir = download_cnefe(
         "municipio_logradouro_cep_localidade",
         verboso=verboso,
         cache=cache,
@@ -58,11 +57,9 @@ def geocode_reverso(
             bbox[3] + margin,
         )
 
-        path_to_parquet = (
-            Path(listar_pasta_cache())
-            / f"geocodebr_data_release_{DATA_RELEASE}"
-            / "municipio_logradouro_cep_localidade.parquet"
-        ).as_posix()
+        path_to_parquet = caminho_parquet(
+            "municipio_logradouro_cep_localidade", cnefe_dir
+        )
 
         con.execute(
             f"""
