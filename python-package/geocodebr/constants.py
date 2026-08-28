@@ -46,3 +46,14 @@ PROBABILISTIC_INTERPOLATION_TYPES = {"pa01", "pa02", "pa03", "pa04"}
 EXACT_TYPES_NO_NUMBER = {"dl01", "dl02", "dl03", "dl04", "dc01", "dc02", "db01", "dm01"}
 PROBABILISTIC_TYPES_NO_NUMBER = {"pl01", "pl02", "pl03", "pl04"}
 
+# match_types cujo calculo de Jaro em calculate_string_dist() e redundante: a
+# etapa "pn0k" imediatamente anterior em ALL_POSSIBLE_MATCH_TYPES ja testou os
+# mesmos candidatos (mesmas key_cols, mesma tabela de referencia, mesmo corte)
+# contra as linhas que sobraram, e preencheu similaridade_logradouro. Como
+# calculate_string_dist() so recalcula onde similaridade_logradouro IS NULL,
+# reexecutar em pa0k e um no-op garantido (ver
+# quality_reports/diagnoses/2026-08-23_geocode-diagnostico-performance.md §6).
+# NAO inclui "pa04": pn04 esta desativado, entao nao ha etapa anterior que
+# preencha similaridade_logradouro para pa04 reaproveitar.
+MATCH_TYPES_JARO_REDUNDANTE = {"pa01", "pa02", "pa03"}
+

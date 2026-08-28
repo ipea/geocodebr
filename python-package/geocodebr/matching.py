@@ -4,6 +4,7 @@ import duckdb
 
 from .constants import (
     EXACT_TYPES_NO_NUMBER,
+    MATCH_TYPES_JARO_REDUNDANTE,
     NUMBER_EXACT_TYPES,
     NUMBER_INTERPOLATION_TYPES,
     PROBABILISTIC_EXACT_TYPES,
@@ -204,8 +205,9 @@ def match_weighted_cases_probabilistic(
     y = get_reference_table(match_type)
     original_key_cols = get_key_cols(match_type)
     register_cnefe_table(con, match_type, pasta_dados)
-    unique_logradouros_tbl = register_unique_logradouros_table(con, match_type, pasta_dados)
-    calculate_string_dist(con, match_type, unique_logradouros_tbl)
+    if match_type not in MATCH_TYPES_JARO_REDUNDANTE:
+        unique_logradouros_tbl = register_unique_logradouros_table(con, match_type, pasta_dados)
+        calculate_string_dist(con, match_type, unique_logradouros_tbl)
 
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in original_key_cols)
     key_cols = [col for col in original_key_cols if col != "numero"]
