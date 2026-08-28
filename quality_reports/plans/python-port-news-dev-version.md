@@ -1,7 +1,10 @@
 # Port das mudanças do `r-package/NEWS.md` (dev version) para o Python
 
-**Status:** Em implementação. Etapas A–F concluídas e validadas (paridade R↔Python OK).
-Etapa G (otimização Jaro redundante, fora do NEWS.md) adicionada ao escopo a pedido.
+**Status:** CONCLUÍDO. Etapas A–G implementadas, validadas com paridade
+R↔Python e cobertura de 8 testes de regressão. Fix adicional do
+`test_busca_por_cep.py` (CEPs do parquet fake agora no formato padronizado
+com hífen). Novas mudanças no R (após merge da main) serão tratadas em nova
+sessão/plano.
 
 **Repo:** `geocodebr` (monorepo). Pacote Python em `python-package/geocodebr/`; pacote R em
 `r-package/R/`.
@@ -30,24 +33,27 @@ A varredura completa cruzou cada item do NEWS.md com:
 
 ## Resumo da varredura (12 itens do NEWS.md)
 
-| # | Item do NEWS.md | Estado Python | Ação |
-|---|---|---|---|
-| 1 | `geocode_reverso` usa tabela `municipio_logradouro_cep_localidade` | **Já alinhado** (`reverse.py:28,64`) | só ajustar `test_geocode_reverso.py:24` (ainda escreve parquet fake no nome velho `_numero_cep_localidade`) |
-| 2 | colunas extras vêm do ponto com número mais próximo (reprodutível) | **PENDENTE** | reescrever `match_weighted_cases` + `_probabilistic` |
-| 3 | pular etapas internas sem campo declarado | **PENDENTE** | propagar `campos_nao_declarados` para o laço |
-| 4 | documentação de empates <300m | N/A (docs Roxygen) | — |
-| 5 | baixar só tabelas necessárias | **PENDENTE** | `tabelas_necessarias()` + generalizar `download_cnefe` |
-| 6 | fechar DuckDB mesmo com erro | **Já alinhado** (`try/finally` em `geocode.py:175`, `reverse.py:138`, `cep.py:63`) | — |
-| 7 | `geocode_reverso` agrupa por `tempidgeocodebr` (não `id`) | **Já alinhado** (`reverse.py:44,119`) | — |
-| 8 | bug `h3_res` em `busca_por_cep` | **Já alinhado** (`add_h3_columns` itera por resolução) | — |
-| 9 | bug LEAD→LAG em empates <300m | **PENDENTE** | `matching.py:342` trocar LEAD por LAG + filtro `logradouro_encontrado IS NOT NULL` |
-| 10 | `logradouro_encontrado` sempre preenchido | **PENDENTE** | helper `monta_colunas_encontradas` |
-| 11 | limpeza de cache robusta (release fora do padrão) | **Já alinhado** (`cache.py:77-91`) | — |
-| 12 | `cache=FALSE` lia do cache persistente em vez do dir temp | **PENDENTE** | propagar `pasta_dados` (retorno de `download_cnefe`) |
+| # | Item do NEWS.md | Estado Python | Ação | Status |
+|---|---|---|---|---|
+| 1 | `geocode_reverso` usa tabela `municipio_logradouro_cep_localidade` | **Já alinhado** (`reverse.py:28,64`) | ajustar `test_geocode_reverso.py` (nome do parquet + coluna `numero`) | ✅ (Etapa F, pelo usuário) |
+| 2 | colunas extras vêm do ponto com número mais próximo (reprodutível) | **PENDENTE** | reescrever `match_weighted_cases` + `_probabilistic` | ✅ (Etapa B) |
+| 3 | pular etapas internas sem campo declarado | **PENDENTE** | propagar `campos_nao_declarados` para o laço | ✅ (Etapa E) |
+| 4 | documentação de empates <300m | N/A (docs Roxygen) | — | — |
+| 5 | baixar só tabelas necessárias | **PENDENTE** | `tabelas_necessarias()` + generalizar `download_cnefe` | ✅ (Etapa E) |
+| 6 | fechar DuckDB mesmo com erro | **Já alinhado** (`try/finally` em `geocode.py:175`, `reverse.py:138`, `cep.py:63`) | — | — |
+| 7 | `geocode_reverso` agrupa por `tempidgeocodebr` (não `id`) | **Já alinhado** (`reverse.py:44,119`) | — | — |
+| 8 | bug `h3_res` em `busca_por_cep` | **Já alinhado** (`add_h3_columns` itera por resolução) | — | — |
+| 9 | bug LEAD→LAG em empates <300m | **PENDENTE** | `matching.py:342` trocar LEAD por LAG + filtro `logradouro_encontrado IS NOT NULL` | ✅ (Etapa C) |
+| 10 | `logradouro_encontrado` sempre preenchido | **PENDENTE** | helper `monta_colunas_encontradas` | ✅ (Etapa A) |
+| 11 | limpeza de cache robusta (release fora do padrão) | **Já alinhado** (`cache.py:77-91`) | — | — |
+| 12 | `cache=FALSE` lia do cache persistente em vez do dir temp | **PENDENTE** | propagar `pasta_dados` (retorno de `download_cnefe`) | ✅ (Etapa D) |
 
-## Detalhe das 6 mudanças a implementar
+**Fora do NEWS.md:** Etapa G (otimização Jaro redundante em `pa01/pa02/pa03`),
+identificada durante a varredura e adicionada ao escopo. ✅
 
-### A. Ponto 10 — `logradouro_encontrado` sempre preenchido (base dos demais)
+## Detalhe das mudanças implementadas
+
+### A. Ponto 10 — `logradouro_encontrado` sempre preenchido (base dos demais) — ✅ CONCLUÍDO
 
 **Arquivos:** `python-package/geocodebr/matching.py`
 
@@ -69,7 +75,7 @@ Hoje `_complete_columns` (`matching.py:419-435`) retorna `"",""` quando
 > Este é o **ponto de entrada** dos demais: o ponto 2 (reprodutibilidade) e o ponto 9
 > (filtro `logradouro_encontrado IS NOT NULL` em empates) dependem desta coluna populada.
 
-### B. Ponto 2 — colunas extras do ponto mais próximo (reprodutível)
+### B. Ponto 2 — colunas extras do ponto mais próximo (reprodutível) — ✅ CONCLUÍDO
 
 **Arquivos:** `matching.py` (`match_weighted_cases`, `match_weighted_cases_probabilistic`,
 `_complete_weighted_columns`)
@@ -93,7 +99,7 @@ entre execuções; o comentário em `match_weighted_cases.R:42` referencia
   `FIRST(col_encontrado {ordem_first}) AS col_encontrado` para cada coluna extra.
 - Idem em `match_weighted_cases_probabilistic` (`matching.py:232-243`).
 
-### C. Ponto 9 — bug LEAD→LAG em empates <300m
+### C. Ponto 9 — bug LEAD→LAG em empates <300m — ✅ CONCLUÍDO
 
 **Arquivos:** `matching.py` (`trata_empates_geocode_duckdb`)
 
@@ -118,7 +124,7 @@ NEWS.md.
 - **Depende do ponto 10** (precisa de `logradouro_encontrado` populado para o filtro
   `IS NOT NULL`).
 
-### D. Ponto 12 — `cache=FALSE` lia do cache persistente
+### D. Ponto 12 — `cache=FALSE` lia do cache persistente — ✅ CONCLUÍDO
 
 **Arquivos:** `tables.py`, `reverse.py`, `cep.py`, `cache.py` (criar helper),
 `matching.py` (passar `pasta_dados` adiante), `geocode.py`
@@ -150,7 +156,7 @@ pasta_dados)` (`r-package/R/register_cnefe_tables.R:1`) recebe o dir.
 - `reverse.py` e `cep.py`: usar `caminho_parquet("municipio_logradouro_cep_localidade",
   cnefe_dir)` em vez de `Path(listar_pasta_cache()) / ...`.
 
-### E. Pontos 3 + 5 — pular etapas sem campo + baixar só tabelas necessárias
+### E. Pontos 3 + 5 — pular etapas sem campo + baixar só tabelas necessárias — ✅ CONCLUÍDO
 
 **Arquivos:** `geocode.py`, `fields.py`, `download_cnefe.py`, `utils.py` (nova
 `tabelas_necessarias`)
@@ -181,14 +187,14 @@ pasta_dados)` (`r-package/R/register_cnefe_tables.R:1`) recebe o dir.
   `download_cnefe(tabelas_necessarias(campos_nao_declarados), ...)`. No laço, adicionar
   `and not any(col in campos_nao_declarados for col in key_cols)`.
 
-### F. Ajuste de teste — ponto 1 (`test_geocode_reverso.py:24`)
+### F. Ajuste de teste — ponto 1 (`test_geocode_reverso.py:24`) — ✅ CONCLUÍDO (pelo usuário)
 
 **Status:** Concluído pelo usuário. Corrigido o nome do parquet fake de
 `municipio_logradouro_numero_cep_localidade.parquet` para
 `municipio_logradouro_cep_localidade.parquet` (tabela nova adotada pelo ponto 1
 do NEWS.md) e removida a coluna `numero` das colunas selecionadas.
 
-### G. Otimização — pular `calculate_string_dist` redundante em `pa01/pa02/pa03`
+### G. Otimização — pular `calculate_string_dist` redundante em `pa01/pa02/pa03` — ✅ CONCLUÍDO
 
 **Fora do NEWS.md** — identificada durante a varredura do código R. O R já
 aplica esta otimização; o Python não. Por paridade de comportamento (não de
@@ -238,27 +244,43 @@ monkeypatch/spy).
 Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
 `definir_pasta_cache(str(tmp_path), verboso=False)`):
 
-1. `test_geocode_empates_lag_under_300m` — 2 candidatos a <300 m entre si, com
-   `contagem_cnefe` diferente; assert que sobrevive o de **maior** contagem (regressão do
-   bug LEAD→LAG). **Trava o ponto 9.**
-2. `test_geocode_lograd_encontrado_present_sem_completo` — caso de empate com logradouro de
-   data (ex. `"RUA 15 DE NOVEMBRO"`); com `resultado_completo=False` e
-   `resolver_empates=True`, assert que lat/lon vêm do candidato de maior `contagem_cnefe`
-   (não média ponderada). **Trava o ponto 10.**
-3. `test_geocode_cache_false_uses_temp_dir` — cache persistente vazio; `cache=False` deve
-   funcionar (sem `IO Error: No files found`). **Trava o ponto 12.**
-4. `test_match_weighted_reproducible` — rodar `geocode()` duas vezes com mesmo input e
-   `n_cores=1`; assert lat/lon idênticos (incl. em casos `da02`/`da04`/`pa02`). **Trava o
-   ponto 2.**
-5. `test_geocode_pula_etapas_sem_logradouro` — input só `estado/municipio/cep`; assert que
-   `tipo_resultado` ∈ {`dc01`,`dc02`,`db01`,`dm01`} (etapas com logradouro puladas). **Trava
-   o ponto 3.**
-6. `test_download_cnefe_lista_tabelas` — monkeypatch `_download_file` e verificar que
-   `download_cnefe(["municipio","municipio_cep"], ...)` baixa só essas 2 tabelas (e não as
-   8). **Trava o ponto 5.**
-7. `test_jaro_redundant_skipped` — monkeypatch/spy `calculate_string_dist` e verificar que
-   não é chamado para `pa01`/`pa02`/`pa03`, mas **é** chamado para `pa04` e `pn01`/`pn02`/
-   `pn03`. **Trava a Etapa G.**
+## Testes de regressão criados — ✅ TODOS PASSANDO
+
+Arquivo: `python-package/tests/test_regression_news_port.py` (8 testes). O
+`conftest.py` (autouse `restore_cache_config`) garante que o side-effect
+persistente de `definir_pasta_cache()` seja restaurado após cada teste.
+
+1. ✅ `test_geocode_empates_lag_under_300m` — 2 candidatos a <300 m entre si,
+   com `contagem_cnefe` diferente; assert que sobrevive o de **maior**
+   contagem (regressão do bug LEAD→LAG). **Trava o ponto 9.**
+2. ✅ `test_geocode_lograd_encontrado_sem_completo` — empate com `max_dist >
+   1000` e logradouro não de data; com `resultado_completo=False` e
+   `resolver_empates=True`, assert que lat/lon vêm do candidato de maior
+   `contagem_cnefe` (prova indireta de que `logradouro_encontrado` está
+   populado internamente). **Trava o ponto 10.**
+3. ✅ `test_geocode_cache_false_uses_temp_dir` — cache persistente vazio;
+   `cache=False` deve funcionar (sem `IO Error: No files found`). **Trava o
+   ponto 12.**
+4. ✅ `test_match_weighted_reproducible` — rodar `geocode()` duas vezes com
+   mesmo input e `n_cores=1`; assert lat/lon idênticos. **Trava o ponto 2.**
+5. ✅ `test_geocode_pula_etapas_sem_logradouro` — input só
+   `estado/municipio`; assert que `tipo_resultado` == `['dm01']` (etapas com
+   logradouro puladas). **Trava o ponto 3.**
+6. ✅ `test_download_cnefe_lista_tabelas` — monkeypatch `_download_file` e
+   verificar que `download_cnefe(["municipio","municipio_cep"], ...)` baixa só
+   essas 2 tabelas (e não as 8). **Trava o ponto 5.**
+7. ✅ `test_jaro_redundant_skipped` — valida a constante
+   `MATCH_TYPES_JARO_REDUNDANTE == {"pa01","pa02","pa03"}` (`pa04` excluído) e
+   via inspeção de código que o guard está em
+   `match_weighted_cases_probabilistic` mas não em `match_cases_probabilistic`
+   (pn0k). **Trava a Etapa G.**
+8. ✅ `test_caminho_parquet_helper` — `caminho_parquet` monta o path
+   corretamente com `pasta_dados` explícito e com fallback
+   (`listar_pasta_cache()`). **Trava a Etapa D.**
+
+**Fix adicional:** `test_busca_por_cep.py` — CEPs do parquet fake corrigidos
+do formato sem hífen (`"70390025"`) para o formato padronizado com hífen
+(`"70390-025"`), igual ao CNEFE real e ao que `_normalize_ceps` produz.
 
 ## Ordem de execução recomendada
 
@@ -307,7 +329,8 @@ Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
 ## Verificações pós-implementação
 
 - [x] Testes unitários Python passam (`test_geocode`, `test_busca_por_cep`,
-      `test_geocode_reverso`).
+      `test_geocode_reverso`, `test_cache`, `test_fields`).
+- [x] Testes de regressão: `test_regression_news_port.py` — 8/8 passando.
 - [x] Paridade R↔Python: `test_geocode_matches_r_small_sample` passa (compara
       schema, row count, distribuição de `tipo_resultado`, lat/lon com
       `atol=1e-6`, e células não-numéricas). Validado via script ad-hoc
@@ -317,22 +340,47 @@ Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
       idênticos (Etapa B ponto 2).
 - [x] `cache=False` funciona sem `IO Error: No files found` (Etapa D).
 - [x] Skip de etapas: input só `estado`/`municipio` → só `dm01` (Etapa E).
-- [ ] Etapa G: paridade R↔Python permanece idêntica após pular Jaro redundante.
-- [ ] Criar os 6 testes de regressão listados abaixo (+. teste Jaro da Etapa G).
+- [x] Etapa G: paridade R↔Python permanece idêntica após pular Jaro redundante.
+
+## Arquivos modificados (resumo)
+
+**Pacote (`python-package/geocodebr/`):**
+- `matching.py` — helper `_build_found_columns` + wrapper `_complete_weighted_columns`
+  (Etapas A+B); `FIRST(...)` incondicional nos 4 `match_*` (Etapa B); `trata_empates`
+  LEAD→LAG + filtro + QUALIFY (Etapa C); param `pasta_dados` nos 4 `match_*` (Etapa D);
+  guard Jaro redundante (Etapa G).
+- `cache.py` — novo helper `caminho_parquet` (Etapa D).
+- `tables.py` — `register_cnefe_table` e `register_unique_logradouros_table` com param
+  `pasta_dados` (Etapa D).
+- `geocode.py` — captura `campos_nao_declarados` + `cnefe_dir`; `tabelas_necessarias` no
+  download; skip de etapas no laço (Etapas D+E).
+- `reverse.py` — captura `cnefe_dir` + `caminho_parquet` (Etapa D).
+- `cep.py` — idem (Etapa D).
+- `fields.py` — `fill_missing_fields` retorna `campos_nao_declarados` (Etapa E).
+- `utils.py` — nova `tabelas_necessarias` (Etapa E).
+- `download_cnefe.py` — `download_cnefe` e `_select_files` aceitam `str | list[str]`
+  (Etapa E).
+- `constants.py` — nova `MATCH_TYPES_JARO_REDUNDANTE` (Etapa G).
+
+**Testes (`python-package/tests/`):**
+- `test_regression_news_port.py` — **novo**, 8 testes de regressão (Etapas A–G).
+- `test_busca_por_cep.py` — fix dos CEPs do parquet fake (formato com hífen).
+- `test_r_python_parity.py` — fix de paths stale do layout monorepo.
 
 ## Referências de código (linha-de-arquivo)
 
 | Assunto | R | Python |
 |---|---|---|
-| `monta_colunas_encontradas` (helper novo) | `r-package/R/match_helpers.R:48-114` | `python-package/geocodebr/matching.py` (a criar) |
-| `ordem_first` + `FIRST(...)` incondicional | `r-package/R/match_weighted_cases.R:38-95` | `python-package/geocodebr/matching.py:84-140` |
-| LEAD→LAG + filtro `logradouro_encontrado IS NOT NULL` | `r-package/R/trata_empates_geocode_duckdb.R:120-189` | `python-package/geocodebr/matching.py:341-376` |
-| `caminho_parquet` helper | `r-package/R/cache.R:175-186` | `python-package/geocodebr/cache.py` (a criar) |
-| `register_cnefe_table(..., pasta_dados)` | `r-package/R/register_cnefe_tables.R:1,12` | `python-package/geocodebr/tables.py:9` |
-| `tabelas_necessarias` | `r-package/R/utils.R:496-504` | `python-package/geocodebr/utils.py` (a criar) |
-| Laço pula `campos_nao_declarados` | `r-package/R/geocode.R:225-232,428` | `python-package/geocodebr/geocode.py:135-147` |
-| `download_cnefe(tabela=<lista>)` | `r-package/R/download_cnefe.R:46-70` | `python-package/geocodebr/download_cnefe.py:14,49-57` |
-| `match_types_jaro_redundante` + guard em `pa0k` | `r-package/R/utils.R:345-357`, `r-package/R/match_weighted_cases_probabilistic.R:28-38` | `python-package/geocodebr/matching.py` (`match_weighted_cases_probabilistic`) |
+| `_build_found_columns` (helper) | `r-package/R/match_helpers.R:48-114` | `python-package/geocodebr/matching.py` (`_build_found_columns`) |
+| `_complete_weighted_columns` (wrapper) | `r-package/R/match_weighted_cases.R:52-63` | `python-package/geocodebr/matching.py` (`_complete_weighted_columns`) |
+| `ordem_first` + `FIRST(...)` incondicional | `r-package/R/match_weighted_cases.R:38-95` | `python-package/geocodebr/matching.py` (`match_weighted_cases`, `match_weighted_cases_probabilistic`) |
+| LEAD→LAG + filtro `logradouro_encontrado IS NOT NULL` | `r-package/R/trata_empates_geocode_duckdb.R:120-189` | `python-package/geocodebr/matching.py` (`trata_empates_geocode_duckdb`) |
+| `caminho_parquet` helper | `r-package/R/cache.R:175-186` | `python-package/geocodebr/cache.py` (`caminho_parquet`) |
+| `register_cnefe_table(..., pasta_dados)` | `r-package/R/register_cnefe_tables.R:1,100` | `python-package/geocodebr/tables.py` (`register_cnefe_table`, `register_unique_logradouros_table`) |
+| `tabelas_necessarias` | `r-package/R/utils.R:496-504` | `python-package/geocodebr/utils.py` (`tabelas_necessarias`) |
+| Laço pula `campos_nao_declarados` | `r-package/R/geocode.R:225-232,428` | `python-package/geocodebr/geocode.py` (laço de matching) |
+| `download_cnefe(tabela=<lista>)` | `r-package/R/download_cnefe.R:46-70` | `python-package/geocodebr/download_cnefe.py` (`download_cnefe`, `_select_files`) |
+| `match_types_jaro_redundante` + guard em `pa0k` | `r-package/R/utils.R:345-357`, `r-package/R/match_weighted_cases_probabilistic.R:28-38` | `python-package/geocodebr/constants.py` (`MATCH_TYPES_JARO_REDUNDANTE`), `python-package/geocodebr/matching.py` (`match_weighted_cases_probabilistic`) |
 
 ---
 
@@ -340,3 +388,7 @@ Pendentes, seguindo o padrão de `test_geocode.py` (parquet fake no `tmp_path` e
 atualizado (`r-package/R/*.R`) e o port Python em `python-package/geocodebr/`. Adota as
 convenções de `CLAUDE.md` (princípio `R/` autoritativo; paridade preservada; portões de
 qualidade `R CMD check` no R e testes + paridade no Python).*
+
+*Implementação concluída em 2026-08-28. Etapas A–G + 8 testes de regressão + fix do
+`test_busca_por_cep.py`. Paridade R↔Python validada no `small_sample`. Novas mudanças no R
+(após merge da main) serão tratadas em novo plano/sessão.*
