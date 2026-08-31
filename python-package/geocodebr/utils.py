@@ -5,7 +5,7 @@ from pathlib import Path
 
 import duckdb
 
-from .constants import ALL_POSSIBLE_MATCH_TYPES, DATA_RELEASE
+from .constants import ALL_POSSIBLE_MATCH_TYPES, DATA_RELEASE, RESERVED_COLUMN_NAMES
 
 
 def assert_bool(value: bool, name: str) -> None:
@@ -39,6 +39,14 @@ def check_clean_colnames(columns: list[str]) -> None:
         raise ValueError(
             "Column names must use only letters, numbers, and underscores. "
             f"Please rename: {bad_cols}"
+        )
+    
+    reserved_cols = [col for col in columns if col in RESERVED_COLUMN_NAMES]
+    if reserved_cols:
+        raise ValueError(
+            "Reserved column names detected. "
+            "These column names are created in the output and cannot be present in the input. "
+            f"Please rename: {reserved_cols}"
         )
 
 
@@ -219,7 +227,7 @@ def cria_col_logradouro_confusao(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("ALTER TABLE input_padrao_db ADD COLUMN log_causa_confusao BOOLEAN DEFAULT false")
     ruas_num_ext = "|".join(
         "RUA " + value
-        for value in ["UM", "DOIS", "TRES", "CINCO", "SEIS", "SETE", "OITO", "NOVE", "DEZ", "ONZE", "DOZE", "TREZE"]
+        for value in ["UM", "DOIS", "TRES", "QUATRO", "CINCO", "SEIS", "SETE", "OITO", "NOVE", "DEZ", "ONZE", "DOZE", "TREZE"]
     )
     con.execute(
         rf"""

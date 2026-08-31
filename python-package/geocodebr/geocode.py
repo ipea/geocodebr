@@ -35,11 +35,9 @@ from .utils import (
     add_precision_col,
     check_clean_colnames,
     cria_col_logradouro_confusao,
-    find_cached_parquet,
     get_key_cols,
     db_table_columns,
     merge_results_to_input,
-    quote_ident,
     add_h3_columns,
     tabelas_necessarias,
 )
