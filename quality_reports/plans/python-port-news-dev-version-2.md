@@ -1,6 +1,9 @@
 # Port das mudanças do `r-package/NEWS.md` (dev version) para o Python — Rodada 2
 
-**Status:** PLANO. Pendente de implementação.
+**Status:** CONCLUÍDO. Etapas A–E implementadas (commits `c0cc107` e `40822c3` pela usuária;
+ajustes pós-revisão: correção da Etapa D — guarda de reservados válida só no `geocode()` — e
+`test_regression_news_port_2.py` com 7 testes de regressão). Suíte completa: 22/22 passando.
+Paridade R↔Python (`-m r_parity`) pendente de rodada com rede/R disponíveis (download ~1,5 GB).
 
 **Repo:** `geocodebr` (monorepo). Pacote Python em `python-package/geocodebr/`; pacote R em
 `r-package/R/` (fonte da verdade). Plano da rodada 1 em
@@ -40,11 +43,32 @@ código Python atual em `python-package/geocodebr/*.py`, (d) os planos R
 
 | # | Item do NEWS.md (novo) | Estado Python | Commit R | Ação | Etapa |
 |---|---|---|---|---|---|
-| 1 | etapa de empates mais eficiente (janelas só sobre empatados) | **PENDENTE** | `28b0365` | reescrever `trata_empates_geocode_duckdb` | **A** |
-| 2 | `empate` no output com `resolver_empates=FALSE` mesmo sem `resultado_completo` | **PENDENTE** | `28b0365` | param `incluir_empate` em `merge_results_to_input` + chamada em `geocode.py` | **C** |
-| 3 | rejeitar colunas de nomes reservados no input | **PENDENTE** | `fd2e6e3` | lista `reserved` em `check_clean_colnames` | **D** |
-| 4 | fix regex `\\b` em ruas-data (era código morto) + exceção movida para dentro do braço do regex de números | **PENDENTE** | `2cb0034` | dentro da reescrita da Etapa A | **B** |
-| 5 | "RUA QUATRO" na lista de logradouros ambíguos | **PENDENTE** | `2cb0034` | adicionar `QUATRO` em `cria_col_logradouro_confusao` | **E** |
+| 1 | etapa de empates mais eficiente (janelas só sobre empatados) | ✅ PORTADO | `28b0365` | reescreveu `trata_empates_geocode_duckdb` | **A** |
+| 2 | `empate` no output com `resolver_empates=FALSE` mesmo sem `resultado_completo` | ✅ PORTADO | `28b0365` | param `incluir_empate` em `merge_results_to_input` + chamada em `geocode.py` | **C** |
+| 3 | rejeitar colunas de nomes reservados no input | ✅ PORTADO (com ajuste) | `fd2e6e3` | lista `RESERVED_COLUMN_NAMES` + `assert_no_reserved_columns` em `check...` | **D** |
+| 4 | fix regex `\\b` em ruas-data (era código morto) + exceção movida para dentro do braço do regex de números | ✅ PORTADO | `2cb0034` | dentro da reescrita da Etapa A | **B** |
+| 5 | "RUA QUATRO" na lista de logradouros ambíguos | ✅ PORTADO | `2cb0034` | adicionado `QUATRO` em `cria_col_logradouro_confusao` | **E** |
+
+**Correções pós-revisão (implementadas pelo revisor após os commits da usuária):**
+
+1. **Etapa D — guarda vazava para `geocode_reverso()`** (bug introduzido na primeira versão da
+   etapa): `reverse.py:36` também chama `check_clean_colnames()`, e o input de pontos tem
+   colunas `lat`/`lon` **obrigatórias** — a guarda de reservados dentro de
+   `check_clean_colnames` rejeitava uso legítimo. No R, `check_clean_colnames` é chamado
+   **apenas** em `geocode.R:212`. **Correção:** guarda extraída para função própria
+   `assert_no_reserved_columns()` (utils.py), chamada só em `geocode.py` após
+   `check_clean_colnames()`; `check_clean_colnames` volta a validar só caracteres (comportamento
+   de `geocode_reverso` preservado). Travado por `test_geocode_reverso.py` (voltou a passar).
+2. **Falso positivo no plano sobre o `SEIS`:** a lista Python **já tinha** `SEIS` — só faltava
+   `QUATRO`. O texto original do plano dizia (erroneamente) que faltavam os dois. Corrigido na
+   implementação da usuária (só `QUATRO` adicionado, corretamente).
+3. **2 testes da rodada 1 estavam quebrados desde `0b0f939`** (verificados em worktree do
+   commit): `test_geocode_cache_false_uses_temp_dir` e `test_download_cnefe_lista_tabelas`
+   usavam `patch("geocodebr.<modulo>.<nome>")`, que quebra porque o `__init__.py` rebinda os
+   nomes dos submódulos para as **funções** exportadas (`from .geocode import geocode`), e o
+   mock resolve `geocodebr.geocode` como atributo do pacote (função), não como módulo. O "8/8
+   passando" do plano 1 era, na verdade, 6/8. **Correção:** `importlib.import_module()` +
+   `patch.object()` nos dois testes — imune ao shadowing.
 
 ## Fora do NEWS.md — sem contraparte Python (NÃO portar)
 
@@ -230,15 +254,19 @@ similaridade_logradouro, contagem_cnefe, empate, cod_setor`.
 **Python atual** (`utils.py:36-42`): só checa caracteres inválidos (`^[A-Za-z0-9_]+$`), sem
 checar nomes reservados.
 
-**Mudança:** adicionar a mesma lista `RESERVED_COLUMN_NAMES` (preferivelmente como constante em
-`constants.py` para reuso/teste) e abortar com `ValueError` listando as colunas ofensoras, no
-mesmo espírito da mensagem R ("renomeie estas colunas antes de chamar a função"). Manter a
-verificação de caracteres inválidos existente.
+**Mudança (implementada, com ajuste pós-revisão):** constante `RESERVED_COLUMN_NAMES` em
+`constants.py` (os 17 nomes, igual ao R) + guarda em função **própria**
+`assert_no_reserved_columns()` em `utils.py`, chamada **apenas em `geocode.py`** logo após
+`check_clean_colnames()`. A primeira versão da etapa havia posto a guarda **dentro** de
+`check_clean_colnames`, o que quebrou `geocode_reverso()` (cujo input legítimo exige colunas
+`lat`/`lon`, e que também chama `check_clean_colnames` em `reverse.py:36`). No R a guarda pode
+viver dentro de `check_clean_colnames` porque essa função **só** é chamada por `geocode()`
+(`geocode.R:212`); no Python, com dois chamadores, a guarda separada preserva o mesmo alcance.
+Aborta com `ValueError` listando as colunas ofensoras, no mesmo espírito da mensagem R.
 
-**Atenção:** nenhum teste Python atual usa nomes reservados no **input** (confirmado por grep —
-`lat`/`lon`/`cod_setor`/etc. aparecem só nos parquets fake do **CNEFE**, não no input). Logo a
-guarda nova não quebra testes existentes. (`enderecos` de teste usa `uf`, `cidade`, `rua`, `num`,
-`cep_in`, `bairro`.)
+**Atenção:** nenhum teste Python usa nomes reservados no **input** — `lat`/`lon`/`cod_setor`/
+etc. aparecem só nos parquets fake do **CNEFE**, não no input (`uf`, `cidade`, `rua`, `num`,
+`cep_in`, `bairro`). A guarda não quebra testes existentes.
 
 ### E. Item 5 — "RUA QUATRO" na lista de logradouros ambíguos
 
@@ -249,53 +277,57 @@ enumeração era `UM, DOIS, TRES, CINCO, ..., TREZE` — pulava o 4. Consequênc
 "RUA QUATRO" sem match exato casava por similaridade com "RUA QUATORZE" (Jaro 0,911, acima de
 todos os cutoffs); agora cai para categorias de menor precisão.
 
-**Python atual** (`utils.py:220-222`): a lista é `["UM", "DOIS", "TRES", "CINCO", "SETE", ...]`
-— **sem `QUATRO`** (e observa-se que também falta `SEIS` entre `CINCO` e `SETE`!). Bug duplo em
-relação ao R.
+**Python atual** (`utils.py:220-222`): a lista era `["UM", "DOIS", "TRES", "CINCO", "SEIS",
+"SETE", "OITO", "NOVE", "DEZ", "ONZE", "DOZE", "TREZE"]` — **sem `QUATRO`**.
 
-**Mudança:** alinhar a lista exatamente ao R — `["UM", "DOIS", "TRES", "QUATRO", "CINCO", "SEIS",
-"SETE", "OITO", "NOVE", "DEZ", "ONZE", "DOZE", "TREZE"]`. (O R segue esta ordem exata em
-`utils.R:591-604`.)
+**Mudança:** alinhar a lista ao R — adicionar `"QUATRO"` entre `TRES` e `CINCO`
+(espelhando `utils.R:591-604`).
 
-> **Atenção ao `SEIS`:** o Python atual também omite `SEIS` (pula de `CINCO` para `SETE`). Isto
-> não está citado no NEWS.md (o R só documentou a lacuna do `QUATRO`), mas é uma divergência
-> adicional do Python em relação ao R. **Corrigir os dois** na mesma edição para alinhar
-> completamente a lista ao R.
+> **Erratum do plano original (corrigido na implementação):** a primeira versão deste plano
+> dizia que o Python **também** omitia `SEIS` — falso; a lista já tinha `SEIS`. Só `QUATRO`
+> faltava. O texto original desta seção foi ajustado.
 
 ---
 
-## Testes novos a criar
+## Testes de regressão criados — ✅ 7/7 PASSANDO
 
 Arquivo: `python-package/tests/test_regression_news_port_2.py` (novo), seguindo o padrão de
 `test_regression_news_port.py` (parquet fake no `tmp_path` +
-`definir_pasta_cache(str(tmp_path), verboso=False)`, helper `_write_all_cnefe`,
-`_base_cnefe_table`). O `conftest.py` (autouse `restore_cache_config`) já cuida do side-effect de
-`definir_pasta_cache`.
+`definir_pasta_cache(str(tmp_path), verboso=False)`, helpers `_write_all_cnefe` /
+`_base_cnefe_table` / `_prepare_cache`). O `conftest.py` (autouse `restore_cache_config`) já
+cuida do side-effect persistente de `definir_pasta_cache()`.
 
-1. **`test_empates_resolver_false_inclui_coluna_empate`** — Etapa C. Input que produz empate;
-   `resolver_empates=False, resultado_completo=False`; assert que a coluna `empate` está no
-   output, com `TRUE` nas linhas empatadas e `FALSE` nas não empatadas. **Trava item 2.**
-2. **`test_geocode_rejeita_colunas_reservadas`** — Etapa D. Input com coluna `lat` (ou
-   `tipo_resultado`); assert que `geocode()` levanta `ValueError` mencionando a coluna. **Trava
-   item 3.**
-3. **`test_empates_rua_data_media_ponderada`** — Etapa B. Empate entre candidatos de uma
-   "RUA QUINZE DE NOVEMBRO" a <1 km (max_dist <= 1000); assert que o resultado é a **média
-   ponderada** (ramo F/salváveis), não o top do ranking (ramo E/perdidos). Antes do fix, a exceção
-   de datas era código morto e o caso ia para "perdidos". **Trava item 4.**
-4. **`test_rua_quatro_excluida_match_probabilistico`** — Etapa E. Input "RUA QUATRO" sem match
-   exato; CNEFE tem "RUA QUATORZE" (Jaro alto); assert que **não** casa via probabilístico
-   (`tipo_resultado` não é `pn*`/`pa*`/`pl*`), caindo para categoria de menor precisão ou `NA`.
-   Pode ser feito também como teste unitário direto sobre `cria_col_logradouro_confusao`
-   (verificar que "RUA QUATRO" seta `log_causa_confusao=TRUE`). **Trava item 5.**
-5. *(opcional)* **`test_empates_passthrough_preserva_nao_empatados`** — Etapa A. Mix de
-   endereços: alguns sem empate (match único), outros com empate a <300 m; assert que o output
-   tem uma linha por input e que os não-empatados vêm com `empate=FALSE` e coordenadas iguais às
-   do CNEFE. **Trava a estrutura do passthrough (item 1).**
+1. ✅ `test_empates_resolver_false_inclui_coluna_empate` — 1 input empatado (2 candidatos) +
+   1 sem empate; `resolver_empates=False, resultado_completo=False`; assert coluna `empate` no
+   output com `[True, True, False]`. **Trava item 2 (Etapa C).**
+2. ✅ `test_empates_zero_empates_resolver_false` — sem empates, `resolver_empates=False`:
+   coluna `empate` toda `FALSE` no output. Trava o ramo `n_casos==0` (ALTER ADD DEFAULT FALSE)
+   + `incluir_empate`. **Trava item 2 (Etapa C).**
+3. ✅ `test_geocode_rejeita_colunas_reservadas` — input com coluna `lat` levanta
+   `ValueError("Reserved column names")`. **Trava item 3 (Etapa D).**
+4. ✅ `test_empates_rua_data_media_ponderada` — "RUA QUINZE DE NOVEMBRO" empatada a ~555 m
+   (<1 km): assert lat = média ponderada por `contagem_cnefe` (ramo F), não o topo do ranking
+   (ramo E). Antes do fix, a exceção de datas era código morto → ramo E. **Trava item 4
+   (Etapa B).**
+5. ✅ `test_rua_quatro_flagrada_como_confusao` — unitário sobre o DuckDB: "RUA QUATRO" seta
+   `log_causa_confusao=TRUE`; controles "RUA DEZ" (TRUE, sempre esteve na lista), "RUA TESTE"
+   (FALSE) e "RUA QUINZE DE NOVEMBRO" (FALSE, exceção de datas). **Trava item 5 (Etapa E).**
+6. ✅ `test_geocode_rua_quatro_nao_casa_probabilistico` — integração: input "RUA QUATRO" sem
+   match exato contra CNEFE "RUA QUATORZE" (Jaro ~0,94 > todos os cortes) → não casa via
+   probabilístico; cai para `dc01` (`precisao == "cep"`). **Trava item 5 (Etapa E).**
+7. ✅ `test_empates_passthrough_mixed` — 1 input sem empate (passthrough, `empate=False`,
+   coordenada exata) + 1 com empate a ~555 m não-ambíguo (ramo F, `empate=True`, média
+   ponderada); `resultado_completo=True`. Trava o `UNION ALL` reescrito com `cols_passthrough`
+   (`FALSE AS empate` na posição correta). **Trava item 1 (Etapa A).**
 
-Os testes 1 e 2 da rodada 1 (`test_geocode_empates_lag_under_300m`,
-`test_geocode_lograd_encontrado_sem_completo` em `test_regression_news_port.py`) **devem
-continuar passando** — a reescrita da Etapa A preserva a semântica do LAG e do
-`logradouro_encontrado` populado. Rodá-los como gate de regressão da Etapa A.
+> **Aprendizado do teste 7:** a primeira versão usava "RUA X" no logradouro empatado e o
+> resultado esperado (ramo F/média ponderada) não vinha — **comportamento correto do pacote**:
+> logradouro de **uma letra** casa no regex de ambiguidade de `cria_col_logradouro_confusao`
+> (`[A-Z]{1,2}`), o empate ia para o ramo E (perdidos). Trocado por "RUA DAS FLORES". Não usar
+> logradouros de 1-2 letras em testes que exercitam o ramo F.
+
+Os testes da rodada 1 (`test_regression_news_port.py`) **continuam passando** (8/8 após o fix
+dos 2 patches pré-existentes) — gate de não-regressão da Etapa A respeitado.
 
 ## Ordem de execução recomendada
 
@@ -350,31 +382,47 @@ continuar passando** — a reescrita da Etapa A preserva a semântica do LAG e d
 
 ## Verificações pós-implementação
 
-- [ ] Testes unitários Python passam (`test_geocode`, `test_busca_por_cep`,
+- [x] Testes unitários Python passam (`test_geocode`, `test_busca_por_cep`,
       `test_geocode_reverso`, `test_cache`, `test_fields`).
-- [ ] Testes de regressão da rodada 1 (`test_regression_news_port.py`, 8 testes) continuam
-      passando — gate de não-regressão da Etapa A.
-- [ ] Testes de regressão da rodada 2 (`test_regression_news_port_2.py`, 4–5 testes) passando.
-- [ ] Paridade R↔Python: `test_geocode_matches_r_small_sample` passa.
-- [ ] `resolver_empates=False, resultado_completo=False` inclui coluna `empate` no output.
-- [ ] Input com coluna `lat` é rejeitado com mensagem útil.
-- [ ] "RUA QUATRO" não casa via probabilístico com "RUA QUATORZE".
+- [x] Testes de regressão da rodada 1 (`test_regression_news_port.py`, 8 testes) passando —
+      inclui o fix dos 2 patches pré-existentes quebrados pelo shadowing do `__init__.py`
+      (verificados como já falhos no commit `0b0f939` via worktree; não eram regressão das
+      etapas A–E).
+- [x] Testes de regressão da rodada 2 (`test_regression_news_port_2.py`, 7 testes) passando.
+- [x] Suíte completa: **22/22**.
+- [ ] Paridade R↔Python: `test_r_python_parity.py -m r_parity` — pendente (exige R instalado +
+      download fresh de ~1,5 GB; rodar quando a infraestrutura permitir, ou via script ad-hoc
+      reutilizando cache em disco, como na rodada 1).
+- [x] `resolver_empates=False, resultado_completo=False` inclui coluna `empate` no output
+      (com e sem empates).
+- [x] Input com coluna `lat` é rejeitado com mensagem útil — **e `geocode_reverso` continua
+      aceitando `lat`/`lon`** (guarda vale só para `geocode`; travado por
+      `test_geocode_reverso.py::test_geocode_reverso_with_duckdb_spatial`).
+- [x] "RUA QUATRO" não casa via probabilístico com "RUA QUATORZE" (cai para `dc01`).
+- [x] "RUA QUINZE DE NOVEMBRO" empatada a <1 km resolve pela média ponderada (ramo F).
 
-## Arquivos a modificar (resumo)
+## Arquivos modificados (resumo final)
 
-**Pacote (`python-package/geocodebr/`):**
+**Pacote (`python-package/geocodebr/`) — commits `c0cc107` e `40822c3` (usuária) + ajustes
+pós-revisão:**
+
 - `matching.py` — reescrita de `trata_empates_geocode_duckdb` (Etapas A+B): `ids_empatados`,
   ramo `n_casos==0` com ALTER, ramo FALSE com ALTER+UPDATE+RENAME, ramo TRUE com
   `empates_classif` + passthrough; fix do regex `\\b` e reestruturação do predicado do ramo E.
 - `utils.py` — `merge_results_to_input` com param `incluir_empate` (Etapa C); guarda de nomes
-  reservados em `check_clean_colnames` (Etapa D); `cria_col_logradouro_confusao` com `QUATRO`
-  e `SEIS` (Etapa E).
-- `geocode.py` — passar `incluir_empate=not resolver_empates` ao merge; remover o hack
-  `geocode.py:167-168` (Etapa C).
-- `constants.py` — (opcional) constante `RESERVED_COLUMN_NAMES` (Etapa D).
+  reservados extraída para `assert_no_reserved_columns()` chamada só em `geocode.py` (Etapa D,
+  com ajuste pós-revisão); `cria_col_logradouro_confusao` com `QUATRO` (Etapa E).
+- `geocode.py` — passa `incluir_empate=not resolver_empates` ao merge; hack antigo do `empate`
+  removido; chama `assert_no_reserved_columns()` (Etapa C+D). Mensagens de progresso extras
+  (`messages.py`: `message_add_precision`, `message_merge_input`, `message_as_arrow`,
+  `message_fim`, com timestamp).
+- `constants.py` — `RESERVED_COLUMN_NAMES` (Etapa D, os 17 nomes do R).
 
 **Testes (`python-package/tests/`):**
-- `test_regression_news_port_2.py` — **novo**, 4–5 testes de regressão (Etapas A–E).
+
+- `test_regression_news_port_2.py` — **novo**, 7 testes de regressão (Etapas A–E).
+- `test_regression_news_port.py` — fix dos 2 patches quebrados pelo shadowing do `__init__.py`
+  (`importlib.import_module` + `patch.object`).
 
 ## Referências de código (linha-de-arquivo)
 

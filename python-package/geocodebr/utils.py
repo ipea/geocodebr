@@ -40,7 +40,9 @@ def check_clean_colnames(columns: list[str]) -> None:
             "Column names must use only letters, numbers, and underscores. "
             f"Please rename: {bad_cols}"
         )
-    
+
+
+def assert_no_reserved_columns(columns: list[str]) -> None:
     reserved_cols = [col for col in columns if col in RESERVED_COLUMN_NAMES]
     if reserved_cols:
         raise ValueError(

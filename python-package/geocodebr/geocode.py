@@ -37,6 +37,7 @@ from .utils import (
     assert_bool,
     normalize_h3_res,
     add_precision_col,
+    assert_no_reserved_columns,
     check_clean_colnames,
     cria_col_logradouro_confusao,
     get_key_cols,
@@ -80,6 +81,9 @@ def geocode(
         input_columns = df_input.columns
 
         check_clean_colnames(input_columns)
+        # guarda de nomes reservados: so no geocode() -- o geocode_reverso()
+        # exige lat/lon no input e nao pode ser rejeitado por elas
+        assert_no_reserved_columns(input_columns)
 
         # Fix eventual missing fields in input data
         # geocode requires all adress fields to be present

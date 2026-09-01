@@ -220,9 +220,13 @@ def test_geocode_cache_false_uses_temp_dir(tmp_path):
         numero="num", cep="cep_in", localidade="bairro",
     )
 
-    with patch("geocodebr.geocode.download_cnefe", return_value=str(fake_temp)):
+    import importlib
+
+    geocode_mod = importlib.import_module("geocodebr.geocode")
+
+    with patch.object(geocode_mod, "download_cnefe", return_value=str(fake_temp)):
         # Antes do fix, isto lancaria IO Error: No files found
-        out = geocode(
+        out = geocode_mod.geocode(
             enderecos, campos, resultado_completo=False,
             verboso=False, cache=False, n_cores=1,
         )
@@ -339,6 +343,10 @@ def test_download_cnefe_lista_tabelas(tmp_path):
     """download_cnefe(['municipio','municipio_cep']) baixa só essas 2 tabelas."""
     definir_pasta_cache(str(tmp_path), verboso=False)
 
+    import importlib
+
+    download_mod = importlib.import_module("geocodebr.download_cnefe")
+
     # Monkeypatch _download_file para registrar o que foi baixado
     baixados: list[str] = []
 
@@ -347,9 +355,8 @@ def test_download_cnefe_lista_tabelas(tmp_path):
         # Cria arquivo fake para simular download
         dest.write_bytes(b"fake")
 
-    with patch("geocodebr.download_cnefe._download_file", side_effect=fake_download):
-        from geocodebr.download_cnefe import download_cnefe
-        download_cnefe(["municipio", "municipio_cep"], verboso=False, cache=True)
+    with patch.object(download_mod, "_download_file", side_effect=fake_download):
+        download_mod.download_cnefe(["municipio", "municipio_cep"], verboso=False, cache=True)
 
     # Deve ter baixado exatamente 2 arquivos
     assert len(baixados) == 2, f"Expected 2 downloads, got {len(baixados)}: {baixados}"
