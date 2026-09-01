@@ -1,6 +1,8 @@
+from datetime import datetime
+
 def inform(message: str, verboso: bool = True) -> None:
     if verboso:
-        print(message)
+        print(f"{datetime.now().strftime('%H:%M:%S')}: {message}")
 
 
 def message_standardizing_addresses(verboso: bool = True) -> None:
@@ -26,3 +28,16 @@ def message_preparando_output(verboso: bool = True) -> None:
 def message_cache(verboso: bool = True) -> None:
     inform("Nenhum dado em cache local", verboso)
 
+
+def message_add_precision(verboso: bool = True) -> None:
+    inform("Adicionando coluna de precisão", verboso)
+
+
+def message_merge_input(verboso: bool = True) -> None:
+    inform("Juntando com colunas do input", verboso)
+
+def message_as_arrow(verboso: bool = True) -> None:
+    inform("Materializando tabela final em arrow", verboso)
+
+def message_fim(verboso: bool = True) -> None:
+    inform("Finalizado", verboso)

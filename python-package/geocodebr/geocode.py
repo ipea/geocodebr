@@ -28,6 +28,10 @@ from .messages import (
     message_looking_for_matches,
     message_preparando_output,
     message_standardizing_addresses,
+    message_add_precision,
+    message_merge_input,
+    message_as_arrow,
+    message_fim
 )
 from .utils import (
     assert_bool,
@@ -126,8 +130,7 @@ def geocode(
         cria_col_logradouro_confusao(con)
         create_output_db(con, resultado_completo)
 
-        if verboso:
-            message_looking_for_matches(verboso)
+        message_looking_for_matches(verboso)
 
         n_rows = con.execute("SELECT COUNT(*) FROM input_padrao_db").fetchone()[0]
         matched_rows = 0
@@ -161,15 +164,16 @@ def geocode(
             con, resultado_completo, resolver_empates, verboso
         )
         output_table_to_use = "output_db" if empates_resolvidos == 0 else "output_db2"
+        message_add_precision(verboso)
         add_precision_col(con, output_table_to_use)
-        if resultado_completo and "empate" not in db_table_columns(con, output_table_to_use):
-            con.execute(f"ALTER TABLE {output_table_to_use} ADD COLUMN empate BOOLEAN")
+        message_merge_input(verboso)
         merge_results_to_input(
             con,
             x="input_db",
             y=output_table_to_use,
             select_columns=original_columns,
             resultado_completo=resultado_completo,
+            incluir_empate=not resolver_empates,
         )
         add_h3_columns(con, "geocodebr_result", h3_values)
         con.execute(
@@ -180,7 +184,11 @@ def geocode(
             ORDER BY tempidgeocodebr
             """
         )
-        return con.execute("SELECT * FROM geocodebr_result").to_arrow_table()
+        message_as_arrow(verboso)
+        result = con.execute("SELECT * FROM geocodebr_result").to_arrow_table()
+        message_fim(verboso)
+
+        return result
     finally:
         con.close()
 

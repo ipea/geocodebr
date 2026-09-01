@@ -178,6 +178,7 @@ def merge_results_to_input(
     y: str,
     select_columns: list[str],
     resultado_completo: bool,
+    incluir_empate: bool = False,
 ) -> None:
     select_columns_y = [
         "lat",
@@ -187,6 +188,14 @@ def merge_results_to_input(
         "desvio_metros",
         "endereco_encontrado",
     ]
+
+    # com resolver_empates = False os casos empatados voltam em duplicidade
+    # (uma linha por candidato), entao a coluna 'empate' precisa acompanhar o
+    # output mesmo sem resultado_completo, para o usuario identificar essas
+    # linhas. Com resultado_completo = True ela ja entra na lista abaixo.
+    if incluir_empate and not resultado_completo:
+        select_columns_y.append('empate')
+
     if resultado_completo:
         select_columns_y.extend(
             [
