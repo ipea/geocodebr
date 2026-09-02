@@ -41,3 +41,6 @@ def message_as_arrow(verboso: bool = True) -> None:
 
 def message_fim(verboso: bool = True) -> None:
     inform("Finalizado", verboso)
+
+def message_conexao_fechada(verboso: bool = True) -> None:
+    inform("Conexão fechada", verboso)

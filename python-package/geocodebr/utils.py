@@ -213,15 +213,25 @@ def merge_results_to_input(
                 "cod_setor",
             ]
         )
-        con.execute(
-            f"""
-            UPDATE {quote_ident(y)}
-            SET similaridade_logradouro = COALESCE(similaridade_logradouro, 1)
-            """
-        )
 
-    select_x = ", ".join(f"{quote_ident(x)}.{quote_ident(col)}" for col in select_columns)
-    select_y = ", ".join(f"{quote_ident(y)}.{quote_ident(col)}" for col in select_columns_y)
+    # espelha o setdiff(select_columns, key_column) do R: tempidgeocodebr é
+    # interno e sai da projeção, eliminando o re-sort com EXCLUDE no geocode()
+    select_x = ", ".join(
+        f"{quote_ident(x)}.{quote_ident(col)}"
+        for col in select_columns
+        if col != "tempidgeocodebr"
+    )
+
+    # COALESCE na projeção substitui o UPDATE de tabela inteira (mesma
+    # semântica: match determinístico tem similaridade NULL, exibida como 1)
+    y_exprs: list[str] = []
+    for col in select_columns_y:
+        if resultado_completo and col == "similaridade_logradouro":
+            expr = f"COALESCE({quote_ident(y)}.similaridade_logradouro, 1)"
+        else:
+            expr = f"{quote_ident(y)}.{quote_ident(col)}"
+        y_exprs.append(f"{expr} AS {quote_ident(col)}")
+    select_y = ", ".join(y_exprs)
     con.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE geocodebr_result AS

@@ -31,7 +31,8 @@ from .messages import (
     message_add_precision,
     message_merge_input,
     message_as_arrow,
-    message_fim
+    message_fim,
+    message_conexao_fechada
 )
 from .utils import (
     assert_bool,
@@ -180,14 +181,6 @@ def geocode(
             incluir_empate=not resolver_empates,
         )
         add_h3_columns(con, "geocodebr_result", h3_values)
-        con.execute(
-            """
-            CREATE OR REPLACE TEMP TABLE geocodebr_result AS
-            SELECT * EXCLUDE (tempidgeocodebr)
-            FROM geocodebr_result
-            ORDER BY tempidgeocodebr
-            """
-        )
         message_as_arrow(verboso)
         result = con.execute("SELECT * FROM geocodebr_result").to_arrow_table()
         message_fim(verboso)
@@ -195,6 +188,7 @@ def geocode(
         return result
     finally:
         con.close()
+        message_conexao_fechada(verboso)
 
 
 def _materialize_input(enderecos: Any) -> pl.DataFrame:
