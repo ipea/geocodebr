@@ -19,5 +19,9 @@ __pycache__/
 .venv/
 geocodebr.Rproj
 
+# Sample de benchmark com microdados (hospedada em repo privada, não commitar)
+python-package/benchmarks/data/
+.cnefe-cache/
+
 # Claude Code — config local de máquina (não versionada)
 .claude/settings.local.json
