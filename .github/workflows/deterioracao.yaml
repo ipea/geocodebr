@@ -83,20 +83,31 @@ jobs:
       - name: Instalar pacote
         run: uv sync && uv pip install psutil
 
-      # Baixa a sample da repo privada (release) com PAT de leitura e confere
-      # o SHA-256 antes de usar. O token precisa estar no secret SAMPLE_TOKEN.
+      # Baixa a sample da repo privada e confere o SHA-256 antes de usar.
+      # gh release download usa a API REST e aceita PAT fine-grained
+      # (Contents:read); a URL github.com/.../releases/download/... é
+      # não confiável para repo privada com esse tipo de token (404).
+      # Requisito: release publicada (não draft), tag em SAMPLE_RELEASE,
+      # asset com o nome exato sample_deterioracao.parquet.
       - name: Baixar sample (repo privada)
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.SAMPLE_TOKEN }}
         run: |
           mkdir -p "$(dirname "$SAMPLE")"
-          url="https://github.com/camilagb/geocodebr-dados/releases/download/$SAMPLE_RELEASE/sample_deterioracao.parquet"
-          curl --fail --silent --show-error --location \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "Accept: application/octet-stream" \
-            --output "$SAMPLE" "$url"
-          echo "$SAMPLE_SHA256  $SAMPLE" | sha256sum --check --strict
+          gh release download "$SAMPLE_RELEASE" \
+            --repo camilagb/geocodebr-dados \
+            --pattern "sample_deterioracao.parquet" \
+            --dir "$(dirname "$SAMPLE")" \
+            --clobber
+          python - <<'EOF'
+          import hashlib, os
+          esperado = os.environ["SAMPLE_SHA256"]
+          with open(os.environ["SAMPLE"], "rb") as f:
+              obtido = hashlib.sha256(f.read()).hexdigest()
+          assert obtido == esperado, f"sha256 divergente: {obtido}"
+          print("sha256 ok:", obtido)
+          EOF
 
       # Fixa a pasta de cache do CNEFE via a própria API do pacote (evita
       # adivinhar o layout de user_cache_dir por SO). O caminho vem por env
