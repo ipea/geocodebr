@@ -225,3 +225,32 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   observável e adicionar complexidade sem necessidade. **Por quê:** um sintoma "essa coluna deveria ser
   condicional e não é" pode já estar coberto por um filtro mais a jusante no pipeline — ler até o fim do
   caminho do dado (aqui, `merge_results_to_input()`) antes de assumir que a origem precisa mudar.
+
+- `[LEARN:duckdb]` "Python é mais lento que R com o mesmo DuckDB no Windows" → **a variável não é a
+  toolchain (MSVC vs MinGW), é o heap do processo hospedeiro**. O `Rscript.exe`/`Rterm.exe` optam pelo
+  **Segment Heap** no manifest embutido; o `python.exe` (python.org) e o CLI usam o heap NT legacy, cujo
+  lock global serializa alocação/free multithread — e o DuckDB no Windows não tem jemalloc pra bypassar
+  isso. Piora com MAIS threads (24 threads é pior que 8 no legacy; escala negativa). Causa raiz
+  documentada em [duckdb/duckdb#24027](https://github.com/duckdb/duckdb/issues/24027) (autor: Douglas
+  Braga, Ipea, máquina 24 cores/512GB igual à nossa); fix upstream [duckdb#24036](https://github.com/duckdb/duckdb/pull/24036)
+  conserta **só o CLI** — o wheel Python nunca vai se auto-consertar (manifest pertence ao exe
+  hospedeiro). Medido no port Python (10M CadÚnico, 24 threads): total 11:47 → **3:08** rodando com uma
+  cópia do interpretador com manifest SegmentHeap (`python-sh.exe`, criada com o
+  `patch_segment_heap.py` da reprodução da issue; o `python.exe` original fica intocado).
+  Esse mesmo mecanismo explicou dois mistérios: a inflação ~10× dos empates em dados reais (strings
+  reais ampliam o tráfego de alocação; 1:51 → 0:05) e o `con.close()` de ~3 min (frees na mesma fila;
+  2:56 → 0:05). Mitigação sem patch: `n_cores≈4`. Ver tabela completa em
+  `python-package/benchmarks/resultados_benchmark.md`. **Por quê:** a hipótese inicial (toolchain) veio
+  da pesquisa de docs e estava errada — a issue nasceu exatamente com essa hipótese errada e o próprio
+  autor a refutou com cross-hosting da DLL do R dentro do python.exe (fica lenta) e do MSVC CLI
+  patcheado (fica rápido). Ao comparar clientes DuckDB no Windows, parear SEMPRE o processo hospedeiro.
+
+- `[LEARN:testes]` Nesta máquina compartilhada, benchmarks de tempos curtos variam ±15-20% entre
+  rodadas (carga da máquina), então comparações antes/depois precisam ser **pareadas e intercaladas na
+  mesma janela** (run A, run B, run A, run B) — foi o que fechou o sinal do heap (o primeiro A/B da
+  investigação, em janelas separadas, mediu "1,4× de toolchain"; pareado e em escala maior, o fator
+  real era ~4×). Fases determinísticas de sort/materialização são reprodutíveis (merge deu 0:41 três
+  vezes seguidas) e podem ser lidas de rodada única; fases de matching/empates não. Protocolo fixo no
+  `python-package/benchmarks/benchmark_sample.py` (sample 10M em `data/sample_cad_unico.parquet`).
+  **Por quê:** direção de melhoria medida em janelas separadas numa máquina compartilhada não é
+  evidência — pode ser só a carga do momento.

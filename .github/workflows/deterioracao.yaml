@@ -1,0 +1,164 @@
+# Teste de deterioração do geocode() entre chamadas sucessivas no mesmo
+# processo, em Linux/macOS/Windows — a pergunta em aberto do diagnóstico
+# quality_reports/diagnoses/2026-09-04_geocode-deterioracao-python-diagnostico.md
+# ("Comportamento em Linux/macOS: não medido").
+#
+# CONTIDO À BRANCH python_test: este arquivo só existe aqui e o job tem guard
+# de ref. Ao mergear/migrar a branch, remover este workflow, o harness e a
+# lógica de download da sample (python-package/benchmarks/).
+#
+# A SAMPLE  NÃO é commitada neste repo público:
+# mora como asset de release na repo privada camilagb/geocodebr-dados e é
+# baixada no job com o secret SAMPLE_TOKEN (PAT fine-grained, Contents:read
+# daquela repo). A integridade é verificada por SHA-256.
+#
+# O que roda: o harness portátil
+# python-package/benchmarks/verifica_deterioracao.py nos dois modos do
+# experimento — in-process (deterioração) e --isolado (controle, subprocesso
+# por rodada). Esperado: razão última/1ª rodada plana (<1,15) em Linux/macOS;
+# o Windows serve de controle positivo (deterioração esperada lá).
+#
+# Disparo: push em python_test (arquivos do teste) ou manual (workflow_dispatch,
+# permite ajustar nº de rodadas e desligar o modo --isolado).
+
+name: deterioracao
+
+on:
+  push:
+    branches:
+      - python_test
+    paths:
+      - .github/workflows/deterioracao.yaml
+      - python-package/benchmarks/**
+  workflow_dispatch:
+    inputs:
+      rodadas:
+        description: "Rodadas por modo (default 5)"
+        required: false
+        default: "5"
+      isolado:
+        description: "Rodar também o modo --isolado (controle)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deterioracao-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterioracao:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    if: github.ref == 'refs/heads/python_test'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    env:
+      SAMPLE: python-package/benchmarks/data/sample_deterioracao.parquet
+      # tag do release na repo camilagb/geocodebr-dados que contém o asset
+      # sample_deterioracao.parquet; bump quando regenerar a sample
+      SAMPLE_RELEASE: v1
+      SAMPLE_SHA256: 5be22244407b6dd2ede227321fee7b5600b82594c4b1077348f708e8c731e473
+      RODADAS: ${{ inputs.rodadas || '5' }}
+      RODAR_ISOLADO: ${{ inputs.isolado }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v5
+
+      # uv sync respeita o uv.lock (versões idênticas entre os SO); psutil não
+      # está no lock — é dependência só do harness e é instalada à parte.
+      - name: Instalar pacote
+        run: uv sync && uv pip install psutil
+
+      # Baixa a sample da repo privada e confere o SHA-256 antes de usar.
+      # gh release download usa a API REST e aceita PAT fine-grained
+      # (Contents:read); a URL github.com/.../releases/download/... é
+      # não confiável para repo privada com esse tipo de token (404).
+      # Requisito: release publicada (não draft), tag em SAMPLE_RELEASE,
+      # asset com o nome exato sample_deterioracao.parquet.
+      - name: Baixar sample (repo privada)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.SAMPLE_TOKEN }}
+        run: |
+          mkdir -p "$(dirname "$SAMPLE")"
+          gh release download "$SAMPLE_RELEASE" \
+            --repo camilagb/geocodebr-dados \
+            --pattern "sample_deterioracao.parquet" \
+            --dir "$(dirname "$SAMPLE")" \
+            --clobber
+          python - <<'EOF'
+          import hashlib, os
+          esperado = os.environ["SAMPLE_SHA256"]
+          with open(os.environ["SAMPLE"], "rb") as f:
+              obtido = hashlib.sha256(f.read()).hexdigest()
+          assert obtido == esperado, f"sha256 divergente: {obtido}"
+          print("sha256 ok:", obtido)
+          EOF
+
+      # Fixa a pasta de cache do CNEFE via a própria API do pacote (evita
+      # adivinhar o layout de user_cache_dir por SO). O caminho vem por env
+      # var porque a interpolação do workspace corromperia backslashes no
+      # Windows dentro de string literals Python.
+      - name: Configurar pasta de cache do CNEFE
+        shell: bash
+        env:
+          CNEFE_DIR: ${{ github.workspace }}/.cnefe-cache
+        run: |
+          uv run --no-sync python -c \
+            "import os, geocodebr; geocodebr.definir_pasta_cache(os.environ['CNEFE_DIR'])"
+
+      # O CNEFE é baixado na 1ª chamada de geocode() e cacheado no disco.
+      # Atualizar a chave quando constants.DATA_RELEASE mudar.
+      - name: Cache CNEFE
+        uses: actions/cache@v4
+        with:
+          path: .cnefe-cache
+          key: cnefe-v0.4.1-${{ matrix.os }}
+
+      - name: Modo in-process (mesmo processo)
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run --no-sync python python-package/benchmarks/verifica_deterioracao.py \
+            "$SAMPLE" --rodadas "$RODADAS" 2>&1 | tee "log_inprocess_${{ matrix.os }}.txt"
+
+      - name: Modo isolado (subprocesso por rodada)
+        if: env.RODAR_ISOLADO != 'false'
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run --no-sync python python-package/benchmarks/verifica_deterioracao.py \
+            "$SAMPLE" --rodadas "$RODADAS" --isolado 2>&1 | tee "log_isolado_${{ matrix.os }}.txt"
+
+      - name: Resumo no step summary
+        shell: bash
+        run: |
+          {
+            echo "## deterioracao — ${{ matrix.os }} (python 3.13, $RODADAS rodadas)"
+            echo '```'
+            cat "log_inprocess_${{ matrix.os }}.txt"
+            if [ -f "log_isolado_${{ matrix.os }}.txt" ]; then
+              cat "log_isolado_${{ matrix.os }}.txt"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: logs-deterioracao-${{ matrix.os }}
+          path: log_*.txt
+          if-no-files-found: error
