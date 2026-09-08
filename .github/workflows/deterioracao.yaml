@@ -155,7 +155,7 @@ jobs:
               cat "log_isolado_${{ matrix.os }}.txt"
             fi
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:

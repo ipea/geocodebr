@@ -4,6 +4,8 @@
 **Status:** FECHADO — causa identificada por experimento controlado. Este documento cobre
 sintoma, evidências e diagnóstico; a proposta de implementação segue separada em
 [`quality_reports/plans/2026-09-02_python_isolamento-subprocesso-geocode.md`](../plans/2026-09-02_python_isolamento-subprocesso-geocode.md).
+**Atualização 2026-09-08:** o experimento cross-OS (E5) confirmou que a deterioração é
+Windows-only — plana em Linux e macOS com o mesmo protocolo, duckdb e dados.
 
 ## Sintoma
 
@@ -116,6 +118,58 @@ size-preserving (0,09 MB nos dois) e o patch é o único diferencial entre os br
   `consolidado_info` (~3 min/rodada) e `sample_cad_unico` (~13 min/rodada) é da
   **natureza da base**, não do interpretador.
 
+### E5 — Cross-OS em CI: a deterioração não se manifesta em Linux nem macOS (2026-09-08)
+
+Reprodução do protocolo completo (5 rodadas in-process + 5 `--isolado`) via GitHub
+Actions (`.github/workflows/deterioracao.yaml`, branch `python_test`) em runners
+`ubuntu-latest` (x64, 4 vcpus), `macos-latest` (arm64, 4 vcpus) e `windows-latest`
+(Server 2025, 4 vcpus). CPython 3.13.15/3.13.14, duckdb 1.5.3, polars 1.44.0 — mesmas
+versões de duckdb/polars da referência Windows. Input: `sample_deterioracao.parquet`
+(100.000 linhas sorteadas com seed fixa de `sample_cad_unico`, só colunas de endereço).
+O CNEFE foi aquecido pelo cache do workflow; a rodada 1 não inclui download.
+
+Wall por rodada, modo in-process (mesmo processo):
+
+| rodada | Linux (min) | macOS (min) | Windows (min) |
+|---|---|---|---|
+| 1 | 2,06 | 8,74 | 4,34 |
+| 2 | 2,00 | 7,77 | 8,78 |
+| 3 | 1,83 | 8,04 | 8,74 |
+| 4 | 1,74 | 8,14 | 11,27 |
+| 5 | 2,11 | 7,69 | 11,42 |
+
+| razão 5/1 | in-process | `--isolado` |
+|---|---|---|
+| Linux | **1,02×** (plano) | 0,95× (plano) |
+| macOS | **0,88×** (plano) | 1,36× (inconclusivo, ver abaixo) |
+| Windows | **2,63×** (DEGRADAÇÃO) | 0,82× (plano) |
+
+Leitura:
+
+- **Windows (controle positivo)**: a assinatura completa se reproduz em hardware
+  diferente (4 vcpus, 26–29 threads do processo). Degradação progressiva e monotônica
+  (+1,66 min/rodada) com a rodada 1 no mesmo patamar do modo isolado (4,34 vs
+  3,4–4,3 min); o modo `--isolado` é plano (0,82×); RSS estável (0,15→0,19 GB) enquanto
+  o wall dobra; `manifest: SegmentHeap=False` no `python.exe` do runner. A magnitude
+  menor que a de E4 (2,63× vs 12,8×) é esperada: sample 100× menor e 4 vcpus em vez de
+  24 reduzem a pressão de contenção.
+- **Linux**: plano (1,02×), in-process indistinguível do isolado (médias 1,95 vs
+  2,02 min), CPU/wall estável (~1,9–2,1), RSS/USS estáveis. glibc malloc não exibe o
+  fenômeno.
+- **macOS**: plano no modo decisivo — in-process é o bloco mais estável de todos
+  (CV 5%, tendência levemente decrescente, 0,88×). O "inconclusivo" do isolado (1,36×)
+  é ruído de runner: sequência não monotônica (6,00 → 7,92 → 9,17 → 7,16 → 8,14),
+  CV 15%, e a razão compara a rodada mais rápida de todas (a 1ª) contra a mediana.
+  Deterioração, por definição, é progressiva; não é o caso.
+- **Níveis absolutos entre SOs não são comparáveis** (hardware/arquitetura distintos,
+  o mesmo vale para bases — ver Metodologia): o insumo comparável é a tendência
+  intra-SO, e ela só existe no Windows.
+
+Conclusão do E5: com mesmo binário de duckdb (1.5.3), mesmos dados e mesmo protocolo,
+a deterioração entre chamadas sucessivas só se manifesta no Windows — onde o processo
+hospedeiro usa o heap NT legacy. Reforça a atribuição causal de E4: o fenômeno é do
+alocador do exe hospedeiro, não do código do pacote, do duckdb em si, nem de memória.
+
 ## O problema do Segment Heap no Windows (duckdb/duckdb#24027)
 
 Esta é a causa-raiz do fenômeno e merece documentação própria, porque a degradação
@@ -199,9 +253,8 @@ independentes, ambas validadas:
 - O mecanismo fino *dentro* do alocador (contenção de locks, fragmentação de segmentos,
   comportamento do LFH) não foi traçado — a atribuição causal é experimental, não de
   código. Para rastrear: py-spy/WPA comparando rodada 1 vs rodada 5 in-process.
-- Comportamento em Linux/macOS: não medido. Harness pronto em
-  `verifica_deterioracao.py`. Se não houver deterioração sob jemalloc/libmalloc, o
-  fenômeno é Windows-only.
+- ~~Comportamento em Linux/macOS: não medido.~~ **Medido em 2026-09-08 (E5): sem
+  deterioração em Linux nem macOS; o fenômeno é Windows-only.**
 - Estabilidade de longo prazo do Segment Heap em muitas rodadas (o A/B cobriu 5; a
   degradação do NT também só se manifestava progressivamente).
 
@@ -211,6 +264,11 @@ independentes, ambas validadas:
   in-process ou em subprocesso por rodada (`--isolado`), wall/CPU, RSS/USS, threads,
   veredito pela razão última/primeira rodada; detecção de SegmentHeap pelos bytes do
   manifest (não pelo nome do exe).
+- `.github/workflows/deterioracao.yaml` (branch `python_test`) — executa o harness
+  acima em ubuntu/macos/windows runners; sample de 100k linhas
+  (`python-package/benchmarks/data/sample_deterioracao.parquet`, gerada por
+  `gerar_sample_deterioracao.py` a partir de `sample_cad_unico`, seed 7264) baixada
+  de repositório privado com token; cache do CNEFE entre execuções.
 - `python-package/benchmarks/verifica_segment_heap.py` — workload canônico da issue
   (8M × 6 joins), para probes pareados NT vs SegmentHeap.
 - `python-package/benchmarks/verifica_segment_heap_geocode.py` — loop de rodadas de
