@@ -52,6 +52,36 @@ Notas:
 
 ---
 
+## Probe `__COMPAT_LAYER=SEGMENTHEAP`: sem efeito (2026-09-08)
+
+Teste da estratégia zero-custo do
+[plano de ação](../../quality_reports/plans/2026-09-08_python_deterioracao-e-nivel-heap-windows.md)
+(Fase 0): ativar o Segment Heap no processo filho via variável de ambiente
+`__COMPAT_LAYER=SEGMENTHEAP` — sem criar arquivo algum no diretório do interpretador.
+Harness: `verifica_segment_heap_compat.py` (workload canônico da issue, 8M × 6 joins,
+rodadas NT/SH intercaladas, 3 repetições por config; CPython 3.13.7, duckdb 1.5.3,
+Windows Server 2022).
+
+| threads | NT (mediana) | SH via layer (mediana) | gap | referência do exe patcheado |
+|---|---|---|---|---|
+| 8 | 37,19 s | 32,52 s | 1,14× | ~8,9–9,7 s |
+| 24 | 38,85 s | 33,60 s | 1,16× | ~7–7,7 s |
+
+- **Veredito: sem efeito** (critério do plano: gap ≥ 2×). Ambos os braços ficam no
+  patamar legacy, com a assinatura de sempre (joins cada vez mais lentos, ~1 s → ~11 s;
+  mais threads não ajuda). Startup com e sem layer indistinguível (~2,1–2,2 s).
+- **O shim é aplicado ao heap default, mas não muda o wall.** Com o layer no env,
+  `HeapQueryInformation(HeapCompatibilityInformation)` sobre o heap default retorna
+  2 (Segment Heap) — ou seja, a env não é ignorada. Hipótese mecânica mais consistente:
+  o shim não alcança o heap criado pelo UCRT no startup (`HeapCreate`), por onde passam
+  as alocações do duckdb (`_malloc_base` → `HeapAlloc(_crtheap)`); o opt-in via
+  manifest (E4) é process-wide e por isso funciona.
+- **Consequência para o plano**: estratégia `__COMPAT_LAYER` descartada; a primária
+  passa a ser o exe cópia com manifest patcheado (`python-geocodebr-sh.exe`, técnica
+  E4), com fallback NT puro + `n_cores` guardado.
+
+---
+
 ## baseline — 2026-09-02 10:17 (sha `6c1a090+dirty`)
 
 - args: `resultado_completo=False`, `resolver_empates=True`, `n_cores=None`

@@ -70,15 +70,15 @@ if __name__ == "__main__":
 #   estado = 'abbrev_state'
 # )
 
-# inicio = time.perf_counter()
-# resultado = geocodebr.geocode(
-#         enderecos=r"",
-#         campos_endereco=campos,
-#         resultado_completo=True,
-#         resolver_empates=True,
-#         verboso=True,
-#     )
-# fim = time.perf_counter()
+inicio = time.perf_counter()
+resultado = geocodebr.geocode(
+        enderecos='data/sample_cad_unico.parquet',
+        campos_endereco=campos,
+        resultado_completo=True,
+        resolver_empates=True,
+        verboso=True,
+    )
+fim = time.perf_counter()
 
 # tempos = []
 # for i in range(10):
