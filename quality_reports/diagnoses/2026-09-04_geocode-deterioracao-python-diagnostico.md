@@ -9,7 +9,7 @@ Windows-only — plana em Linux e macOS com o mesmo protocolo, duckdb e dados.
 
 ## Sintoma
 
-Chamadas sucessivas de `geocode()` no mesmo processo Python degradam de forma ~linear e
+Chamadas sucessivas de `geocode()` no mesmo processo Python degradam de forma linear e
 acumulativa. Benchmark original (10 rodadas, `data/consolidado_info.parquet`,
 `resultado_completo=True`, `resolver_empates=True`, `verboso=False`): 2,86 min na rodada 1
 até 30,75 min na rodada 10. Cada chamada fecha a própria conexão DuckDB no `finally`.
@@ -126,7 +126,8 @@ Actions (`.github/workflows/deterioracao.yaml`, branch `python_test`) em runners
 (Server 2025, 4 vcpus). CPython 3.13.15/3.13.14, duckdb 1.5.3, polars 1.44.0 — mesmas
 versões de duckdb/polars da referência Windows. Input: `sample_deterioracao.parquet`
 (100.000 linhas sorteadas com seed fixa de `sample_cad_unico`, só colunas de endereço).
-O CNEFE foi aquecido pelo cache do workflow; a rodada 1 não inclui download.
+O CNEFE foi aquecido pelo cache do workflow; a rodada 1 não inclui download. Sumário da
+rodada pode ser visto em https://github.com/ipea/geocodebr/actions/runs/33906825925?pr=109. 
 
 Wall por rodada, modo in-process (mesmo processo):
 

@@ -254,3 +254,40 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   `python-package/benchmarks/benchmark_sample.py` (sample 10M em `data/sample_cad_unico.parquet`).
   **Por quê:** direção de melhoria medida em janelas separadas numa máquina compartilhada não é
   evidência — pode ser só a carga do momento.
+
+
+- `[LEARN:python-port]` Patch de Segment Heap no Windows (v1, `python -m geocodebr._heap_patch`):
+  (1) **`GetProcessHeap`/`HeapQueryInformation` NAO e indicador valido de Segment Heap** — reporta 0
+  (legacy) ate no exe patcheado que performa bem (wall 3:08 vs 11:47 no benchmark 10M); a deteccao do
+  pacote le o RT_MANIFEST do exe (`_heap.py::tem_segment_heap`), nunca consulta o heap. (2) A copia
+  patcheada precisa ser criada **na mesma pasta do original** — copiar o exe para outro diretorio
+  quebra a resolucao de DLLs (exit 0xC0000135 STATUS_DLL_NOT_FOUND). (3) O patch e size-preserving
+  (o recurso RT_MANIFEST tem tamanho fixo no PE): comprime whitespace entre tags e preenche com
+  espacos antes de `</assembly>`. (4) Mensagens user-facing no port Python sao ASCII-safe — o
+  codepage do console Windows embaralha acentos quando a saida e pipada. **Por que:** os tres
+  pontos custaram uma rodada de debugging cada; o (1) contradiz a intuicao da API Win32.
+
+- `[LEARN:python-port]` Registro do Windows NAO liga Segment Heap por processo:
+  `AppCompatFlags\Layers` e `Image File Execution Options` persistem a MESMA camada de
+  shim do `__COMPAT_LAYER` (env) — ja refutada na Fase 0. Teste pareado (2026-09-10,
+  workload canonico 8M, duckdb 1.5.3): 18,9 s com layer no registro vs 20,0 s sem layer
+  (gap 1,07x, ambos deteriorando 1,2->6 s) vs 8,4 s plano no exe patcheado via manifesto.
+  **Por que:** o shim de compatibilidade nao alcanca o heap criado pelo UCRT no startup,
+  por onde passam as alocacoes do DuckDB; so o manifesto (lido no image load) muda o
+  escopo do heap. Detalhes no adendo da Fase 0 do plano de 2026-09-08.
+
+- `[LEARN:python-port]` Minimo da curva tempo x threads no heap legacy CONFIRMADO em
+  4 threads por sweep real (`benchmarks/verifica_sweep_threads.py`, 2026-09-10,
+  workload canonico 8M, 3 rodadas intercaladas, filho fresco por ponto): 4t = 18,9 s
+  (minimo), bacia plana 3-6 (±11%/4%), escala negativa a partir de ~8t (+31% em 24t,
+  close tambem cresce com threads). **Por que:** o cap `N_CORES_HEAP_LEGACY = 4` do
+  `geocode()` era premissa da issue do duckdb ("peak around 4 threads") sem sweep
+  proprio; agora e medicao local. Filho fresco por ponto e essencial: a deterioracao
+  acumulada do heap dentro de um processo contaminaria a curva.
+
+- `[LEARN:duckdb]` `SET threads = N` NAO e clampeado ao numero de cores: `SET threads = 64`
+  numa maquina de 24 cores gruda (`current_setting('threads')` = 64) e o processo cria os
+  workers de verdade (92 threads no processo). So rejeita < 1 (SyntaxException). **Por que:**
+  um cap de threads aplicado por politica do pacote (ex.: `N_CORES_HEAP_LEGACY = 4`) precisa
+  ser `min(cap, os.cpu_count())` para nao gerar oversubscription em maquinas pequenas — o
+  DuckDB nao protege contra isso.

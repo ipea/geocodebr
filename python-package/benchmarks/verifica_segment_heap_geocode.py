@@ -31,18 +31,31 @@ campos = geocodebr.definir_campos(
 )
 
 
-for i in range(5):
-    print(f'---- Rodada {i+1} ---- \n')
-    inicio = time.perf_counter()
-    resultado = geocodebr.geocode(
-            enderecos=path_base,
-            campos_endereco=campos,
-            resultado_completo=True,
-            resolver_empates=True,
-            verboso=False,
-        )
-    fim = time.perf_counter()
-    print(f"tempo total: {(fim-inicio)/60:.2f} minutos")
+# for i in range(5):
+#     print(f'---- Rodada {i+1} ---- \n')
+#     inicio = time.perf_counter()
+#     resultado = geocodebr.geocode(
+#             enderecos=path_base,
+#             campos_endereco=campos,
+#             resultado_completo=True,
+#             resolver_empates=True,
+#             verboso=False,
+#         )
+#     fim = time.perf_counter()
+#     print(f"tempo total: {(fim-inicio)/60:.2f} minutos")
+
+# print(f"prefix: {sys.prefix}\nbase prefix: {sys.base_prefix}\nexecutable: {sys.executable}")
+
+print('---- Rodada ---- \n')
+inicio = time.perf_counter()
+resultado = geocodebr.geocode(
+        enderecos=path_base,
+        campos_endereco=campos,
+        resultado_completo=True,
+        resolver_empates=True,
+        verboso=False,
+    )
+fim = time.perf_counter()
 
 print(f"Arquivo={path_base} | tempo total: {(fim-inicio)/60:.2f} minutos")
 

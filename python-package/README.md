@@ -246,6 +246,63 @@ resultado no final como `pyarrow.Table`.
 Isso facilita a paridade com o pacote R, que tambem usa DuckDB para o motor de
 geocodificacao, e ajuda em bases maiores.
 
+## Windows e performance
+
+No Windows, o `python.exe` roda por padrão no heap NT legacy e não no mais moderno e eficaz Segment Heap.
+O heap legado degrada sob alocação multithread intensa do DuckDB: o `geocode()` fica mais lento 
+e piora a cada chamada na mesma sessão (contexto em
+[duckdb/duckdb#24027](https://github.com/duckdb/duckdb/issues/24027) e no 
+[relatório de diagnóstico do pacote](../quality_reports/diagnoses/2026-09-04_geocode-deterioracao-python-diagnostico.md)).
+
+O pacote mitiga o problema de duas formas:
+
+1. **Limitação automática de threads** — no Windows sem Segment Heap, se
+   `n_cores` não for definido, o `geocode()` limita o DuckDB a
+   `min(4, núcleos da máquina)` threads
+   (mínimo da curva tempo x threads no heap legacy, confirmado por sweep com o
+   workload canônico do duckdb#24027 — `benchmarks/verifica_sweep_threads.py`;
+   bacia plana entre 3 e 6 threads) e emite um aviso uma vez
+   por sessão. Um `n_cores` passado de forma explícita é respeitado.
+
+2. **Interpretador com Segment Heap (recomendado)** — usuário pode gerar uma cópia do
+   interpretador python com o manifesto patcheado com o Segment Heap e rodar o `geocode()` 
+   a partir dele. Para criar a cópia, basta rodar: 
+
+   ```bash
+   python -m geocodebr._heap_patch
+   ```
+
+   O comando cria o arquivo `python-geocodebr-sh.exe` ao lado do interpretador 
+   base (`python.exe`), sem alterar o original. Inicie a sessão pela cópia para 
+   que o DuckDB use o Segment Heap.
+
+   **Em benchmarks internos com 10M de enderecos, o tempo total do `geocode()` caiu de 11:47 minutos para 3:08 minutos**.
+
+Limitações conhecidas:
+
+- Requer Windows 10 (build 19041) ou superior.
+- Não existe configuração do Windows (variável de ambiente ou registro) que ligue
+  o Segment Heap por processo. A camada de compatibilidade — via
+  `__COMPAT_LAYER=SEGMENTHEAP` ou persistida no registro
+  (`AppCompatFlags\Layers` / `Image File Execution Options`) — não alcança o heap
+  criado no startup, por onde passam as alocações do DuckDB.
+- O ganho vale apenas para sessões iniciadas pela cópia
+  (`python-geocodebr-sh.exe`); Jupyter/IDEs que lançam outro interpretador não
+  se beneficiam.
+- A cópia é criada na pasta do interpretador base; se ela não for gravável
+  (ex.: `Program Files`), execute o terminal como administrador ou use uma
+  instalação por usuário (ex.: `uv`, `pyenv`).
+- A cópia usa os pacotes do ambiente base. Com geocodebr instalado em venv,
+  aponte `PYTHONPATH` para o `site-packages` da venv. Exemplo em Power Shell:
+
+  ```bash
+   $env:PYTHONPATH = "C:\caminho\para\.venv\Lib\site-packages"; & "C:\caminho\para\python-geocodebr-sh.exe" "C:\caminho\para\seu_script.py"
+   ```
+
+- A limitação de threads reduz a contenção do heap, mas não elimina a
+  deterioração entre chamadas sucessivas na mesma sessão; a cópia com Segment
+  Heap resolve os dois problemas.
+
 ## Estado atual
 
 Esta versao Python ainda e experimental.

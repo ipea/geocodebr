@@ -50,7 +50,7 @@ if __name__ == "__main__":
 # import geocodebr
 # import time
 
-# consolidado
+## consolidado
 # campos = geocodebr.definir_campos(
 #   estado = "uf_dom",
 #   municipio = "codmun_dom",
@@ -70,15 +70,17 @@ if __name__ == "__main__":
 #   estado = 'abbrev_state'
 # )
 
-inicio = time.perf_counter()
-resultado = geocodebr.geocode(
-        enderecos='data/sample_cad_unico.parquet',
-        campos_endereco=campos,
-        resultado_completo=True,
-        resolver_empates=True,
-        verboso=True,
-    )
-fim = time.perf_counter()
+# inicio = time.perf_counter()
+# resultado = geocodebr.geocode(
+#         enderecos='data/sample_cad_unico.parquet',
+#         campos_endereco=campos,
+#         resultado_completo=True,
+#         resolver_empates=True,
+#         verboso=True,
+#     )
+# fim = time.perf_counter()
+# total = (fim-inicio)/60
+# print(f"Tempo total: {total} minutos")
 
 # tempos = []
 # for i in range(10):

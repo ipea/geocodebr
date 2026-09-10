@@ -82,6 +82,81 @@ Windows Server 2022).
 
 ---
 
+## Probe IPC do subprocesso: Arrow (em lotes) × pickle (2026-09-09)
+
+Teste da **Fase 0b** do [plano de ação](../../quality_reports/plans/2026-09-08_python_deterioracao-e-nivel-heap-windows.md):
+antes de o desenho do isolamento assumir um mecanismo de transferência pai→filho→pai,
+medir o custo de ida e volta da tabela de entrada + do resultado. Executado **sem** o
+patch de Segment Heap (`python.exe` base, heap NT legacy — o default da maioria; o banner
+do harness registra `SegmentHeap=False` para auditoria). Harness: `verifica_arrow_ipc.py`,
+self-contained: dados sintéticos CadÚnico-like (8 colunas, 4 de strings), resultado =
+input + 5 colunas (`resultado_completo=False`); o filho espelha os imports do worker real
+(duckdb+polars+pandas+pyarrow) e **apaga o input do disco após a leitura** (desenho da
+arquitetura). Rodadas por formato acumulam em `resultados_probe_ipc.csv`.
+
+Cenário: Windows Server 2022, 24 núcleos, CPython 3.10.20 (venv em compartilhamento UNC),
+polars 1.44.0, pandas 2.3.3, pyarrow 24.0.0, duckdb 1.5.3; staging em SSD local (`C:`).
+
+`TOTAL` = escrever input (pai) + subprocesso inteiro (startup + ler + simular resultado +
+escrever resultado) + ler resultado (pai). Medianas de 2–3 rodadas em 10M/100k/1M; 43M
+com 1–2 rodadas (indicativo; servidor compartilhado):
+
+| linhas | formato | esc_in | ler_in | esc_res | ler_res | startup | TOTAL | MB (in/out) |
+|---|---|---|---|---|---|---|---|---|
+| 100k | arrow_ipc | 0,0 s | 0,0 s | 0,0 s | 0,0 s | 5,3 s | 5,3 s | 12/17 |
+| 1M | arrow_ipc | 0,1 s | 0,2 s | 0,2 s | 0,1 s | 5,9 s | 6,5 s | 123/166 |
+| 10M | arrow_ipc | 0,6 s | 2,0 s | 7,7 s | 1,2 s | 5,7 s | 17,5 s | 1233/1660 |
+| 10M | arrow_ipc_lotes | 1,5 s | 3,6 s | 2,0 s | 3,3 s | 8,6 s | **19,1 s** | 1070/1660 |
+| 10M | pickle_pandas | 6,3 s | 6,0 s | 7,5 s | 0,9 s | 5,6 s | 26,5 s | 517/1660 |
+| 10M | pickle_polars | 11,2 s | 2,7 s | 7,8 s | 0,9 s | 6,0 s | 28,7 s | 1233/1660 |
+| 43M | arrow_ipc (batch gigante) | 6,2 s | **60,5 s** | **64,8 s** | 6,2 s | 8,8 s | 147,9 s | 5302/7139 |
+| 43M | arrow_ipc_lotes | 5,1 s | 7,0 s | 7,7 s | 5,5 s | 9,9 s | **36,4 s** | 4602/7139 |
+| 43M | pickle_pandas | 29,4 s | 34,1 s | 44,0 s | 4,4 s | 19,9 s | 132,6 s | 2188/7139 |
+
+Notas:
+
+- `arrow_ipc_lotes` escreve em lotes de 1M de linhas (`max_chunksize=1_000_000`) em vez
+  de um record batch único; as pernas de escrita incluem a conversão `to_arrow` — no
+  worker real o resultado já nasce em lotes do próprio DuckDB (`fetch_record_batch`),
+  que é mais barato que o desenho simulado aqui.
+- `arrow_ipc_lotes` 10M rod. 1 teve surto de startup (69,6 s — servidor compartilhado);
+  a linha acima é a rodada limpa. Demais células de 10M são medianas estáveis entre
+  rodadas.
+- Arrow sem compressão gera arquivo maior que o pickle de pandas (2,4× no input a 10M;
+  5,3 GB vs 2,2 GB a 43M) — irrelevante em SSD local; compressão (lz4) é o escape se o
+  disco for restrição.
+- Startup (~5–10 s) inclui importar as libs do venv em compartilhamento UNC; instalação
+  local tende ao patamar de ~2 s medido no probe da Fase 0 (`probe_compat_layer.log`).
+
+Leituras:
+
+1. **Arrow IPC em lotes vence em todas as escalas** e cresce plano: TOTAL ≈ 19 s a 10M
+   (~10% do alvo de 3:08 do modo isolado+heap, sendo ~10 s só de I/O) e **36,4 s a 43M**
+   (~5,5% dos ~11 min do 43M+heap). Dentro do orçamento do plano.
+2. **Record batch gigante é um penhasco**: o mesmo Arrow num batch único de >4 GB fica
+   4× mais lento a 43M (ler 5,3 GB: 60,5 s vs 7,0 s em lotes). O worker **deve** escrever
+   IPC em lotes de ~1M de linhas, sem exceção.
+3. **pickle perde sempre** e por três motivos somados: wall maior nas escalas do plano
+   (26,5–28,7 s a 10M ≈ 14%, acima do orçamento; 132,6 s a 43M), superfície de execução
+   arbitrária (`unpickle` roda código) e acoplamento de versão/ABI entre pai e filho.
+   Nota honesta: a 10M/43M o pickle de pandas não é o desastre que a revisão do plano
+   pressupunha — é linear — mas continua estritamente inferior; o que descarta mesmo o
+   pickle é somar wall + segurança + acoplamento, com Arrow igualmente simples.
+4. **Input por caminho de arquivo não paga nada**: atravessa como string (sem staging);
+   o caso real de 43M (`parquet`) custa só startup + resultado (~15–20 s estimado).
+5. **Startup domina chamadas pequenas** (~5–6 s medidos aqui) — reforça o isolamento
+   Windows-only e o escape `GEOCODEBR_ISOLAR=0` para loops de chamadas pequenas.
+6. **Fato operacional**: o `%TEMP%` padrão da máquina de referência (D:, 2,1 GB livres)
+   **falhou com "no space left"** no staging de 10M — o handoff pede ~1,2–1,7 GB por
+   chamada a 10M e ~5–7 GB a 43M. O worker precisa tratar ENOSPC com erro claro, e o
+   README deve declarar o requisito de disco.
+
+**Veredito**: protocolo do worker confirmado — `args.json` (controle) + `input.arrow` /
+`result.arrow` (dados, IPC em lotes) + `result.json` (status/erro tipado). Pickle
+eliminado da fronteira.
+
+---
+
 ## baseline — 2026-09-02 10:17 (sha `6c1a090+dirty`)
 
 - args: `resultado_completo=False`, `resolver_empates=True`, `n_cores=None`
@@ -184,3 +259,33 @@ Foram encontrados e resolvidos 665832 casos de empate.
 
 ---
 
+
+---
+
+## Sweep tempo x threads no heap legacy: minimo em 4 threads (2026-09-10)
+
+Teste da premissa do cap de `n_cores` do `geocode()` (`N_CORES_HEAP_LEGACY = 4`).
+Harness: `verifica_sweep_threads.py` — workload canonico do duckdb#24027 (8M x 12
+strings + 2M dicionario + 6 LEFT JOINs re-materializando + close), filho fresco por
+medicao (heap novo a cada ponto, sem contaminacao da deterioracao acumulada), 3
+rodadas intercaladas com ordem alternada, interpretador da venv (heap legacy, duckdb
+1.5.3). Maquina de referencia idle.
+
+| threads | joins (s) | close (s) | total (s) | vs minimo |
+|---|---|---|---|---|
+| 1  | 49,07 | 0,43 | 49,50 | +162% |
+| 2  | 27,10 | 0,53 | 27,63 | +46% |
+| 3  | 20,38 | 0,55 | 20,93 | +11% |
+| **4**  | **18,25** | **0,63** | **18,88** | **minimo** |
+| 6  | 18,95 | 0,74 | 19,69 | +4% |
+| 8  | 19,88 | 0,85 | 20,73 | +10% |
+| 12 | 22,87 | 0,94 | 23,81 | +26% |
+| 16 | 22,38 | 1,04 | 23,42 | +24% |
+| 24 | 23,51 | 1,24 | 24,75 | +31% |
+
+- **Minimo confirmado em 4 threads**, com bacia plana entre 3 e 6 (±11%/4%) —
+  a politica do cap (`N_CORES_HEAP_LEGACY = 4`) esta correta.
+- Escala negativa a partir de ~8 threads (+10% em 8, +31% em 24), coerente com o
+  lock convoy do heap legacy.
+- Assinatura de deterioracao presente em todos os pontos (ex.: 24t: 1º join 0,9 s ->
+  ultimo 7,8 s), incluindo close crescente com threads (0,43 s em 1t -> 1,24 s em 24t).

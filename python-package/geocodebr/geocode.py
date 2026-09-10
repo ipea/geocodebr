@@ -8,6 +8,7 @@ import pyarrow as pa
 import polars as pl
 import pandas as pd
 
+from ._heap import n_cores_efetivo
 from .constants import ALL_POSSIBLE_MATCH_TYPES
 from .standardize import enderecobr_padronizar_enderecos
 from .db import create_geocodebr_db
@@ -61,6 +62,9 @@ def geocode(
     cache: bool = True,
     n_cores: int | None = None,
 ) -> pa.Table:
+
+    n_cores = n_cores_efetivo(n_cores)
+
     if resultado_sf:
         raise NotImplementedError("resultado_sf=True sera implementado com geopandas na proxima etapa.")
     for name, value in {
