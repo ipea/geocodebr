@@ -10,9 +10,11 @@ import pyarrow as pa
 import pyarrow.csv as pv
 import pyarrow.parquet as pq
 import pyarrow.types as patypes
+import pandas as pd
 import pytest
 
 from geocodebr import definir_campos, definir_pasta_cache, geocode
+from geocodebr.cache import listar_pasta_cache_padrao
 
 
 R_SCRIPT = shutil.which("Rscript")
@@ -26,20 +28,23 @@ if R_SCRIPT is None:
 pytestmark = pytest.mark.r_parity
 
 
-def test_geocode_matches_r_small_sample(repo_root, tmp_path):
+@pytest.mark.parametrize("resultado_gpd", [False, True], ids=["dataframe", "geodataframe"])
+def test_geocode_matches_r_small_sample(repo_root, parity_cache, tmp_path, resultado_gpd):
     _require_r_parity()
-    cache_dir = tmp_path / "cache"
+    suffix = "sf" if resultado_gpd else "df"
     r_output = _run_r_geocode(
         repo_root=repo_root,
         dataset="small",
         input_path=repo_root / "r-package" / "inst" / "extdata" / "small_sample.csv",
-        cache_dir=cache_dir,
-        output_path=tmp_path / "r_small.parquet",
+        cache_dir=parity_cache,
+        output_path=tmp_path / f"r_small_{suffix}.parquet",
+        resultado_sf=resultado_gpd,
     )
     py_output = _run_python_geocode(
         dataset="small",
         input_path=repo_root / "r-package" / "inst" / "extdata" / "small_sample.csv",
-        cache_dir=cache_dir,
+        cache_dir=parity_cache,
+        resultado_gpd=resultado_gpd,
     )
 
     diffs = run_all_comparisons(py_output, r_output)
@@ -52,20 +57,23 @@ def test_geocode_matches_r_small_sample(repo_root, tmp_path):
     # _assert_tables_identical(py_output, r_output)
 
 
-def test_geocode_matches_r_large_sample(repo_root, tmp_path):
+@pytest.mark.parametrize("resultado_gpd", [False, True], ids=["dataframe", "geodataframe"])
+def test_geocode_matches_r_large_sample(repo_root, parity_cache, tmp_path, resultado_gpd):
     _require_r_parity()
-    cache_dir = tmp_path / "cache"
+    suffix = "sf" if resultado_gpd else "df"
     r_output = _run_r_geocode(
         repo_root=repo_root,
         dataset="large",
         input_path=repo_root / "r-package" / "inst" / "extdata" / "large_sample.parquet",
-        cache_dir=cache_dir,
-        output_path=tmp_path / "r_large.parquet",
+        cache_dir=parity_cache,
+        output_path=tmp_path / f"r_large_{suffix}.parquet",
+        resultado_sf=resultado_gpd,
     )
     py_output = _run_python_geocode(
         dataset="large",
         input_path=repo_root / "r-package" / "inst" / "extdata" / "large_sample.parquet",
-        cache_dir=cache_dir,
+        cache_dir=parity_cache,
+        resultado_gpd=resultado_gpd,
     )
 
     diffs = run_all_comparisons(py_output, r_output)
@@ -83,12 +91,27 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+@pytest.fixture(scope="session")
+def parity_cache() -> Path:
+    # usa a pasta de cache padrao do pacote: estavel entre execucoes do pytest
+    # e geralmente ja populada, evitando rebaixar o CNEFE (tabalas nacionais
+    # somam mais de 1 GB). Os testes que definem tmp_path como cache (test_
+    # geocode etc.) sobrescrevem a config global, por isso nao basta ler
+    # listar_pasta_cache() aqui.
+    return Path(listar_pasta_cache_padrao())
+
+
 def _require_r_parity() -> None:
     if R_SCRIPT is None:
         pytest.skip("Rscript not found in PATH.")
 
 
-def _run_python_geocode(dataset: str, input_path: Path, cache_dir: Path) -> pa.Table:
+def _run_python_geocode(
+    dataset: str,
+    input_path: Path,
+    cache_dir: Path,
+    resultado_gpd: bool,
+) -> pa.Table:
     definir_pasta_cache(str(cache_dir), verboso=False)
     if dataset == "small":
         enderecos = pv.read_csv(input_path)
@@ -113,18 +136,31 @@ def _run_python_geocode(dataset: str, input_path: Path, cache_dir: Path) -> pa.T
     else:
         raise ValueError(f"Unknown dataset: {dataset}")
 
-    return geocode(
+    result = geocode(
         enderecos=enderecos,
         campos_endereco=campos,
         resultado_completo=True,
         resolver_empates=True,
-        resultado_sf=False,
+        resultado_gpd=resultado_gpd,
         h3_res=None,
         padronizar_enderecos=True,
         verboso=False,
         cache=True,
         n_cores=1,
     )
+
+    if resultado_gpd:
+        # achata a geometria em colunas numericas para viabilizar a comparacao
+        # com o sf do R via parquet (mesmo esquema dos dois lados)
+        xs = result.geometry.x
+        ys = result.geometry.y
+        df = pd.DataFrame(result.drop(columns=["geometry"]))
+        df["lon_geom"] = [None if pd.isna(v) else float(v) for v in xs]
+        df["lat_geom"] = [None if pd.isna(v) else float(v) for v in ys]
+        df["geom_epsg"] = int(result.crs.to_epsg())
+        result = pa.Table.from_pandas(df, preserve_index=False)
+
+    return result
 
 
 def _run_r_geocode(
@@ -133,6 +169,7 @@ def _run_r_geocode(
     input_path: Path,
     cache_dir: Path,
     output_path: Path,
+    resultado_sf: bool,
 ) -> pa.Table:
     r_code = textwrap.dedent(
         r"""
@@ -142,6 +179,7 @@ def _run_r_geocode(
         input_path <- normalizePath(args[[3]], winslash = "/", mustWork = TRUE)
         cache_dir <- normalizePath(args[[4]], winslash = "/", mustWork = FALSE)
         output_path <- args[[5]]
+        resultado_sf <- (args[[6]] == "TRUE")
 
         lib <- tempfile("geocodebr-r-lib-")
         dir.create(lib, recursive = TRUE)
@@ -196,13 +234,23 @@ def _run_r_geocode(
           campos_endereco = campos,
           resultado_completo = TRUE,
           resolver_empates = TRUE,
-          resultado_sf = FALSE,
+          resultado_sf = resultado_sf,
           h3_res = NULL,
           padronizar_enderecos = TRUE,
           verboso = FALSE,
           cache = TRUE,
           n_cores = 1
         )
+
+        if (resultado_sf) {
+          # achata a geometria sf em colunas numericas para viabilizar a
+          # comparacao com o geopandas via parquet
+          coords <- sf::st_coordinates(out$geometry)
+          out$lon_geom <- as.numeric(coords[, "X"])
+          out$lat_geom <- as.numeric(coords[, "Y"])
+          out$geom_epsg <- as.integer(sf::st_crs(out)$epsg)
+          out$geometry <- NULL
+        }
 
         arrow::write_parquet(out, output_path)
         """
@@ -219,6 +267,7 @@ def _run_r_geocode(
             str(input_path),
             str(cache_dir),
             str(output_path),
+            "TRUE" if resultado_sf else "FALSE",
         ],
         cwd=repo_root,
         text=True,
@@ -311,7 +360,7 @@ def compare_coordinates(
 ) -> list[str]:
     """Level 4: lat/lon within tolerance."""
     diffs = []
-    for col_name in ("lat", "lon"):
+    for col_name in ("lat", "lon", "lon_geom", "lat_geom"):
         if col_name not in py.schema.names or col_name not in r.schema.names:
             continue
 

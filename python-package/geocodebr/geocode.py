@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tqdm import tqdm
 import pyarrow as pa
@@ -9,6 +9,7 @@ import polars as pl
 import pandas as pd
 
 from ._heap import n_cores_efetivo
+from .geo import arrow_to_geodataframe
 from .constants import ALL_POSSIBLE_MATCH_TYPES
 from .standardize import enderecobr_padronizar_enderecos
 from .db import create_geocodebr_db
@@ -35,6 +36,9 @@ from .messages import (
     message_fim,
     message_conexao_fechada
 )
+if TYPE_CHECKING:
+    import geopandas as gpd
+
 from .utils import (
     assert_bool,
     normalize_h3_res,
@@ -55,18 +59,16 @@ def geocode(
     campos_endereco: dict[str, str | None] | None = None,
     resultado_completo: bool = False,
     resolver_empates: bool = True,
-    resultado_sf: bool = False,
+    resultado_gpd: bool = False,
     h3_res: int | list[int] | tuple[int, ...] | None = None,
     padronizar_enderecos: bool = True,
     verboso: bool = True,
     cache: bool = True,
     n_cores: int | None = None,
-) -> pa.Table:
+) -> pa.Table | gpd.GeoDataFrame:
 
     n_cores = n_cores_efetivo(n_cores)
 
-    if resultado_sf:
-        raise NotImplementedError("resultado_sf=True sera implementado com geopandas na proxima etapa.")
     for name, value in {
         "resultado_completo": resultado_completo,
         "resolver_empates": resolver_empates,
@@ -188,6 +190,9 @@ def geocode(
         message_as_arrow(verboso)
         result = con.execute("SELECT * FROM geocodebr_result").to_arrow_table()
         message_fim(verboso)
+
+        if resultado_gpd:
+            return arrow_to_geodataframe(result)
 
         return result
     finally:

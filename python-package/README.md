@@ -1,7 +1,6 @@
-# geocodebr Python: Geolocalizacao de Enderecos Brasileiros
+# geocodebr Python: Geolocalização de Endereços Brasileiros
 
-Versao Python experimental do `geocodebr`, usando DuckDB como motor tabular
-principal. A proposta e preservar a dinamica de uso do pacote R, incluindo nomes
+Versão Python do `geocodebr`, usando DuckDB como motor tabular principal. A proposta é preservar a dinamica de uso do pacote R, incluindo nomes
 de funcoes em portugues, mas mantendo o processamento interno em SQL/DuckDB para
 boa performance e menor uso de memoria.
 
@@ -9,7 +8,7 @@ O pacote geolocaliza enderecos brasileiros sem limite de numero de consultas,
 com base em dados abertos do CNEFE (Cadastro Nacional de Enderecos para Fins
 Estatisticos), publicado pelo IBGE.
 
-## Instalacao
+## Instalação
 
 No momento, esta versao Python ainda esta em desenvolvimento dentro deste
 repositorio. Para instalar localmente:
@@ -62,10 +61,13 @@ O pacote possui tres funcoes principais:
 2. `geocode_reverso()`
 3. `busca_por_cep()`
 
-As funcoes retornam, por padrao, um `pyarrow.Table`. Caso precise converter para
-`pandas`, use `.to_pandas()` no resultado final.
+As funções retornam, por padrão, um `pyarrow.Table`. Caso precise converter para
+`pandas`, use `.to_pandas()` no resultado final. Passando `resultado_gpd=True`, o
+retorno é um `geopandas.GeoDataFrame` de pontos no CRS SIRGAS 2000 (EPSG 4674),
+equivalente ao `sf` do pacote R. Esse retorno exige o extra `geo` na instalação.
+(`python -m pip install geocodebr[geo]`).
 
-## 1. Geolocalizacao: de enderecos para coordenadas
+## 1. Geolocalização: de endereços para coordenadas
 
 Primeiro, indique quais colunas da sua tabela representam cada campo do
 endereco usando `definir_campos()`. Depois, chame `geocode()`.
@@ -315,10 +317,10 @@ Ja implementado:
 - `busca_por_cep()`
 - `geocode()` com motor DuckDB
 - `geocode_reverso()` com DuckDB Spatial
+- retorno em `geopandas.GeoDataFrame` (EPSG 4674) quando `resultado_gpd=True`
 - testes unitarios com Parquets sinteticos
 
 Pontos que ainda precisam de validacao ampla:
 
 - paridade completa da padronizacao com o pacote R `enderecobr`
 - comparacao Python vs R em amostras reais maiores
-- retorno espacial equivalente a `sf`/`GeoDataFrame` quando `resultado_sf=True`

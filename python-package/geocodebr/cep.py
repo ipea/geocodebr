@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import enderecobr
+
+from typing import TYPE_CHECKING
 
 import duckdb
 import pyarrow as pa
@@ -6,6 +10,7 @@ import pyarrow as pa
 from .cache import caminho_parquet
 from .db import create_geocodebr_db
 from .download_cnefe import download_cnefe
+from .geo import arrow_to_geodataframe
 from .utils import (
     assert_bool,
     normalize_h3_res,
@@ -13,16 +18,17 @@ from .utils import (
     add_h3_columns
 )
 
+if TYPE_CHECKING:
+    import geopandas as gpd
+
 
 def busca_por_cep(
     cep: int | str | list[str|int],
     h3_res: int | list[int] | tuple[int, ...] | None = None,
-    resultado_sf: bool = False,
+    resultado_gpd: bool = False,
     verboso: bool = True,
     cache: bool = True,
-) -> pa.Table:
-    if resultado_sf:
-        raise NotImplementedError("resultado_sf=True sera implementado com geopandas na proxima etapa.")
+) -> pa.Table | gpd.GeoDataFrame:
     assert_bool(verboso, "verboso")
     assert_bool(cache, "cache")
     h3_values = normalize_h3_res(h3_res)
@@ -54,7 +60,12 @@ def busca_por_cep(
             values = ", ".join(f"({sql_string(value)})" for value in missing)
             con.execute(f"INSERT INTO output_df (cep) VALUES {values}")
         add_h3_columns(con, "output_df", h3_values)
-        return con.execute("SELECT * FROM output_df").to_arrow_table()
+        result = con.execute("SELECT * FROM output_df").to_arrow_table()
+
+        if resultado_gpd:
+            return arrow_to_geodataframe(result)
+
+        return result
     finally:
         con.close()
 
