@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import duckdb
 import pyarrow as pa
@@ -9,7 +8,11 @@ import pyarrow as pa
 from .cache import caminho_parquet
 from .db import create_geocodebr_db
 from .download_cnefe import download_cnefe
+from .geo import table_coords_to_geodataframe
 from .utils import check_clean_colnames, quote_ident, db_table_columns
+
+if TYPE_CHECKING:
+    import geopandas as gpd
 
 def geocode_reverso(
     pontos: Any,
@@ -17,7 +20,16 @@ def geocode_reverso(
     verboso: bool = True,
     cache: bool = True,
     n_cores: int | None = None,
-) -> pa.Table:
+) -> gpd.GeoDataFrame:
+    """Geocode reverso de coordenadas geograficas para enderecos.
+
+    Recebe um `GeoDataFrame` com geometria do tipo POINT no CRS SIRGAS 2000
+    (EPSG 4674) e retorna o endereco mais proximo dentro de `dist_max`
+    (em metros). O output e o proprio `GeoDataFrame` de input acrescido das
+    colunas do endereco encontrado e de `distancia_metros`; a geometria e o
+    proprio ponto de input, como no sf do R. Requer o extra `geo`.
+    """
+    _validate_pontos(pontos)
     if not isinstance(dist_max, (int, float)) or dist_max < 500 or dist_max > 100000:
         raise ValueError("dist_max deve estar entre 500 e 100000 metros.")
     if not isinstance(verboso, bool) or not isinstance(cache, bool):
@@ -34,15 +46,24 @@ def geocode_reverso(
         _register_points_input(con, pontos)
         input_columns = db_table_columns(con, "pontos_input")
         check_clean_colnames(input_columns)
-        lon_col, lat_col = _detect_coordinate_columns(input_columns)
+
+        attrs_columns = [
+            col for col in input_columns if col not in {"_geocodebr_lon", "_geocodebr_lat"}
+        ]
+        point_select = ", ".join(
+            [
+                *(quote_ident(col) for col in attrs_columns),
+                "CAST(_geocodebr_lon AS DOUBLE) AS _geocodebr_lon",
+                "CAST(_geocodebr_lat AS DOUBLE) AS _geocodebr_lat",
+            ]
+        )
 
         con.execute(
             f"""
             CREATE OR REPLACE TEMP TABLE pontos_db AS
-            SELECT *,
-              ROW_NUMBER() OVER ()::INTEGER AS tempidgeocodebr,
-              CAST({quote_ident(lon_col)} AS DOUBLE) AS _geocodebr_lon,
-              CAST({quote_ident(lat_col)} AS DOUBLE) AS _geocodebr_lat
+            SELECT
+              {point_select},
+              ROW_NUMBER() OVER ()::INTEGER AS tempidgeocodebr
             FROM pontos_input
             """
         )
@@ -66,8 +87,6 @@ def geocode_reverso(
             CREATE OR REPLACE TEMP TABLE cnefe_tb AS
             SELECT
               estado, municipio, logradouro, cep, localidade,
-              lon AS cnefe_lon,
-              lat AS cnefe_lat,
               ST_Transform(
                 ST_Point(CAST(lon AS DOUBLE), CAST(lat AS DOUBLE)),
                 'EPSG:4674',
@@ -109,8 +128,8 @@ def geocode_reverso(
               SELECT
                 {select_original}{leading_comma}
                 {address_select},
-                c.cnefe_lon AS lon_encontrado,
-                c.cnefe_lat AS lat_encontrado,
+                p._geocodebr_lon,
+                p._geocodebr_lat,
                 ST_Distance(p.ponto_geom_utm, c.cnefe_geom_utm) AS distancia_metros,
                 ROW_NUMBER() OVER (
                   PARTITION BY p.tempidgeocodebr
@@ -130,63 +149,41 @@ def geocode_reverso(
         n_rows = con.execute("SELECT COUNT(*) FROM geocodebr_reverse_result").fetchone()[0]
         if n_rows == 0:
             raise ValueError("Nenhum endereco proximo foi encontrado.")
-        return con.execute("SELECT * FROM geocodebr_reverse_result").to_arrow_table()
+        table = con.execute("SELECT * FROM geocodebr_reverse_result").to_arrow_table()
+        return table_coords_to_geodataframe(table, "_geocodebr_lon", "_geocodebr_lat")
     finally:
         con.close()
 
 
-def _register_input(con: duckdb.DuckDBPyConnection, enderecos: Any) -> None:
-    if isinstance(enderecos, (str, Path)):
-        path = Path(enderecos)
-        suffix = path.suffix.lower()
-        path_sql = path.as_posix()
-        if suffix == ".parquet":
-            con.execute(f"CREATE OR REPLACE TEMP TABLE enderecos_input AS SELECT * FROM read_parquet('{path_sql}')")
-        elif suffix in {".csv", ".txt"}:
-            con.execute(f"CREATE OR REPLACE TEMP TABLE enderecos_input AS SELECT * FROM read_csv_auto('{path_sql}')")
-        else:
-            raise ValueError("Arquivos suportados: .parquet, .csv, .txt.")
-        return
-
-    con.register("enderecos_input_view", enderecos)
-    con.execute("CREATE OR REPLACE TEMP TABLE enderecos_input AS SELECT * FROM enderecos_input_view")
-    con.unregister("enderecos_input_view")
+def _validate_pontos(pontos: Any) -> None:
+    if not _looks_like_geodataframe(pontos):
+        raise ValueError(
+            "pontos deve ser um GeoDataFrame com geometria do tipo POINT."
+        )
+    if any(gt != "Point" for gt in pontos.geom_type):
+        raise ValueError(
+            "pontos deve ser um GeoDataFrame com geometria do tipo POINT."
+        )
+    epsg = pontos.crs.to_epsg() if pontos.crs is not None else None
+    if epsg != 4674:
+        raise ValueError(
+            "Dados de input precisam estar com sistema de coordenadas "
+            "geograficas SIRGAS 2000, EPSG 4674."
+        )
 
 
 def _register_points_input(con: duckdb.DuckDBPyConnection, pontos: Any) -> None:
-    if _looks_like_geodataframe(pontos):
-        epsg = pontos.crs.to_epsg() if pontos.crs is not None else None
-        if epsg != 4674:
-            raise ValueError("Dados de input precisam estar em SIRGAS 2000, EPSG 4674.")
-        geometry_name = pontos.geometry.name
-        attrs = pontos.drop(columns=[geometry_name]).copy()
-        attrs["_geocodebr_lon"] = pontos.geometry.x
-        attrs["_geocodebr_lat"] = pontos.geometry.y
-        con.register("pontos_input_view", attrs)
-        con.execute("CREATE OR REPLACE TEMP TABLE pontos_input AS SELECT * FROM pontos_input_view")
-        con.unregister("pontos_input_view")
-        return
-
-    _register_input(con, pontos)
-    con.execute("CREATE OR REPLACE TEMP TABLE pontos_input AS SELECT * FROM enderecos_input")
+    geometry_name = pontos.geometry.name
+    attrs = pontos.drop(columns=[geometry_name]).copy()
+    attrs["_geocodebr_lon"] = pontos.geometry.x
+    attrs["_geocodebr_lat"] = pontos.geometry.y
+    con.register("pontos_input_view", attrs)
+    con.execute("CREATE OR REPLACE TEMP TABLE pontos_input AS SELECT * FROM pontos_input_view")
+    con.unregister("pontos_input_view")
 
 
 def _looks_like_geodataframe(value: Any) -> bool:
     return hasattr(value, "geometry") and hasattr(value, "crs")
-
-
-def _detect_coordinate_columns(columns: list[str]) -> tuple[str, str]:
-    candidates = [
-        ("lon", "lat"),
-        ("longitude", "latitude"),
-        ("x", "y"),
-        ("_geocodebr_lon", "_geocodebr_lat"),
-    ]
-    column_set = set(columns)
-    for lon_col, lat_col in candidates:
-        if lon_col in column_set and lat_col in column_set:
-            return lon_col, lat_col
-    raise ValueError("pontos deve ter colunas lon/lat, longitude/latitude, x/y ou ser um GeoDataFrame.")
 
 
 def _validate_points_bbox(con: duckdb.DuckDBPyConnection) -> None:

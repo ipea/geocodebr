@@ -1,29 +1,34 @@
 # geocodebr Python: Geolocalização de Endereços Brasileiros
 
-Versão Python do `geocodebr`, usando DuckDB como motor tabular principal. A proposta é preservar a dinamica de uso do pacote R, incluindo nomes
-de funcoes em portugues, mas mantendo o processamento interno em SQL/DuckDB para
-boa performance e menor uso de memoria.
+Versão Python do `geocodebr`, usando DuckDB como motor tabular principal.
+A proposta é preservar a dinâmica de uso do pacote R, incluindo nomes
+de funções em português, mas mantendo o processamento interno em SQL/DuckDB para
+boa performance e menor uso de memória.
 
-O pacote geolocaliza enderecos brasileiros sem limite de numero de consultas,
-com base em dados abertos do CNEFE (Cadastro Nacional de Enderecos para Fins
+O pacote geolocaliza endereços brasileiros sem limite de número de consultas,
+com base em dados abertos do CNEFE (Cadastro Nacional de Endereços para Fins
 Estatisticos), publicado pelo IBGE.
 
 ## Instalação
 
-No momento, esta versao Python ainda esta em desenvolvimento dentro deste
-repositorio. Para instalar localmente:
+No momento, esta versão Python ainda está em desenvolvimento dentro deste
+repositório. Para instalar localmente:
 
 ```bash
 cd python-package
 python -m pip install -e .
 ```
 
-Dependencias principais:
+Dependências principais:
 
 - `duckdb`: motor principal de dados e SQL.
 - `pyarrow`: formato padrao de retorno e interoperabilidade com Parquet.
 - `requests`: download dos dados CNEFE.
 - `h3`: criacao opcional de celulas H3.
+
+TODO: 
+- acrescentar enderecobr, para padronização dos endereços, garantindo paridade com R
+- acrescentar polars, usado para mapear o enderecobr
 
 Para desenvolvimento e testes:
 
@@ -33,29 +38,21 @@ uv run pytest -q
 
 ### Testes de paridade R vs Python
 
-O pacote tambem inclui testes que comparam a saida do Python com a saida do
+O pacote tambem inclui testes que comparam a saída do Python com a saída do
 pacote R usando os dados de exemplo `inst/extdata/small_sample.csv` e
 `inst/extdata/large_sample.parquet`.
 
 Esses testes exigem `Rscript` no `PATH`, instalam o pacote R localmente em uma
-biblioteca temporaria e podem baixar dados CNEFE. Se `Rscript` nao estiver
-disponivel, eles sao pulados automaticamente.
-
-No PowerShell:
-
-```powershell
-uv run pytest -m r_parity -q
-```
-
-Em bash:
+biblioteca temporária e podem baixar dados CNEFE. Se `Rscript` não estiver
+disponível, eles são pulados automaticamente.
 
 ```bash
 uv run pytest -m r_parity -q
 ```
 
-## Utilizacao
+## Utilização
 
-O pacote possui tres funcoes principais:
+O pacote possui três funções principais:
 
 1. `geocode()`
 2. `geocode_reverso()`
@@ -70,7 +67,7 @@ equivalente ao `sf` do pacote R. Esse retorno exige o extra `geo` na instalaçã
 ## 1. Geolocalização: de endereços para coordenadas
 
 Primeiro, indique quais colunas da sua tabela representam cada campo do
-endereco usando `definir_campos()`. Depois, chame `geocode()`.
+endereço usando `definir_campos()`. Depois, chame `geocode()`.
 
 O primeiro uso pode baixar os dados CNEFE em cache local.
 
@@ -103,7 +100,7 @@ print(resultado.schema.names)
 print(resultado.to_pandas().head())
 ```
 
-Tambem e possivel passar um caminho para arquivo `.csv` ou `.parquet`:
+Também é possível passar diretamente um caminho para arquivo `.csv` ou `.parquet`:
 
 ```python
 resultado = geocode(
@@ -122,34 +119,30 @@ O resultado preserva as colunas originais e adiciona, entre outras:
 - `desvio_metros`
 - `endereco_encontrado`
 
-Com `resultado_completo=True`, tambem retorna campos encontrados no CNEFE, como
+Com `resultado_completo=True`, também retorna campos encontrados no CNEFE, como
 `logradouro_encontrado`, `numero_encontrado`, `cep_encontrado`,
 `localidade_encontrada`, `municipio_encontrado`, `estado_encontrado`,
 `similaridade_logradouro`, `contagem_cnefe`, `empate` e `cod_setor`.
 
-## 2. Geolocalizacao reversa: de coordenadas para enderecos
 
-`geocode_reverso()` busca o endereco mais proximo de cada ponto dentro de uma
-distancia maxima em metros.
+## 2. Geolocalização reversa: de coordenadas para endereços
 
-A entrada pode ser:
-
-- tabela com colunas `lon` e `lat`
-- tabela com colunas `longitude` e `latitude`
-- tabela com colunas `x` e `y`
-- `GeoDataFrame` em `EPSG:4674`
+`geocode_reverso()` busca o endereço mais próximo de cada ponto dentro de uma
+distância máxima em metros. Assim como no R, a entrada deve ser um
+`GeoDataFrame` de pontos no CRS SIRGAS 2000 (`EPSG:4674`), e o retorno é o
+próprio `GeoDataFrame` de input acrescido dos campos do endereço encontrado e
+da coluna `distancia_metros`. Esta função requer o extra `geo`
+(`pip install geocodebr[geo]`).
 
 ```python
-import pyarrow as pa
+import geopandas as gpd
 
 from geocodebr import geocode_reverso
 
-pontos = pa.table(
-    {
-        "id": [1, 2],
-        "lon": [-47.9001, -43.2001],
-        "lat": [-15.8001, -22.9001],
-    }
+pontos = gpd.GeoDataFrame(
+    {"id": [1, 2]},
+    geometry=gpd.points_from_xy([-47.9001, -43.2001], [-15.8001, -22.9001]),
+    crs="EPSG:4674",
 )
 
 enderecos_proximos = geocode_reverso(
@@ -158,15 +151,15 @@ enderecos_proximos = geocode_reverso(
     verboso=False,
 )
 
-print(enderecos_proximos.to_pandas())
+print(enderecos_proximos)
 ```
 
-O resultado inclui os campos do endereco encontrado e a coluna
+O resultado inclui os campos do endereço encontrado e a coluna
 `distancia_metros`.
 
 ## 3. Busca por CEP
 
-`busca_por_cep()` retorna os enderecos associados a um ou mais CEPs.
+`busca_por_cep()` retorna os endereços associados a um ou mais CEPs.
 
 ```python
 from geocodebr import busca_por_cep
@@ -196,7 +189,7 @@ Se `h3_res` for informado, o pacote adiciona colunas como `h3_08` ou `h3_10`.
 
 ## Exemplos de uso do geocodebr Python
 
-Esta pasta contem exemplos simples usando as funcoes principais da versao Python:
+Esta pasta contém exemplos simples usando as funções principais da versão Python:
 
 - `geocode()`: busca coordenadas a partir de enderecos.
 - `busca_por_cep()`: busca enderecos/coordenadas a partir de CEPs.
@@ -212,7 +205,7 @@ uv run python exemple/geocode_reverso.py
 
 ## Cache dos dados CNEFE
 
-Na primeira execucao, o pacote baixa arquivos Parquet do release CNEFE usado
+Na primeira execução, o pacote baixa arquivos Parquet do release CNEFE usado
 pelo `geocodebr`. Esses arquivos ficam em cache local para acelerar chamadas
 futuras.
 
@@ -247,6 +240,8 @@ resultado no final como `pyarrow.Table`.
 
 Isso facilita a paridade com o pacote R, que tambem usa DuckDB para o motor de
 geocodificacao, e ajuda em bases maiores.
+
+TODO falar de polars
 
 ## Windows e performance
 
@@ -295,9 +290,9 @@ Limitações conhecidas:
   (ex.: `Program Files`), execute o terminal como administrador ou use uma
   instalação por usuário (ex.: `uv`, `pyenv`).
 - A cópia usa os pacotes do ambiente base. Com geocodebr instalado em venv,
-  aponte `PYTHONPATH` para o `site-packages` da venv. Exemplo em Power Shell:
+  aponte `PYTHONPATH` para o `site-packages` da venv. Exemplo em PowerShell:
 
-  ```bash
+  ```powershell
    $env:PYTHONPATH = "C:\caminho\para\.venv\Lib\site-packages"; & "C:\caminho\para\python-geocodebr-sh.exe" "C:\caminho\para\seu_script.py"
    ```
 

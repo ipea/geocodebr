@@ -248,9 +248,6 @@ dependencies = [
 [package.optional-dependencies]
 geo = [
     { name = "geopandas" },
-    { name = "pyproj", version = "3.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "pyproj", version = "3.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "shapely" },
 ]
 
 [package.dev-dependencies]
@@ -269,9 +266,7 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.0.0" },
     { name = "polars", specifier = ">=1.0" },
     { name = "pyarrow", specifier = ">=15.0.0" },
-    { name = "pyproj", marker = "extra == 'geo'", specifier = ">=3.6.0" },
     { name = "requests", specifier = ">=2.31.0" },
-    { name = "shapely", marker = "extra == 'geo'", specifier = ">=2.0.0" },
     { name = "tqdm", specifier = ">=4.66.0" },
 ]
 provides-extras = ["geo"]

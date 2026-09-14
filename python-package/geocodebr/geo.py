@@ -25,17 +25,37 @@ def arrow_to_geodataframe(table: pa.Table) -> gpd.GeoDataFrame:
     Levanta ``ImportError`` com instrucao de instalacao caso o extra ``geo``
     (geopandas) nao esteja instalado.
     """
+    gpd = _import_geopandas("resultado_gpd=True")
+    return _points_geodataframe(gpd, table.to_pandas(), "lon", "lat")
+
+
+def table_coords_to_geodataframe(
+    table: pa.Table, lon_col: str, lat_col: str
+) -> gpd.GeoDataFrame:
+    """Converte tabela + colunas de coordenadas em GeoDataFrame de pontos.
+
+    Usada pelo ``geocode_reverso()``, cuja geometria do output e o proprio
+    ponto de input. Levanta ``ImportError`` com instrucao de instalacao caso
+    o extra ``geo`` (geopandas) nao esteja instalado.
+    """
+    gpd = _import_geopandas("geocode_reverso")
+    return _points_geodataframe(gpd, table.to_pandas(), lon_col, lat_col)
+
+
+def _import_geopandas(contexto: str):
     try:
         import geopandas as gpd
     except ImportError as exc:
         raise ImportError(
-            "resultado_gpd=True requer geopandas. Instale o extra 'geo': "
+            f"{contexto} requer geopandas. Instale o extra 'geo': "
             "python -m pip install geocodebr[geo]"
         ) from exc
+    return gpd
 
-    df = table.to_pandas()
-    geometry = gpd.points_from_xy(df["lon"], df["lat"])
-    # paridade com sfheaders::sf_point(keep = TRUE): lon/lat sao consumidas
+
+def _points_geodataframe(gpd, df, lon_col: str, lat_col: str) -> gpd.GeoDataFrame:
+    geometry = gpd.points_from_xy(df[lon_col], df[lat_col])
+    # paridade com sfheaders::sf_point(keep = TRUE): lon/lat são consumidas
     # pela geometria, igual ao sf do R
-    df = df.drop(columns=["lon", "lat"])
+    df = df.drop(columns=[lon_col, lat_col])
     return gpd.GeoDataFrame(df, geometry=geometry, crs=CRS_SIRGAS_2000)

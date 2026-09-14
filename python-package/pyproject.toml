@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "geocodebr"
 version = "0.0.1"
 description = "Geolocalizacao de enderecos brasileiros com DuckDB"
-readme = "python-package/README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
@@ -33,11 +33,11 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["python-package/geocodebr"]
+packages = ["geocodebr"]
 
 [tool.pytest.ini_options]
-pythonpath = ["python-package"]
-testpaths = ["python-package/tests"]
+pythonpath = ["."]
+testpaths = ["tests"]
 markers = [
   "r_parity: compares Python outputs against the local R package outputs",
 ]

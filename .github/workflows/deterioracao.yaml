@@ -81,6 +81,7 @@ jobs:
       # uv sync respeita o uv.lock (versões idênticas entre os SO); psutil não
       # está no lock — é dependência só do harness e é instalada à parte.
       - name: Instalar pacote
+        working-directory: python-package
         run: uv sync && uv pip install psutil
 
       # Baixa a sample da repo privada e confere o SHA-256 antes de usar.
@@ -118,7 +119,7 @@ jobs:
         env:
           CNEFE_DIR: ${{ github.workspace }}/.cnefe-cache
         run: |
-          uv run --no-sync python -c \
+          uv run --project python-package --no-sync python -c \
             "import os, geocodebr; geocodebr.definir_pasta_cache(os.environ['CNEFE_DIR'])"
 
       # O CNEFE é baixado na 1ª chamada de geocode() e cacheado no disco.
@@ -133,7 +134,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          uv run --no-sync python python-package/benchmarks/verifica_deterioracao.py \
+          uv run --project python-package --no-sync python python-package/benchmarks/verifica_deterioracao.py \
             "$SAMPLE" --rodadas "$RODADAS" 2>&1 | tee "log_inprocess_${{ matrix.os }}.txt"
 
       - name: Modo isolado (subprocesso por rodada)
@@ -141,7 +142,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          uv run --no-sync python python-package/benchmarks/verifica_deterioracao.py \
+          uv run --project python-package --no-sync python python-package/benchmarks/verifica_deterioracao.py \
             "$SAMPLE" --rodadas "$RODADAS" --isolado 2>&1 | tee "log_isolado_${{ matrix.os }}.txt"
 
       - name: Resumo no step summary
