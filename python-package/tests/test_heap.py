@@ -40,24 +40,30 @@ MANIFESTO = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </assembly>
 """
 
-MANIFESTO_SEM_WINDOWS_SETTINGS = (
+MANIFESTO_WITHOUT_WINDOWS_SETTINGS = (
     b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     b'<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">'
     b'</assembly>'
 )
 # folga para o insert do bloco <application><windowsSettings> completo
-MANIFESTO_SEM_WINDOWS_SETTINGS = MANIFESTO_SEM_WINDOWS_SETTINGS.replace(
+MANIFESTO_WITHOUT_WINDOWS_SETTINGS = MANIFESTO_WITHOUT_WINDOWS_SETTINGS.replace(
     b"</assembly>", b" " * 300 + b"</assembly>"
 )
 
 
-def corpo_manifesto() -> bytes:
+def manifest_body() -> bytes:
     """Regiao que encontrar_manifesto() devolve: sem prologo e sem cauda."""
     return MANIFESTO[MANIFESTO.index(b"<assembly"):].rstrip()
 
 
+def write_exe(tmp_path, data: bytes) -> Path:
+    exe = tmp_path / "python.exe"
+    exe.write_bytes(b"MZ" + data)
+    return exe
+
+
 @pytest.fixture(autouse=True)
-def reseta_aviso():
+def reset_warning():
     _heap._aviso_emitido = False
     yield
     _heap._aviso_emitido = False
@@ -70,39 +76,48 @@ def win32(monkeypatch):
 
 @pytest.fixture
 def exe_legacy(tmp_path, monkeypatch, win32):
-    exe = tmp_path / "python.exe"
-    exe.write_bytes(b"MZ" + MANIFESTO)
+    exe = write_exe(tmp_path, MANIFESTO)
     monkeypatch.setattr(_heap, "cores_disponiveis", lambda: 24)
     monkeypatch.setattr(_heap, "resolve_exe_base", lambda: str(exe))
     return exe
 
 
-def test_tem_segment_heap_false_para_heap_legacy(exe_legacy):
-    assert _heap.tem_segment_heap(str(exe_legacy)) is False
+# ---------------------------------------------------------------------------
+# deteccao de segment heap e limite de cores
+# ---------------------------------------------------------------------------
 
 
-def test_tem_segment_heap_true_para_exe_patcheado(exe_legacy):
-    exe_legacy.write_bytes(b"MZ" + _heap_patch.patch_manifesto(MANIFESTO))
-    assert _heap.tem_segment_heap(str(exe_legacy)) is True
+@pytest.mark.parametrize(
+    ("patched", "esperado"),
+    [(False, False), (True, True), (None, None)],
+    ids=["legacy", "patched", "exe_ausente"],
+)
+def test_tem_segment_heap(tmp_path, patched, esperado):
+    exe = tmp_path / "python.exe"
+    if patched is not None:
+        data = _heap_patch.patch_manifesto(MANIFESTO) if patched else MANIFESTO
+        exe.write_bytes(b"MZ" + data)
+    assert _heap.tem_segment_heap(str(exe)) is esperado
 
 
-def test_tem_segment_heap_none_se_exe_ausente(win32):
-    assert _heap.tem_segment_heap("nao-existe.exe") is None
-
-
-def test_tem_segment_heap_none_fora_do_windows(monkeypatch, tmp_path):
+def test_no_op_outside_windows(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(sys, "platform", "linux")
     assert _heap.tem_segment_heap(str(tmp_path / "python.exe")) is None
+    assert _heap.n_cores_efetivo(None) is None
+    assert capsys.readouterr().err == ""
+    assert _heap_patch.main() == 1
+    assert "exclusivo do Windows" in capsys.readouterr().err
 
 
-def test_n_cores_limitado_no_heap_legacy(exe_legacy, capsys):
+def test_n_cores_on_legacy_heap(exe_legacy, capsys):
     assert _heap.n_cores_efetivo(None) == _heap.N_CORES_HEAP_LEGACY
     assert "heap NT legacy" in capsys.readouterr().err
+    # aviso emitido uma unica vez por sessao
     assert _heap.n_cores_efetivo(None) == _heap.N_CORES_HEAP_LEGACY
     assert capsys.readouterr().err == ""
-
-
-def test_n_cores_explicito_respeitado(exe_legacy, capsys):
+    # n_cores explicito e respeitado; o aviso (primeira chamada) nao anuncia
+    # mitigacao porque o valor explicito nao foi alterado
+    _heap._aviso_emitido = False
     assert _heap.n_cores_efetivo(8) == 8
     saida = capsys.readouterr().err
     assert "heap NT legacy" in saida
@@ -113,24 +128,16 @@ def test_n_cores_explicito_respeitado(exe_legacy, capsys):
     ("cores", "esperado"),
     [(2, 2), (1, 1), (4, 4), (8, 4), (24, 4)],
 )
-def test_n_cores_nao_excede_cores_da_maquina(
+def test_n_cores_capped_to_machine_cores(
     exe_legacy, monkeypatch, capsys, cores, esperado
 ):
     monkeypatch.setattr(_heap, "cores_disponiveis", lambda: cores)
     assert _heap.n_cores_efetivo(None) == esperado
-    saida = capsys.readouterr().err
-    assert f"limitadas a {esperado}" in saida
+    assert f"limitadas a {esperado}" in capsys.readouterr().err
 
 
-def test_cores_disponiveis_retorna_inteiro_positivo():
-    cores = _heap.cores_disponiveis()
-    assert isinstance(cores, int)
-    assert cores >= 1
-
-
-def test_n_cores_sem_aviso_com_segment_heap(tmp_path, monkeypatch, win32, capsys):
-    exe = tmp_path / "python.exe"
-    exe.write_bytes(b"MZ" + _heap_patch.patch_manifesto(MANIFESTO))
+def test_n_cores_no_warning_with_segment_heap(tmp_path, monkeypatch, win32, capsys):
+    exe = write_exe(tmp_path, _heap_patch.patch_manifesto(MANIFESTO))
     monkeypatch.setattr(_heap, "resolve_exe_base", lambda: str(exe))
     assert _heap.n_cores_efetivo(None) is None
     assert capsys.readouterr().err == ""
@@ -138,45 +145,167 @@ def test_n_cores_sem_aviso_com_segment_heap(tmp_path, monkeypatch, win32, capsys
     assert capsys.readouterr().err == ""
 
 
-def test_sem_aviso_fora_do_windows(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "platform", "linux")
-    assert _heap.n_cores_efetivo(None) is None
-    assert capsys.readouterr().err == ""
+def test_cores_disponiveis_fallback_when_winapi_fails(monkeypatch):
+    import ctypes
+
+    class WindllQuebrada:
+        class kernel32:
+            @staticmethod
+            def GetCurrentProcess():
+                raise RuntimeError("boom")
+
+    monkeypatch.setattr(ctypes, "windll", WindllQuebrada, raising=False)
+    cores = _heap.cores_disponiveis()
+    assert isinstance(cores, int)
+    assert cores >= 1
 
 
-def test_patch_manifesto_mantem_tamanho_e_insere_heap_type():
+# ---------------------------------------------------------------------------
+# patch_manifesto / encontrar_manifesto
+# ---------------------------------------------------------------------------
+
+
+def test_patch_manifesto_preserves_size_and_inserts_heap_type():
     patcheado = _heap_patch.patch_manifesto(MANIFESTO)
     assert len(patcheado) == len(MANIFESTO)
     assert b"SegmentHeap</heapType>" in patcheado
     assert patcheado.count(b"</assembly>") == 1
 
 
-def test_patch_manifesto_sem_windows_settings():
-    patcheado = _heap_patch.patch_manifesto(MANIFESTO_SEM_WINDOWS_SETTINGS)
-    assert len(patcheado) == len(MANIFESTO_SEM_WINDOWS_SETTINGS)
+def test_patch_manifesto_without_windows_settings():
+    patcheado = _heap_patch.patch_manifesto(MANIFESTO_WITHOUT_WINDOWS_SETTINGS)
+    assert len(patcheado) == len(MANIFESTO_WITHOUT_WINDOWS_SETTINGS)
     assert b"SegmentHeap</heapType>" in patcheado
 
 
-def test_patch_manifesto_ja_patcheado():
+def test_patch_manifesto_on_already_patched_manifest():
     with pytest.raises(ValueError):
         _heap_patch.patch_manifesto(_heap_patch.patch_manifesto(MANIFESTO))
 
 
-def test_encontrar_manifesto_ignora_regiao_sem_namespace():
+def test_patch_manifesto_without_slack():
+    apertado = b'<assembly><windowsSettings></windowsSettings></assembly>'
+    with pytest.raises(ValueError, match="sem folga"):
+        _heap_patch.patch_manifesto(apertado)
+
+
+def test_encontrar_manifesto_ignores_region_without_namespace():
     falso = b"<assembly>outra coisa</assembly>"
     exe = falso + MANIFESTO + b"trailing"
     ini, fim = _heap_patch.encontrar_manifesto(exe)
-    assert exe[ini:fim] == corpo_manifesto()
+    assert exe[ini:fim] == manifest_body()
 
 
-def test_encontrar_manifesto_ausente():
+def test_encontrar_manifesto_missing():
     with pytest.raises(ValueError):
         _heap_patch.encontrar_manifesto(b"sem manifesto aqui")
 
 
-def test_criar_copia_fim_a_fim(tmp_path, win32):
-    exe = tmp_path / "python.exe"
-    exe.write_bytes(b"MZ" + MANIFESTO + b"\x00\x01")
+# ---------------------------------------------------------------------------
+# main()
+# ---------------------------------------------------------------------------
+
+
+def test_main_nothing_to_do_with_segment_heap(tmp_path, monkeypatch, win32, capsys):
+    exe = write_exe(tmp_path, _heap_patch.patch_manifesto(MANIFESTO))
+    monkeypatch.setattr(_heap_patch, "resolve_exe_base", lambda: str(exe))
+
+    assert _heap_patch.main() == 0
+    assert "nada a fazer" in capsys.readouterr().out
+
+
+def test_main_creates_copy(tmp_path, monkeypatch, win32, capsys):
+    exe = write_exe(tmp_path, MANIFESTO)
+    monkeypatch.setattr(_heap_patch, "resolve_exe_base", lambda: str(exe))
+
+    assert _heap_patch.main() == 0
+
+    copia = Path(exe).with_name(_heap.NOME_COPIA_PATCH)
+    assert copia.exists()
+    assert _heap.tem_segment_heap(str(copia)) is True
+    assert "copia criada" in capsys.readouterr().out
+
+
+def _setup_exe_ilegivel(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        _heap_patch, "resolve_exe_base", lambda: str(tmp_path / "python.exe")
+    )
+
+
+def _setup_erro_valor_na_copia(monkeypatch, tmp_path):
+    exe = write_exe(tmp_path, MANIFESTO)
+    monkeypatch.setattr(_heap_patch, "resolve_exe_base", lambda: str(exe))
+
+    def explode(exe, destino):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(_heap_patch, "criar_copia", explode)
+
+
+def _setup_erro_io_na_copia(monkeypatch, tmp_path):
+    exe = write_exe(tmp_path, MANIFESTO)
+    monkeypatch.setattr(_heap_patch, "resolve_exe_base", lambda: str(exe))
+
+    def explode(exe, destino):
+        raise OSError("sem permissao")
+
+    monkeypatch.setattr(_heap_patch, "criar_copia", explode)
+
+
+def _setup_copia_sem_segment_heap(monkeypatch, tmp_path):
+    exe = write_exe(tmp_path, MANIFESTO)
+    monkeypatch.setattr(_heap_patch, "resolve_exe_base", lambda: str(exe))
+    monkeypatch.setattr(_heap_patch, "tem_segment_heap", lambda path: False)
+
+
+@pytest.mark.parametrize(
+    ("preparar", "codigo", "trecho_erro"),
+    [
+        (None, 2, "uso"),
+        (_setup_exe_ilegivel, 1, "nao foi possivel"),
+        (_setup_erro_valor_na_copia, 1, "boom"),
+        (_setup_erro_io_na_copia, 1, "falha ao escrever"),
+        (_setup_copia_sem_segment_heap, 1, "abortado"),
+    ],
+    ids=[
+        "argumento_invalido",
+        "exe_ilegivel",
+        "erro_valor_na_copia",
+        "erro_io_na_copia",
+        "copia_sem_segment_heap",
+    ],
+)
+def test_main_error_paths(monkeypatch, win32, tmp_path, capsys, preparar, codigo, trecho_erro):
+    if preparar is not None:
+        preparar(monkeypatch, tmp_path)
+    assert _heap_patch.main([] if preparar else ["x"]) == codigo
+    assert trecho_erro in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("cria_base", "esperado"),
+    [(True, "base"), (False, "venv")],
+    ids=["base_venv_existe", "base_ausente"],
+)
+def test_resolve_exe_base(tmp_path, monkeypatch, win32, cria_base, esperado):
+    base_exe = tmp_path / "base" / "python.exe"
+    if cria_base:
+        base_exe.parent.mkdir()
+        base_exe.write_bytes(b"MZ")
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
+    monkeypatch.setattr(sys, "base_prefix", str(tmp_path / "base"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "venv" / "python.exe"))
+
+    assert _heap.resolve_exe_base() == str(tmp_path / esperado / "python.exe")
+
+
+# ---------------------------------------------------------------------------
+# fim a fim
+# ---------------------------------------------------------------------------
+
+
+def test_criar_copia_end_to_end(tmp_path, win32):
+    exe = write_exe(tmp_path, MANIFESTO + b"\x00\x01")
     destino = tmp_path / _heap.NOME_COPIA_PATCH
     _heap_patch.criar_copia(str(exe), str(destino))
     originais = exe.read_bytes()
@@ -184,4 +313,4 @@ def test_criar_copia_fim_a_fim(tmp_path, win32):
     assert len(copia) == len(originais)
     assert _heap.tem_segment_heap(str(destino)) is True
     ini, fim = _heap_patch.encontrar_manifesto(copia)
-    assert copia[ini:fim] == _heap_patch.patch_manifesto(corpo_manifesto())
+    assert copia[ini:fim] == _heap_patch.patch_manifesto(manifest_body())

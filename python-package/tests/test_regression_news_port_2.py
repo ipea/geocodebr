@@ -3,19 +3,19 @@
 Cada teste trava uma mudanca das Etapas A-E do plano
 ``quality_reports/plans/python-port-news-dev-version-2.md``:
 
-  1. test_empates_resolver_false_inclui_coluna_empate   -> Etapa C (item 2):
+  1. test_empates_resolver_false_includes_empate_column   -> Etapa C (item 2):
      coluna ``empate`` no output com ``resolver_empates=False`` mesmo sem
      ``resultado_completo``.
   2. test_empates_zero_empates_resolver_false           -> Etapa C (item 2):
      ramo sem empates tambem devolve ``empate=False`` com ``resolver_empates=False``.
-  3. test_geocode_rejeita_colunas_reservadas            -> Etapa D (item 3):
+  3. test_geocode_rejects_reserved_columns            -> Etapa D (item 3):
      input com coluna de nome reservado aborta com mensagem util.
-  4. test_empates_rua_data_media_ponderada              -> Etapa B (item 4):
+  4. test_empates_date_street_weighted_average              -> Etapa B (item 4):
      rua com nome de data empatada a <1km e resolvida pela media ponderada
      (ramo F), nao pelo topo do ranking (ramo E/perdidos).
-  5. test_rua_quatro_flagrada_como_confusao             -> Etapa E (item 5):
+  5. test_rua_quatro_flagged_as_confusion             -> Etapa E (item 5):
      "RUA QUATRO" seta ``log_causa_confusao`` (unitario sobre o DuckDB).
-  6. test_geocode_rua_quatro_nao_casa_probabilistico    -> Etapa E (item 5):
+  6. test_geocode_rua_quatro_skips_probabilistic_match    -> Etapa E (item 5):
      "RUA QUATRO" sem match exato nao casa por similaridade com
      "RUA QUATORZE"; cai para categoria de menor precisao (dc01/cep).
   7. test_empates_passthrough_mixed                     -> Etapa A (item 1):
@@ -26,51 +26,16 @@ from __future__ import annotations
 
 import duckdb
 import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 
-from geocodebr import definir_campos, definir_pasta_cache, geocode
-from geocodebr.constants import ALL_CNEFE_FILES, DATA_RELEASE
+from geocodebr import definir_campos, geocode
 from geocodebr.utils import cria_col_logradouro_confusao
-
-
-def _write_all_cnefe(data_dir, table: pa.Table) -> None:
-    """Escreve o mesmo parquet fake em todas as 8 tabelas do CNEFE."""
-    for file in ALL_CNEFE_FILES:
-        pq.write_table(table, data_dir / file)
-
-
-def _base_cnefe_table(**overrides) -> pa.Table:
-    """Cria uma tabela CNEFE fake minima com defaults sobrescreveis."""
-    cols = {
-        "estado": ["DF"],
-        "municipio": ["BRASILIA"],
-        "logradouro": ["RUA TESTE"],
-        "numero": [100],
-        "cep": ["70000-000"],
-        "localidade": ["CENTRO"],
-        "lon": [-47.9],
-        "lat": [-15.8],
-        "endereco_completo": ["RUA TESTE, 100 - CENTRO, BRASILIA - DF, 70000-000"],
-        "desvio_metros": [10],
-        "n_casos": [1],
-        "cod_setor": ["530010005000001"],
-    }
-    cols.update(overrides)
-    return pa.table(cols)
-
-
-def _prepare_cache(tmp_path):
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir(exist_ok=True)
-    return data_dir
 
 
 # --------------------------------------------------------------------------- #
 # Teste 1 - Etapa C (item 2): coluna empate com resolver_empates=False
 # --------------------------------------------------------------------------- #
-def test_empates_resolver_false_inclui_coluna_empate(tmp_path):
+def test_empates_resolver_false_includes_empate_column(cnefe_cache):
     """resolver_empates=False + resultado_completo=False inclui 'empate' no output.
 
     Antes da Etapa C, a coluna 'empate' era criada em output_db2 mas o
@@ -78,8 +43,6 @@ def test_empates_resolver_false_inclui_coluna_empate(tmp_path):
     os casos empatados voltavam como linhas duplicadas sem identificacao (o
     aviso instruia a inspecionar uma coluna que nao chegava ao output).
     """
-    data_dir = _prepare_cache(tmp_path)
-
     # 2 candidatos mesmo logradouro/numero (input 1); 1 candidato (input 2)
     cnefe = pa.table(
         {
@@ -101,10 +64,10 @@ def test_empates_resolver_false_inclui_coluna_empate(tmp_path):
             "cod_setor": ["530010005000001", "530010005000002", "530010005000003"],
         }
     )
-    _write_all_cnefe(data_dir, cnefe)
+    cnefe_cache(cnefe)
 
     # sem cep/localidade declarados -> dn04 casa os 2 candidatos de "RUA X"
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF", "DF"],
             "cidade": ["Brasilia", "Brasilia"],
@@ -112,10 +75,10 @@ def test_empates_resolver_false_inclui_coluna_empate(tmp_path):
             "num": ["50", "10"],
         }
     )
-    campos = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
+    fields = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
 
     out = geocode(
-        enderecos, campos,
+        addresses, fields,
         resultado_completo=False, resolver_empates=False, verboso=False,
     )
 
@@ -131,23 +94,22 @@ def test_empates_resolver_false_inclui_coluna_empate(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 2 - Etapa C (item 2): zero empates tambem devolve empate=False
 # --------------------------------------------------------------------------- #
-def test_empates_zero_empates_resolver_false(tmp_path):
+def test_empates_zero_empates_resolver_false(cnefe_cache, cnefe_table):
     """Sem empates e resolver_empates=False: coluna empate=False no output.
 
     Trava o ramo n_casos==0 do trata_empates (ALTER output_db ADD empate
     DEFAULT FALSE) + incluir_empate no merge. Antes da reescrita, a coluna nem
     existia nesse caminho e o merge a selecionava de uma tabela sem ela.
     """
-    data_dir = _prepare_cache(tmp_path)
-    _write_all_cnefe(data_dir, _base_cnefe_table())
+    cnefe_cache(cnefe_table())
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {"uf": ["DF"], "cidade": ["Brasilia"], "rua": ["Rua Teste"], "num": ["100"]}
     )
-    campos = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
+    fields = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
 
     out = geocode(
-        enderecos, campos,
+        addresses, fields,
         resultado_completo=False, resolver_empates=False, verboso=False,
     )
 
@@ -159,31 +121,29 @@ def test_empates_zero_empates_resolver_false(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 3 - Etapa D (item 3): rejeita colunas de nomes reservados
 # --------------------------------------------------------------------------- #
-def test_geocode_rejeita_colunas_reservadas(tmp_path):
+def test_geocode_rejects_reserved_columns(cache_tmp):
     """Input com coluna de nome reservado (ex.: 'lat') aborta cedo.
 
     Antes da guarda, o merge final produzia colunas duplicadas de mesmo nome e
     o pos-processamento (H3, sf) lia a coluna errada em silencio.
     """
-    _prepare_cache(tmp_path)
-
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF"],
             "cidade": ["Brasilia"],
             "lat": [1.5],  # reservado: colide com o output do geocode()
         }
     )
-    campos = definir_campos(estado="uf", municipio="cidade")
+    fields = definir_campos(estado="uf", municipio="cidade")
 
     with pytest.raises(ValueError, match="Reserved column names"):
-        geocode(enderecos, campos, verboso=False)
+        geocode(addresses, fields, verboso=False)
 
 
 # --------------------------------------------------------------------------- #
 # Teste 4 - Etapa B (item 4): rua-data empatada a <1km -> media ponderada
 # --------------------------------------------------------------------------- #
-def test_empates_rua_data_media_ponderada(tmp_path):
+def test_empates_date_street_weighted_average(cnefe_cache):
     """"RUA QUINZE DE NOVEMBRO" empatada a <1 km resolve pela media ponderada.
 
     O nome bate no regex de numeros por extenso do ramo E ('RUA QUINZE'), mas a
@@ -193,8 +153,6 @@ def test_empates_rua_data_media_ponderada(tmp_path):
     no lugar certo (dentro do braco do regex de extenso), o caso cai no ramo F
     (media ponderada por contagem_cnefe).
     """
-    data_dir = _prepare_cache(tmp_path)
-
     # 2 candidatos mesmo logradouro/numero, ~555m entre si (<1km, >300m)
     lat1, lat2 = -15.800, -15.805
     cnefe = pa.table(
@@ -216,10 +174,10 @@ def test_empates_rua_data_media_ponderada(tmp_path):
             "cod_setor": ["530010005000001", "530010005000002"],
         }
     )
-    _write_all_cnefe(data_dir, cnefe)
+    cnefe_cache(cnefe)
 
     # sem cep/localidade -> dn04 casa os 2 candidatos -> empate
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF"],
             "cidade": ["Brasilia"],
@@ -227,9 +185,9 @@ def test_empates_rua_data_media_ponderada(tmp_path):
             "num": ["50"],
         }
     )
-    campos = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
+    fields = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
 
-    out = geocode(enderecos, campos, resultado_completo=False, verboso=False)
+    out = geocode(addresses, fields, resultado_completo=False, verboso=False)
 
     assert out.num_rows == 1
     # media ponderada por contagem_cnefe (10 e 90) -- NAO o topo do ranking
@@ -243,7 +201,7 @@ def test_empates_rua_data_media_ponderada(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 5 - Etapa E (item 5): "RUA QUATRO" flagrada como confusao (unitario)
 # --------------------------------------------------------------------------- #
-def test_rua_quatro_flagrada_como_confusao():
+def test_rua_quatro_flagged_as_confusion():
     """"RUA QUATRO" seta log_causa_confusao=TRUE (antes era lacuna da lista).
 
     'RUA DEZ' e o controle positivo (sempre esteve na lista) e 'RUA TESTE' o
@@ -284,7 +242,7 @@ def test_rua_quatro_flagrada_como_confusao():
 # --------------------------------------------------------------------------- #
 # Teste 6 - Etapa E (item 5): "RUA QUATRO" nao casa via probabilistico
 # --------------------------------------------------------------------------- #
-def test_geocode_rua_quatro_nao_casa_probabilistico(tmp_path):
+def test_geocode_rua_quatro_skips_probabilistic_match(cnefe_cache, cnefe_table):
     """"RUA QUATRO" sem match exato nao casa por similaridade com "RUA QUATORZE".
 
     Jaro('RUA QUATRO', 'RUA QUATORZE') e alto (~0,94), acima de todos os
@@ -293,27 +251,26 @@ def test_geocode_rua_quatro_nao_casa_probabilistico(tmp_path):
     excluida do probabilistico e o caso cai para categoria de menor precisao
     (aqui dc01, casada por CEP).
     """
-    data_dir = _prepare_cache(tmp_path)
-
-    cnefe = _base_cnefe_table(
-        logradouro=["RUA QUATORZE"],
-        endereco_completo=["RUA QUATORZE, 100 - CENTRO, BRASILIA - DF, 70000-000"],
+    cnefe_cache(
+        cnefe_table(
+            logradouro=["RUA QUATORZE"],
+            endereco_completo=["RUA QUATORZE, 100 - CENTRO, BRASILIA - DF, 70000-000"],
+        )
     )
-    _write_all_cnefe(data_dir, cnefe)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF"], "cidade": ["Brasilia"],
             "rua": ["Rua Quatro"], "num": ["100"],
             "cep_in": ["70000-000"], "bairro": ["Centro"],
         }
     )
-    campos = definir_campos(
+    fields = definir_campos(
         estado="uf", municipio="cidade", logradouro="rua",
         numero="num", cep="cep_in", localidade="bairro",
     )
 
-    out = geocode(enderecos, campos, resultado_completo=True, verboso=False)
+    out = geocode(addresses, fields, resultado_completo=True, verboso=False)
 
     assert out.num_rows == 1
     tipo = out.column("tipo_resultado")[0].as_py()
@@ -327,7 +284,7 @@ def test_geocode_rua_quatro_nao_casa_probabilistico(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 7 - Etapa A (item 1): passthrough preserva nao-empatados
 # --------------------------------------------------------------------------- #
-def test_empates_passthrough_mixed(tmp_path):
+def test_empates_passthrough_mixed(cnefe_cache):
     """Nao-empatados passam direto (empate=FALSE) e empatados proximos ->
     media ponderada (empate=TRUE), uma linha por input.
 
@@ -335,8 +292,6 @@ def test_empates_passthrough_mixed(tmp_path):
     empates_classif + passthrough dos que nunca empataram (FALSE AS empate na
     posicao correta quando resultado_completo=True).
     """
-    data_dir = _prepare_cache(tmp_path)
-
     # input 1: "RUA PRINCIPAL" com candidato unico (passthrough)
     # input 2: "RUA DAS FLORES" com 2 candidatos a ~555m (nao ambiguo -> ramo F)
     # NAO usar logradouro de uma letra ("RUA X"): casa no regex de ambiguidade
@@ -363,9 +318,9 @@ def test_empates_passthrough_mixed(tmp_path):
             "cod_setor": ["530010005000003", "530010005000001", "530010005000002"],
         }
     )
-    _write_all_cnefe(data_dir, cnefe)
+    cnefe_cache(cnefe)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF", "DF"],
             "cidade": ["Brasilia", "Brasilia"],
@@ -373,9 +328,9 @@ def test_empates_passthrough_mixed(tmp_path):
             "num": ["10", "50"],
         }
     )
-    campos = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
+    fields = definir_campos(estado="uf", municipio="cidade", logradouro="rua", numero="num")
 
-    out = geocode(enderecos, campos, resultado_completo=True, verboso=False)
+    out = geocode(addresses, fields, resultado_completo=True, verboso=False)
 
     # uma linha por input (empate do input 2 resolvido pela media ponderada)
     assert out.num_rows == 2

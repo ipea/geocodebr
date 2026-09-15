@@ -1,14 +1,22 @@
+import pytest
 import pyarrow as pa
-import pyarrow.parquet as pq
 
-from geocodebr import busca_por_cep, definir_pasta_cache
-from geocodebr.constants import DATA_RELEASE
+from geocodebr import busca_por_cep
+from geocodebr.cep import _normalize_ceps
 
 
-def test_busca_por_cep_duckdb_flow(tmp_path):
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir()
+def test_normalize_ceps_deduplicates_sorts_and_accepts_int():
+    ceps = _normalize_ceps(["70390-025", "70390-025", "", "99999-999", 70390025])
+
+    # dedup + ordenacao; int e string padronizam igual. A string vazia e
+    # mantida (diferenca conhecida vs o R, que descarta vazios em
+    # busca_por_cep) e vira linha "nao encontrado" no output
+    assert ceps == ["", "70390-025", "99999-999"]
+    # escalar chega como lista
+    assert _normalize_ceps("70390-025") == ["70390-025"]
+
+
+def test_busca_por_cep_duckdb_flow(cnefe_cache):
     table = pa.table(
         {
             "cep": ["70390-025", "20071-001"],
@@ -20,10 +28,28 @@ def test_busca_por_cep_duckdb_flow(tmp_path):
             "lat": [-15.8, -22.9],
         }
     )
-    pq.write_table(table, data_dir / "municipio_logradouro_cep_localidade.parquet")
+    cnefe_cache(table, "municipio_logradouro_cep_localidade")
 
     out = busca_por_cep(["70390-025", "99999-999"], h3_res=3, verboso=False)
 
     assert out.num_rows == 2
     assert "h3_03" in out.schema.names
     assert out.column("cep").to_pylist() == ["70390-025", "99999-999"]
+
+
+def test_busca_por_cep_none_found(cnefe_cache):
+    table = pa.table(
+        {
+            "cep": ["70390-025"],
+            "estado": ["DF"],
+            "municipio": ["BRASILIA"],
+            "logradouro": ["AVENIDA TESTE"],
+            "localidade": ["CENTRO"],
+            "lon": [-47.9],
+            "lat": [-15.8],
+        }
+    )
+    cnefe_cache(table, "municipio_logradouro_cep_localidade")
+
+    with pytest.raises(ValueError, match="Nenhum CEP"):
+        busca_por_cep(["99999-999"], verboso=False)

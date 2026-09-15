@@ -24,12 +24,8 @@ def caminho_parquet(nome_tabela: str, pasta_dados: str | None = None) -> str:
     ``download_cnefe``), nao sao redescobertos aqui. O arquivo nao precisa
     existir.
     """
-    if not isinstance(nome_tabela, str):
-        raise TypeError("nome_tabela deve ser uma string.")
     if pasta_dados is None:
         pasta_dados = listar_pasta_cache()
-    if not isinstance(pasta_dados, str):
-        raise TypeError("pasta_dados deve ser uma string.")
 
     path = Path(pasta_dados) / f"geocodebr_data_release_{DATA_RELEASE}" / f"{nome_tabela}.parquet"
     return path.as_posix()
@@ -44,11 +40,6 @@ def listar_arquivo_config() -> str:
 
 
 def definir_pasta_cache(path: str | None, verboso: bool = True) -> str:
-    if path is not None and not isinstance(path, str):
-        raise TypeError("path deve ser uma string ou None.")
-    if not isinstance(verboso, bool):
-        raise TypeError("verboso deve ser True ou False.")
-
     cache_dir = Path(listar_pasta_cache_padrao()) if path is None else Path(path)
     cache_dir = cache_dir.expanduser()
 
@@ -72,9 +63,6 @@ def listar_pasta_cache() -> str:
 
 
 def listar_dados_cache(print_tree: bool = False) -> list[str]:
-    if not isinstance(print_tree, bool):
-        raise TypeError("print_tree deve ser True ou False.")
-
     cache_dir = Path(listar_pasta_cache())
     if not cache_dir.exists():
         message_cache(True)

@@ -189,8 +189,8 @@ def _run_python_geocode(
 ) -> pa.Table:
     definir_pasta_cache(str(cache_dir), verboso=False)
     if dataset == "small":
-        enderecos = pv.read_csv(input_path)
-        campos = definir_campos(
+        addresses = pv.read_csv(input_path)
+        fields = definir_campos(
             logradouro="nm_logradouro",
             numero="Numero",
             cep="Cep",
@@ -199,8 +199,8 @@ def _run_python_geocode(
             estado="nm_uf",
         )
     elif dataset == "large":
-        enderecos = pq.read_table(input_path)
-        campos = definir_campos(
+        addresses = pq.read_table(input_path)
+        fields = definir_campos(
             logradouro="logradouro",
             numero="numero",
             cep="cep",
@@ -212,8 +212,8 @@ def _run_python_geocode(
         raise ValueError(f"Unknown dataset: {dataset}")
 
     result = geocode(
-        enderecos=enderecos,
-        campos_endereco=campos,
+        enderecos=addresses,
+        campos_endereco=fields,
         resultado_completo=True,
         resolver_empates=True,
         resultado_gpd=resultado_gpd,
@@ -311,14 +311,14 @@ def test_geocode_reverso_matches_r(repo_root, r_lib, parity_cache, tmp_path, dis
     )
 
     input_df = input_points.to_pandas()
-    pontos = gpd.GeoDataFrame(
+    points = gpd.GeoDataFrame(
         input_df[["id"]],
         geometry=gpd.points_from_xy(input_df["lon"], input_df["lat"]),
         crs="EPSG:4674",
     )
     py_output = _flatten_gpd_geometry(
         geocode_reverso(
-            pontos=pontos,
+            pontos=points,
             dist_max=dist_max,
             verboso=False,
             cache=True,

@@ -12,7 +12,7 @@ from ._heap import n_cores_efetivo
 from .geo import arrow_to_geodataframe
 from .constants import ALL_POSSIBLE_MATCH_TYPES
 from .standardize import enderecobr_padronizar_enderecos
-from .db import create_geocodebr_db
+from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
 from .errors import error_input_nao_padronizado
 from .fields import (
@@ -40,7 +40,6 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
 from .utils import (
-    assert_bool,
     normalize_h3_res,
     add_precision_col,
     assert_no_reserved_columns,
@@ -67,16 +66,10 @@ def geocode(
     n_cores: int | None = None,
 ) -> pa.Table | gpd.GeoDataFrame:
 
+    if n_cores is not None and (not isinstance(n_cores, int) or n_cores < 1):
+        raise ValueError("n_cores deve ser um inteiro positivo ou None.")
     n_cores = n_cores_efetivo(n_cores)
 
-    for name, value in {
-        "resultado_completo": resultado_completo,
-        "resolver_empates": resolver_empates,
-        "padronizar_enderecos": padronizar_enderecos,
-        "verboso": verboso,
-        "cache": cache,
-    }.items():
-        assert_bool(value, name)
     h3_values = normalize_h3_res(h3_res)
     if campos_endereco is None:
         campos_endereco = definir_campos(estado="estado", municipio="municipio")
@@ -196,7 +189,7 @@ def geocode(
 
         return result
     finally:
-        con.close()
+        close_geocodebr_db(con)
         message_conexao_fechada(verboso)
 
 

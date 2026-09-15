@@ -4,13 +4,9 @@ import re
 from pathlib import Path
 
 import duckdb
+from duckdb.func import FunctionNullHandling
 
 from .constants import ALL_POSSIBLE_MATCH_TYPES, DATA_RELEASE, RESERVED_COLUMN_NAMES
-
-
-def assert_bool(value: bool, name: str) -> None:
-    if not isinstance(value, bool):
-        raise TypeError(f"{name} deve ser True ou False.")
 
 
 def normalize_h3_res(h3_res: int | list[int] | tuple[int, ...] | None) -> list[int]:
@@ -273,16 +269,18 @@ def add_h3_columns(
         return
     import h3
 
-    def h3_cell(lat: float | None, lon: float | None, res: int) -> str | None:
-        if lat is None or lon is None:
-            return None
-        if hasattr(h3, "latlng_to_cell"):
-            return h3.latlng_to_cell(lat, lon, res)
-        return h3.geo_to_h3(lat, lon, res)
+    def h3_cell(lat: float, lon: float, res: int) -> str:
+        return h3.latlng_to_cell(lat, lon, res)
 
     try:
-        con.create_function("_geocodebr_h3", h3_cell, ["DOUBLE", "DOUBLE", "INTEGER"], "VARCHAR")
-    except duckdb.InvalidInputException:
+        con.create_function(
+            "_geocodebr_h3",
+            h3_cell,
+            ["DOUBLE", "DOUBLE", "INTEGER"],
+            "VARCHAR",
+            null_handling=FunctionNullHandling.DEFAULT,
+        )
+    except duckdb.InvalidInputException:  # pragma: no cover
         pass
 
     for value in h3_values:

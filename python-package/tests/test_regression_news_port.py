@@ -2,11 +2,11 @@
 
 Cada teste trava um bug específico corrigido nas Etapas A-G:
   1. test_geocode_empates_lag_under_300m        -> Etapa C (ponto 9): LEAD->LAG
-  2. test_geocode_lograd_encontrado_sem_completo -> Etapa A (ponto 10)
+  2. test_geocode_lograd_encontrado_without_full_output -> Etapa A (ponto 10)
   3. test_geocode_cache_false_uses_temp_dir      -> Etapa D (ponto 12)
   4. test_match_weighted_reproducible            -> Etapa B (ponto 2)
-  5. test_geocode_pula_etapas_sem_logradouro     -> Etapa E (ponto 3)
-  6. test_download_cnefe_lista_tabelas           -> Etapa E (ponto 5)
+  5. test_geocode_skips_steps_without_logradouro     -> Etapa E (ponto 3)
+  6. test_download_cnefe_table_list           -> Etapa E (ponto 5)
   7. test_jaro_redundant_skipped                 -> Etapa G (Jaro redundante)
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ from unittest.mock import patch
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from geocodebr import definir_campos, definir_pasta_cache, geocode
+from geocodebr import definir_campos, geocode
 from geocodebr.cache import caminho_parquet
 from geocodebr.constants import (
     ALL_CNEFE_FILES,
@@ -26,46 +26,16 @@ from geocodebr.constants import (
 )
 
 
-def _write_all_cnefe(data_dir: Path, table: pa.Table) -> None:
-    """Escreve o mesmo parquet fake em todas as 8 tabelas do CNEFE."""
-    for file in ALL_CNEFE_FILES:
-        pq.write_table(table, data_dir / file)
-
-
-def _base_cnefe_table(**overrides) -> pa.Table:
-    """Cria uma tabela CNEFE fake mínima com defaults sobrescrevíveis."""
-    cols = {
-        "estado": ["DF"],
-        "municipio": ["BRASILIA"],
-        "logradouro": ["RUA TESTE"],
-        "numero": [100],
-        "cep": ["70000000"],
-        "localidade": ["CENTRO"],
-        "lon": [-47.9],
-        "lat": [-15.8],
-        "endereco_completo": ["RUA TESTE, 100 - CENTRO, BRASILIA - DF, 70000000"],
-        "desvio_metros": [10],
-        "n_casos": [1],
-        "cod_setor": ["530010005000001"],
-    }
-    cols.update(overrides)
-    return pa.table(cols)
-
-
 # --------------------------------------------------------------------------- #
 # Teste 1 — Etapa C (ponto 9): LEAD->LAG em empates <300m
 # --------------------------------------------------------------------------- #
-def test_geocode_empates_lag_under_300m(tmp_path):
+def test_geocode_empates_lag_under_300m(cnefe_cache):
     """2 candidatos a <300m entre si, com contagem_cnefe diferente.
 
     Antes do fix (LEAD), sobrevivia o de MENOR contagem (bug). Após o fix
     (LAG), sobrevive o de MAIOR contagem -- a linha de maior contagem tem
     id=1 e dist_geocodebr_metros=NULL, passando pelo filtro.
     """
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir()
-
     # Dois candidatos proximos (<300m) mesmo logradouro/numero, bairros diferentes
     # contagem_cnefe diferente para que o LAG vs LEAD faça diferença
     cnefe = pa.table(
@@ -87,9 +57,9 @@ def test_geocode_empates_lag_under_300m(tmp_path):
             "cod_setor": ["530010005000001", "530010005000002"],
         }
     )
-    _write_all_cnefe(data_dir, cnefe)
+    cnefe_cache(cnefe)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF"],
             "cidade": ["Brasilia"],
@@ -99,13 +69,13 @@ def test_geocode_empates_lag_under_300m(tmp_path):
             "bairro": ["Centro"],
         }
     )
-    campos = definir_campos(
+    fields = definir_campos(
         estado="uf", municipio="cidade", logradouro="rua",
         numero="num", cep="cep_in", localidade="bairro",
     )
 
     out = geocode(
-        enderecos, campos, resultado_completo=True,
+        addresses, fields, resultado_completo=True,
         resolver_empates=True, verboso=False,
     )
 
@@ -120,7 +90,7 @@ def test_geocode_empates_lag_under_300m(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 2 — Etapa A (ponto 10): logradouro_encontrado presente sem completo
 # --------------------------------------------------------------------------- #
-def test_geocode_lograd_encontrado_sem_completo(tmp_path):
+def test_geocode_lograd_encontrado_without_full_output(cnefe_cache):
     """logradouro_encontrado populado internamente mesmo com resultado_completo=False.
 
     logradouro_encontrado e coluna de trabalho interna (nao chega ao output
@@ -132,10 +102,6 @@ def test_geocode_lograd_encontrado_sem_completo(tmp_path):
     `IS NOT NULL` em df_empates_perdidos falharia, mandando o caso para
     "salvaveis" -- resultado diferente.
     """
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir()
-
     # 2 candidatos mesmo logradouro/numero/cep, bairros diferentes, >1000m entre si
     # 0.02 graus lat ~ 2.2km -> max_dist > 1000
     cnefe = pa.table(
@@ -157,22 +123,22 @@ def test_geocode_lograd_encontrado_sem_completo(tmp_path):
             "cod_setor": ["530010005000001", "530010005000002"],
         }
     )
-    _write_all_cnefe(data_dir, cnefe)
+    cnefe_cache(cnefe)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF"], "cidade": ["Brasilia"],
             "rua": ["Rua X"], "num": ["50"],
             "cep_in": ["70000-000"], "bairro": ["Centro"],
         }
     )
-    campos = definir_campos(
+    fields = definir_campos(
         estado="uf", municipio="cidade", logradouro="rua",
         numero="num", cep="cep_in", localidade="bairro",
     )
 
     out = geocode(
-        enderecos, campos, resultado_completo=False,
+        addresses, fields, resultado_completo=False,
         resolver_empates=True, verboso=False,
     )
 
@@ -190,7 +156,7 @@ def test_geocode_lograd_encontrado_sem_completo(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 3 — Etapa D (ponto 12): cache=False usa dir temp
 # --------------------------------------------------------------------------- #
-def test_geocode_cache_false_uses_temp_dir(tmp_path):
+def test_geocode_cache_false_uses_temp_dir(cache_tmp, cnefe_table):
     """cache=False deve ler do dir temp (retorno de download_cnefe), nao do
     cache persistente.
 
@@ -198,24 +164,24 @@ def test_geocode_cache_false_uses_temp_dir(tmp_path):
     listar_pasta_cache(), ignorando o retorno de download_cnefe -- resultando
     em 'IO Error: No files found' quando o cache persistente estava vazio.
     """
-    # Cache persistente vazio (aponta para tmp_path, sem parquets)
-    definir_pasta_cache(str(tmp_path / "persistente"), verboso=False)
+    # cache_tmp fica propositalmente sem parquets: se geocode() ler do cache
+    # persistente, "No files found"
 
     # Simula o tempdir que download_cnefe criaria com cache=False
-    fake_temp = tmp_path / "temp_download"
+    fake_temp = cache_tmp / "temp_download"
     fake_data = fake_temp / f"geocodebr_data_release_{DATA_RELEASE}"
     fake_data.mkdir(parents=True)
-    cnefe = _base_cnefe_table()
-    _write_all_cnefe(fake_data, cnefe)
+    for file in ALL_CNEFE_FILES:
+        pq.write_table(cnefe_table(), fake_data / file)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF"], "cidade": ["Brasilia"],
             "rua": ["Rua Teste"], "num": ["100"],
             "cep_in": ["70000-000"], "bairro": ["Centro"],
         }
     )
-    campos = definir_campos(
+    fields = definir_campos(
         estado="uf", municipio="cidade", logradouro="rua",
         numero="num", cep="cep_in", localidade="bairro",
     )
@@ -227,7 +193,7 @@ def test_geocode_cache_false_uses_temp_dir(tmp_path):
     with patch.object(geocode_mod, "download_cnefe", return_value=str(fake_temp)):
         # Antes do fix, isto lancaria IO Error: No files found
         out = geocode_mod.geocode(
-            enderecos, campos, resultado_completo=False,
+            addresses, fields, resultado_completo=False,
             verboso=False, cache=False, n_cores=1,
         )
 
@@ -241,17 +207,13 @@ def test_geocode_cache_false_uses_temp_dir(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 4 — Etapa B (ponto 2): reprodutibilidade do match_weighted
 # --------------------------------------------------------------------------- #
-def test_match_weighted_reproducible(tmp_path):
+def test_match_weighted_reproducible(cnefe_cache):
     """Rodar geocode() duas vezes com mesmo input deve gerar lat/lon idênticos.
 
     Antes do fix (CASE WHEN BOOL_OR com FIRST sem ORDER BY determinístico), o
     DuckDB podia devolver coordenadas diferentes entre execuções em casos de
     interpolação (da*/pa*).
     """
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir()
-
     # Dois candidatos com numeros diferentes para forçar interpolação (da02)
     # Sem localidade para que o match seja da02 (empate por bairro)
     cnefe = pa.table(
@@ -273,9 +235,9 @@ def test_match_weighted_reproducible(tmp_path):
             "cod_setor": ["530010005000001", "530010005000002"],
         }
     )
-    _write_all_cnefe(data_dir, cnefe)
+    cnefe_cache(cnefe)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["DF"], "cidade": ["Brasilia"],
             "rua": ["Rua Y"], "num": ["50"],
@@ -283,13 +245,13 @@ def test_match_weighted_reproducible(tmp_path):
         }
     )
     # Sem localidade -> key_cols de da02 nao incluem localidade -> empate
-    campos = definir_campos(
+    fields = definir_campos(
         estado="uf", municipio="cidade", logradouro="rua",
         numero="num", cep="cep_in",
     )
 
-    out1 = geocode(enderecos, campos, resultado_completo=True, verboso=False)
-    out2 = geocode(enderecos, campos, resultado_completo=True, verboso=False)
+    out1 = geocode(addresses, fields, resultado_completo=True, verboso=False)
+    out2 = geocode(addresses, fields, resultado_completo=True, verboso=False)
 
     assert out1.num_rows == out2.num_rows == 1
     lat1, lat2 = out1.column("lat")[0].as_py(), out2.column("lat")[0].as_py()
@@ -301,15 +263,11 @@ def test_match_weighted_reproducible(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 5 — Etapa E (ponto 3): pula etapas sem logradouro
 # --------------------------------------------------------------------------- #
-def test_geocode_pula_etapas_sem_logradouro(tmp_path):
+def test_geocode_skips_steps_without_logradouro(cnefe_cache):
     """Input só com estado/municipio deve pular todas as etapas com logradouro.
 
     tipo_resultado deve ser 'dm01' (match por estado+municipio only).
     """
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir()
-
     cnefe = pa.table(
         {
             "estado": ["DF"],
@@ -322,14 +280,14 @@ def test_geocode_pula_etapas_sem_logradouro(tmp_path):
             "cod_setor": ["530010005000001"],
         }
     )
-    _write_all_cnefe(data_dir, cnefe)
+    cnefe_cache(cnefe)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {"uf": ["DF"], "cidade": ["Brasilia"]}
     )
-    campos = definir_campos(estado="uf", municipio="cidade")
+    fields = definir_campos(estado="uf", municipio="cidade")
 
-    out = geocode(enderecos, campos, resultado_completo=True, verboso=False)
+    out = geocode(addresses, fields, resultado_completo=True, verboso=False)
 
     assert out.num_rows == 1
     tipos = out.column("tipo_resultado").to_pylist()
@@ -339,10 +297,8 @@ def test_geocode_pula_etapas_sem_logradouro(tmp_path):
 # --------------------------------------------------------------------------- #
 # Teste 6 — Etapa E (ponto 5): download_cnefe com lista de tabelas
 # --------------------------------------------------------------------------- #
-def test_download_cnefe_lista_tabelas(tmp_path):
+def test_download_cnefe_table_list(cache_tmp):
     """download_cnefe(['municipio','municipio_cep']) baixa só essas 2 tabelas."""
-    definir_pasta_cache(str(tmp_path), verboso=False)
-
     import importlib
 
     download_mod = importlib.import_module("geocodebr.download_cnefe")

@@ -6,7 +6,7 @@ import duckdb
 import pyarrow as pa
 
 from .cache import caminho_parquet
-from .db import create_geocodebr_db
+from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
 from .geo import table_coords_to_geodataframe
 from .utils import check_clean_colnames, quote_ident, db_table_columns
@@ -32,8 +32,8 @@ def geocode_reverso(
     _validate_pontos(pontos)
     if not isinstance(dist_max, (int, float)) or dist_max < 500 or dist_max > 100000:
         raise ValueError("dist_max deve estar entre 500 e 100000 metros.")
-    if not isinstance(verboso, bool) or not isinstance(cache, bool):
-        raise TypeError("verboso e cache devem ser True ou False.")
+    if n_cores is not None and (not isinstance(n_cores, int) or n_cores < 1):
+        raise ValueError("n_cores deve ser um inteiro positivo ou None.")
 
     cnefe_dir = download_cnefe(
         "municipio_logradouro_cep_localidade",
@@ -152,7 +152,7 @@ def geocode_reverso(
         table = con.execute("SELECT * FROM geocodebr_reverse_result").to_arrow_table()
         return table_coords_to_geodataframe(table, "_geocodebr_lon", "_geocodebr_lat")
     finally:
-        con.close()
+        close_geocodebr_db(con)
 
 
 def _validate_pontos(pontos: Any) -> None:

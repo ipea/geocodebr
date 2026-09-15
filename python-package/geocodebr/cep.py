@@ -8,11 +8,10 @@ import duckdb
 import pyarrow as pa
 
 from .cache import caminho_parquet
-from .db import create_geocodebr_db
+from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
 from .geo import arrow_to_geodataframe
 from .utils import (
-    assert_bool,
     normalize_h3_res,
     sql_string,
     add_h3_columns
@@ -29,8 +28,6 @@ def busca_por_cep(
     verboso: bool = True,
     cache: bool = True,
 ) -> pa.Table | gpd.GeoDataFrame:
-    assert_bool(verboso, "verboso")
-    assert_bool(cache, "cache")
     h3_values = normalize_h3_res(h3_res)
     ceps = _normalize_ceps(cep)
     
@@ -67,7 +64,7 @@ def busca_por_cep(
 
         return result
     finally:
-        con.close()
+        close_geocodebr_db(con)
 
 
 def _normalize_ceps(cep: int | str | list[str|int]) -> list[str]:

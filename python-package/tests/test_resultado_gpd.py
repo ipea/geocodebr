@@ -1,10 +1,8 @@
 import pandas as pd
 import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 
-from geocodebr import busca_por_cep, definir_campos, definir_pasta_cache, geocode
-from geocodebr.constants import ALL_CNEFE_FILES, DATA_RELEASE
+from geocodebr import busca_por_cep, definir_campos, geocode
 from geocodebr.geo import arrow_to_geodataframe
 
 gpd = pytest.importorskip("geopandas")
@@ -33,10 +31,7 @@ def test_arrow_to_geodataframe_drops_lat_lon_and_sets_crs():
     assert bool(pd.isna(gdf.geometry.iloc[1].x))
 
 
-def test_geocode_resultado_gpd(tmp_path):
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir()
+def test_geocode_resultado_gpd(cnefe_cache):
     cnefe = pa.table(
         {
             "estado": ["DF"],
@@ -53,10 +48,9 @@ def test_geocode_resultado_gpd(tmp_path):
             "cod_setor": ["001"],
         }
     )
-    for file in ALL_CNEFE_FILES:
-        pq.write_table(cnefe, data_dir / file)
+    cnefe_cache(cnefe)
 
-    enderecos = pa.table(
+    addresses = pa.table(
         {
             "uf": ["Distrito Federal"],
             "cidade": ["Brasilia"],
@@ -66,7 +60,7 @@ def test_geocode_resultado_gpd(tmp_path):
             "bairro": ["Centro"],
         }
     )
-    campos = definir_campos(
+    fields = definir_campos(
         estado="uf",
         municipio="cidade",
         logradouro="rua",
@@ -76,8 +70,8 @@ def test_geocode_resultado_gpd(tmp_path):
     )
 
     out = geocode(
-        enderecos,
-        campos,
+        addresses,
+        fields,
         resultado_completo=True,
         resultado_gpd=True,
         verboso=False,
@@ -92,10 +86,7 @@ def test_geocode_resultado_gpd(tmp_path):
     assert "lat" not in out.columns and "lon" not in out.columns
 
 
-def test_busca_por_cep_resultado_gpd(tmp_path):
-    definir_pasta_cache(str(tmp_path), verboso=False)
-    data_dir = tmp_path / f"geocodebr_data_release_{DATA_RELEASE}"
-    data_dir.mkdir()
+def test_busca_por_cep_resultado_gpd(cnefe_cache):
     table = pa.table(
         {
             "cep": ["70390-025", "20071-001"],
@@ -107,7 +98,7 @@ def test_busca_por_cep_resultado_gpd(tmp_path):
             "lat": [-15.8, -22.9],
         }
     )
-    pq.write_table(table, data_dir / "municipio_logradouro_cep_localidade.parquet")
+    cnefe_cache(table, "municipio_logradouro_cep_localidade")
 
     out = busca_por_cep(
         ["70390-025", "99999-999"],

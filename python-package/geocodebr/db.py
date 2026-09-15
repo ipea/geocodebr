@@ -11,9 +11,6 @@ def create_geocodebr_db(
     n_cores: int | None = None,
     load_spatial: bool = False,
 ) -> duckdb.DuckDBPyConnection:
-    if n_cores is not None and (not isinstance(n_cores, int) or n_cores < 1):
-        raise ValueError("n_cores deve ser um inteiro positivo ou None.")
-
     if db_path == "tempdir":
         handle = tempfile.NamedTemporaryFile(prefix="geocodebr", suffix=".duckdb", delete=True)
         db_file = handle.name
@@ -34,4 +31,43 @@ def create_geocodebr_db(
         con.execute("LOAD spatial")
 
     return con
+
+
+def close_geocodebr_db(con: duckdb.DuckDBPyConnection) -> None:
+    """Fecha a conexao e apaga o arquivo do banco se for temporario do pacote.
+
+    Com ``db_path="tempdir"`` (o padrao), o DuckDB recria o arquivo no
+    ``connect`` mesmo apos o ``unlink`` do placeholder do NamedTemporaryFile,
+    e o arquivo permanece no disco apos ``con.close()`` — um `.duckdb` por
+    chamada se acumula no diretorio temporario do sistema. Bancos em memoria
+    nao tem arquivo associado e caminhos customizados pelo usuario sao
+    preservados.
+    """
+    paths = [
+        row[0]
+        for row in con.execute(
+            "SELECT path FROM duckdb_databases() WHERE path IS NOT NULL AND path != ''"
+        ).fetchall()
+    ]
+    con.close()
+    for path in paths:
+        _remove_temp_db_file(path)
+
+
+def _remove_temp_db_file(path: str) -> None:
+    arquivo = Path(path)
+    no_diretorio_temporario = arquivo.parent == Path(tempfile.gettempdir())
+    if not (
+        no_diretorio_temporario
+        and arquivo.name.startswith("geocodebr")
+        and arquivo.suffix == ".duckdb"
+    ):
+        return
+    try:
+        arquivo.unlink(missing_ok=True)
+        # WAL do DuckDB, caso tenha sobrado de um fechamento anormal
+        Path(str(arquivo) + ".wal").unlink(missing_ok=True)
+    except OSError:
+        # remocao cosmetica: nao deve interromper o fluxo do usuario
+        pass
 

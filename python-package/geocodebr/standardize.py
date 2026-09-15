@@ -107,7 +107,7 @@ def _padronizar_estado_expr(
         func = enderecobr.padronizar_estados_para_sigla
     elif formato == "por_extenso":
         func = enderecobr.padronizar_estados_para_nome
-    else:
+    else:  # pragma: no cover -- validado na funcao publica antes de chegar aqui
         raise ValueError(
             f"formato_estados deve ser 'sigla' ou 'por_extenso', recebeu '{formato}'."
         )
