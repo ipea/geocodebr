@@ -64,7 +64,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  # dplyr::slice_sample(n = sample_size) |> # sample 20K
+  dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -82,12 +82,12 @@ stop()
 
 
 gc(T,T,T)
-bench::system_time(
-#bench::mark(iterations = 1,
+#bench::system_time(
+bench::mark(iterations = 1,
   cadgeo <- geocodebr::geocode(
     enderecos  = df,
     campos_endereco = campos,
-    # n_cores = 7, # 7
+    n_cores = 7, # 7
     verboso = T,
     resultado_completo = F,
     resolver_empates = T,
@@ -95,19 +95,22 @@ bench::system_time(
     )
   )
 
-# 43 milhoes
+# 43 milhoes, n_cores = NULL
 # process    real
-#    2.45m  16.43m
+#    3.17m  14.45m
 
 # 10 milhoes
 # args: n_cores = 7, resultado_completo = F resolver_empates = T
-# expression        min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
-# v0.3.0 CRAN     29.7m  29.7m  0.000562    18.3GB   0.0725     1   129      29.7m <NULL> <Rprofmem>
-# v0.4.0 CRAN     33.5m  33.5m  0.000497    8.06GB  0.00746     1    15      33.5m <NULL> <Rprofmem>
-# v0.5.0 CRAN     6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.6.4 CRAN     5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0  dev     4.36m  4.36m   0.00382    1016MB  0.00764     1     2      4.36m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 dev+ties 4.07m  4.07m   0.00410    1012MB  0.00820     1     2      4.07m <df>   <Rprofmem>
+# expression         min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
+# v0.3.0 CRAN      29.7m  29.7m  0.000562    18.3GB   0.0725     1   129      29.7m <NULL> <Rprofmem>
+# v0.4.0 CRAN      33.5m  33.5m  0.000497    8.06GB  0.00746     1    15      33.5m <NULL> <Rprofmem>
+# v0.5.0 CRAN      6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.6.4 CRAN      5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0  dev      4.36m  4.36m   0.00382    1016MB  0.00764     1     2      4.36m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0 dev+ties  4.07m  4.07m   0.00410    1012MB  0.00820     1     2      4.07m <df>   <Rprofmem>
+# v0.7.0 devendbr   54.3s  54.3s    0.0184     143MB   0.0368     1     2      54.3s <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0 devendbr2  42.8s  42.8s    0.0234     144MB        0     1     0      42.8s <df>   <Rprofmem> <bench_tm> <tibble>
+ 
 
 
 # v0.5.0 CRAN     2.39m !!!! em paralelo
@@ -117,13 +120,16 @@ bench::system_time(
 
 # 43 milhoes
 # args: n_cores = 7, resultado_completo = F resolver_empates = T
-# expression        min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
-# v0.3.0 CRAN        2h     2h  0.000139    79.3GB   0.0176     1   127         2h <dt>
-# v0.4.0 CRAN      3.3h   3.3h 0.0000843    34.5GB  0.00244     1    29       3.3h <dt>   <Rprofmem> <bench_tm> <tibble>
-# v0.5.0 CRAN     24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
-# v0.6.4 CRAN     18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0  dev     17.0m    17m  0.000979    4.12GB 0.000979     1     1        17m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 dev      16.7m  16.7m  0.000997    4.12GB 0.000997     1     1      16.7m <df>   <Rprofmem>
+# expression         min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
+# v0.3.0 CRAN         2h     2h  0.000139    79.3GB   0.0176     1   127         2h <dt>
+# v0.4.0 CRAN       3.3h   3.3h 0.0000843    34.5GB  0.00244     1    29       3.3h <dt>   <Rprofmem> <bench_tm> <tibble>
+# v0.5.0 CRAN      24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
+# v0.6.4 CRAN      18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0  dev      17.0m    17m  0.000979    4.12GB 0.000979     1     1        17m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0 dev       16.7m  16.7m  0.000997    4.12GB 0.000997     1     1      16.7m <df>   <Rprofmem>
+# v0.7.0 devendbr  19.8m  19.8m  0.000843    5.63GB  0.00169     1     2      19.8m <df>  
+# v0.7.0 devendbr  23.5m  23.5m  0.000708    5.65GB 0.000708     1     1      23.5m <df>
+
 
  # v0.5.0  8.99m  !!!! em paralelo por uf
  # v0.6.0  7.24m  !!!! em paralelo por uf

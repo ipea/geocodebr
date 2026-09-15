@@ -1,4 +1,4 @@
-data_release <- "v0.4.1"
+data_release <- "v0.5.0"
 
 listar_pasta_cache_padrao <- function() {
   fs::path(
