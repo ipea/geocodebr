@@ -244,3 +244,29 @@ test_that("errors with incorrect input", {
   expect_error(tester(cache = c(TRUE, TRUE)))
 })
 
+
+
+# regressao: o subprocesso do callr precisa enxergar as funcoes internas do
+# pacote. Quando ele carregava o geocodebr *instalado* em vez do desta sessao,
+# a chamada quebrava com "could not find function geocode_core" antes mesmo de
+# validar o input. Aqui forcamos um erro de validacao da Etapa 0: se a mensagem
+# vier de dentro do motor, o subprocesso achou geocode_core.
+test_that("subprocesso do callr enxerga as funcoes internas do pacote", {
+  campos_invalidos <- geocodebr::definir_campos(
+    logradouro = "coluna_que_nao_existe",
+    municipio = "nm_municipio",
+    estado = "nm_uf"
+  )
+
+  erro <- tryCatch(
+    geocodebr::geocode(
+      enderecos = input_df[1:2, ],
+      campos_endereco = campos_invalidos,
+      verboso = FALSE
+    ),
+    error = function(e) conditionMessage(e)
+  )
+
+  expect_false(grepl("could not find function", erro, fixed = TRUE))
+  expect_true(grepl("coluna_que_nao_existe", erro, fixed = TRUE))
+})

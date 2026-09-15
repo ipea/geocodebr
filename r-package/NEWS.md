@@ -1,6 +1,12 @@
 # geocodebr (development version)
 
+
 ## Mudanças grandes (Major changes)
+
+- Novo cache de dados ([v0.5.0](https://github.com/ipea/padronizacao_cnefe/releases/tag/v0.5.0)) 
+com dados significamente mais. O tamanho do cache completo com todas tabelas caiu em 
+aprox 18%. De 1.29 GB na V0.4.1 para 1.06 GB na v0.5.0.
+
 
 - A função `geocode_reverso()` agora usa como referência de busca a tabela 
 `municipio_logradouro_cep_localidade`, o que pemite captar melhor casos onde não
@@ -17,6 +23,15 @@ geocodificados a partir de `da02`/`da04`/`pa02` podem retornar coordenadas ligei
 diferentes das versões anteriores do pacote.
 
 ## Mudanças pequenas (Minor changes)
+
+
+
+- Corrigido um erro em `geocode()` quando o pacote é carregado em modo de 
+desenvolvimento (`devtools::load_all()`) ou quando há uma versão antiga instalada 
+na biblioteca: o subprocesso usado internamente (via `callr`) carregava o geocodebr 
+*instalado* em vez do da sessão, e a chamada falhava com 
+`could not find function "geocode_core"`. Agora o subprocesso carrega o mesmo 
+código da sessão e, em caso de divergência de versão, emite uma mensagem clara.
 
 - A função `geocode()` agora pula, sem custo, as etapas internas de busca que 
 dependem de um campo de endereço não declarado em `campos_endereco` (por exemplo, 

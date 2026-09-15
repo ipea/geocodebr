@@ -86,8 +86,20 @@ geocode <- function(
   cache = TRUE,
   n_cores = NULL
 ) {
+  # O corpo roda em um subprocesso via callr. Atencao: o subprocesso NAO herda o
+  # namespace desta sessao - ele carrega o geocodebr que estiver instalado na
+  # biblioteca (.libPaths()). Se os dois divergirem - tipico ao desenvolver com
+  # devtools::load_all(), ou com uma instalacao antiga na biblioteca - as funcoes
+  # internas simplesmente somem la dentro ("could not find function geocode_core").
+  # Por isso: em modo dev, mandamos o subprocesso carregar o mesmo codigo-fonte;
+  # fora dele, conferimos que as versoes batem antes de rodar.
+  dev_path <- caminho_pacote_dev()
+  versao_sessao <- as.character(getNamespaceVersion(asNamespace("geocodebr")))
+
   callr::r(
     func = function(
+      dev_path,
+      versao_sessao,
       enderecos,
       campos_endereco,
       resultado_completo,
@@ -99,7 +111,33 @@ geocode <- function(
       cache,
       n_cores
     ) {
+      if (!is.null(dev_path)) {
+        if (!requireNamespace("pkgload", quietly = TRUE)) {
+          stop(
+            "O geocodebr foi carregado em modo de desenvolvimento ",
+            "(devtools::load_all()), e o pacote 'pkgload' e necessario para ",
+            "reproduzir esse carregamento no subprocesso usado por geocode(). ",
+            "Instale o pkgload ou instale o geocodebr normalmente.",
+            call. = FALSE
+          )
+        }
+        pkgload::load_all(dev_path, quiet = TRUE)
+      }
+
+      ns <- asNamespace("geocodebr")
+      versao_subprocesso <- as.character(getNamespaceVersion(ns))
+      if (!identical(versao_subprocesso, versao_sessao)) {
+        stop(
+          "Divergencia de versao do geocodebr: a sessao usa a ", versao_sessao,
+          " e o subprocesso interno carregou a ", versao_subprocesso,
+          " de ", dirname(getNamespaceInfo(ns, "path")), ". ",
+          "Reinstale o geocodebr para que as duas coincidam.",
+          call. = FALSE
+        )
+      }
+
       # Run internal engine
+      geocode_core <- get("geocode_core", envir = ns)
       geocode_core(
         enderecos = enderecos,
         campos_endereco = campos_endereco,
@@ -114,6 +152,8 @@ geocode <- function(
       )
     },
     args = list(
+      dev_path = dev_path,
+      versao_sessao = versao_sessao,
       enderecos = enderecos,
       campos_endereco = campos_endereco,
       resultado_completo = resultado_completo,
@@ -126,8 +166,20 @@ geocode <- function(
       n_cores = n_cores
     ),
     show = TRUE,
-    package = TRUE
+    package = FALSE
   )
+}
+
+
+# Caminho do codigo-fonte quando o pacote foi carregado com devtools::load_all().
+# Retorna NULL quando estamos rodando a versao instalada normalmente.
+caminho_pacote_dev <- function() {
+  ns <- asNamespace("geocodebr")
+  if (exists(".__DEVTOOLS__", envir = ns, inherits = FALSE)) {
+    getNamespaceInfo(ns, "path")
+  } else {
+    NULL
+  }
 }
 
 

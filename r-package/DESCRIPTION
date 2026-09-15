@@ -58,6 +58,7 @@ Suggests:
     geobr,
     ggplot2 (>= 3.3.1),
     knitr,
+    pkgload,
     rmarkdown,
     scales,
     testthat (>= 3.0.0)

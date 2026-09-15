@@ -64,7 +64,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  dplyr::slice_sample(n = sample_size) |> # sample 20K
+  # dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -109,8 +109,8 @@ bench::mark(iterations = 1,
 # v0.7.0  dev      4.36m  4.36m   0.00382    1016MB  0.00764     1     2      4.36m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.7.0 dev+ties  4.07m  4.07m   0.00410    1012MB  0.00820     1     2      4.07m <df>   <Rprofmem>
 # v0.7.0 devendbr   54.3s  54.3s    0.0184     143MB   0.0368     1     2      54.3s <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 devendbr2  42.8s  42.8s    0.0234     144MB        0     1     0      42.8s <df>   <Rprofmem> <bench_tm> <tibble>
- 
+# v0.7.0 devendbr2  1.11m  1.11m    0.0150     141MB   0.0300     1     2      1.11m <df>   <Rprofmem> <bench_tm> <tibble>
+
 
 
 # v0.5.0 CRAN     2.39m !!!! em paralelo
