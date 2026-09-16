@@ -3,7 +3,8 @@ from __future__ import annotations
 import duckdb
 
 from .cache import caminho_parquet
-from .utils import get_key_cols, get_reference_table, quote_ident
+from .match_types import get_key_cols, get_reference_table
+from .utils import quote_ident
 
 
 def register_cnefe_table(

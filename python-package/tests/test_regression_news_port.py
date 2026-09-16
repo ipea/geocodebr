@@ -22,8 +22,8 @@ from geocodebr.cache import caminho_parquet
 from geocodebr.constants import (
     ALL_CNEFE_FILES,
     DATA_RELEASE,
-    MATCH_TYPES_JARO_REDUNDANTE,
 )
+from geocodebr.match_types import MATCH_TYPES_JARO_REDUNDANTE
 
 
 # --------------------------------------------------------------------------- #

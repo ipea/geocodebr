@@ -3,17 +3,19 @@ import pytest
 from geocodebr.constants import ALL_CNEFE_FILES, DATA_RELEASE
 from geocodebr.db import create_geocodebr_db
 from geocodebr.tables import register_cnefe_table
-from geocodebr.utils import (
-    check_clean_colnames,
-    find_cached_parquet,
+from geocodebr.match_types import (
     get_key_cols,
     get_prob_match_cutoff,
     get_reference_table,
-    merge_results_to_input,
+    tabelas_necessarias,
+)
+from geocodebr.matching import merge_results_to_input
+from geocodebr.utils import (
+    check_clean_colnames,
+    find_cached_parquet,
     normalize_h3_res,
     quote_ident,
     sql_string,
-    tabelas_necessarias,
 )
 
 
@@ -66,7 +68,7 @@ def test_add_h3_columns_no_resolutions_keeps_table():
     con = create_geocodebr_db(db_path="memory")
     try:
         con.execute("CREATE TABLE t (lat DOUBLE, lon DOUBLE)")
-        from geocodebr.utils import add_h3_columns
+        from geocodebr.matching import add_h3_columns
 
         add_h3_columns(con, "t", [])
         cols = [row[1] for row in con.execute("PRAGMA table_info('t')").fetchall()]
@@ -91,7 +93,7 @@ def test_add_h3_columns_with_null_coordinate():
         con.execute("CREATE TABLE t (lat DOUBLE, lon DOUBLE)")
         con.execute("INSERT INTO t VALUES (-15.8, NULL)")
 
-        from geocodebr.utils import add_h3_columns
+        from geocodebr.matching import add_h3_columns
 
         add_h3_columns(con, "t", [3])
         value = con.execute("SELECT h3_03 FROM t").fetchone()[0]

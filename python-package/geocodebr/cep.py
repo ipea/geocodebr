@@ -11,10 +11,10 @@ from .cache import caminho_parquet
 from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
 from .geo import arrow_to_geodataframe
+from .matching import add_h3_columns
 from .utils import (
     normalize_h3_res,
-    sql_string,
-    add_h3_columns
+    sql_string
 )
 
 if TYPE_CHECKING:

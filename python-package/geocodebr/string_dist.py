@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import duckdb
 
-from .utils import get_key_cols, get_prob_match_cutoff, quote_ident
+from .match_types import get_key_cols, get_prob_match_cutoff
+from .utils import quote_ident
 
 
 def calculate_string_dist(

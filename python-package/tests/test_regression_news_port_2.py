@@ -29,7 +29,7 @@ import pyarrow as pa
 import pytest
 
 from geocodebr import definir_campos, geocode
-from geocodebr.utils import cria_col_logradouro_confusao
+from geocodebr.matching import cria_col_logradouro_confusao
 
 
 # --------------------------------------------------------------------------- #

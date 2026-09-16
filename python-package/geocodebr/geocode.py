@@ -10,7 +10,11 @@ import pandas as pd
 
 from ._heap import n_cores_efetivo
 from .geo import arrow_to_geodataframe
-from .constants import ALL_POSSIBLE_MATCH_TYPES
+from .match_types import (
+    ALL_POSSIBLE_MATCH_TYPES,
+    get_key_cols,
+    tabelas_necessarias,
+)
 from .standardize import enderecobr_padronizar_enderecos
 from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
@@ -22,7 +26,11 @@ from .fields import (
     ADDRESS_FIELDS
 )
 from .matching import (
+    add_h3_columns,
+    add_precision_col,
     create_output_db,
+    cria_col_logradouro_confusao,
+    merge_results_to_input,
     select_match_function,
     trata_empates_geocode_duckdb,
 )
@@ -41,15 +49,9 @@ if TYPE_CHECKING:
 
 from .utils import (
     normalize_h3_res,
-    add_precision_col,
     assert_no_reserved_columns,
     check_clean_colnames,
-    cria_col_logradouro_confusao,
-    get_key_cols,
     db_table_columns,
-    merge_results_to_input,
-    add_h3_columns,
-    tabelas_necessarias,
 )
 
 

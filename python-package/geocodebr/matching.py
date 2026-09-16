@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import duckdb
+from duckdb.func import FunctionNullHandling
 
-from .constants import (
+from .match_types import (
     EXACT_TYPES_NO_NUMBER,
     MATCH_TYPES_JARO_REDUNDANTE,
     NUMBER_EXACT_TYPES,
@@ -10,10 +11,12 @@ from .constants import (
     PROBABILISTIC_EXACT_TYPES,
     PROBABILISTIC_INTERPOLATION_TYPES,
     PROBABILISTIC_TYPES_NO_NUMBER,
+    get_key_cols,
+    get_reference_table,
 )
 from .string_dist import calculate_string_dist
 from .tables import register_cnefe_table, register_unique_logradouros_table
-from .utils import get_key_cols, get_reference_table, update_input_db
+from .utils import quote_ident
 
 
 def create_output_db(con: duckdb.DuckDBPyConnection, resultado_completo: bool) -> None:
@@ -277,6 +280,171 @@ def select_match_function(match_type: str):
     if match_type in PROBABILISTIC_INTERPOLATION_TYPES:
         return match_weighted_cases_probabilistic
     raise ValueError(f"match_type sem funcao: {match_type}")
+
+
+def update_input_db(
+    con: duckdb.DuckDBPyConnection,
+    update_tb: str = "input_padrao_db",
+    reference_tb: str = "output_db",
+) -> int:
+    before = con.execute(f"SELECT COUNT(*) FROM {quote_ident(update_tb)}").fetchone()[0]
+    con.execute(
+        f"""
+        DELETE FROM {quote_ident(update_tb)}
+        WHERE tempidgeocodebr IN (
+          SELECT tempidgeocodebr FROM {quote_ident(reference_tb)}
+        )
+        """
+    )
+    after = con.execute(f"SELECT COUNT(*) FROM {quote_ident(update_tb)}").fetchone()[0]
+    return before - after
+
+
+def add_precision_col(con: duckdb.DuckDBPyConnection, update_tb: str) -> None:
+    update_tb = quote_ident(update_tb)
+    con.execute(f"ALTER TABLE {update_tb} ADD COLUMN precisao TEXT")
+    con.execute(
+        f"""
+        UPDATE {update_tb}
+        SET precisao = CASE
+          WHEN tipo_resultado IN ('dn01', 'dn02', 'dn03', 'dn04',
+                                  'pn01', 'pn02', 'pn03', 'pn04') THEN 'numero'
+          WHEN tipo_resultado IN ('da01', 'da02', 'da03', 'da04',
+                                  'pa01', 'pa02', 'pa03', 'pa04') THEN 'numero_aproximado'
+          WHEN tipo_resultado IN ('dl01', 'dl02', 'dl03', 'dl04',
+                                  'pl01', 'pl02', 'pl03', 'pl04') THEN 'logradouro'
+          WHEN tipo_resultado IN ('dc01', 'dc02') THEN 'cep'
+          WHEN tipo_resultado = 'db01' THEN 'localidade'
+          WHEN tipo_resultado = 'dm01' THEN 'municipio'
+          ELSE NULL
+        END
+        """
+    )
+
+
+def merge_results_to_input(
+    con: duckdb.DuckDBPyConnection,
+    x: str,
+    y: str,
+    select_columns: list[str],
+    resultado_completo: bool,
+    incluir_empate: bool = False,
+) -> None:
+    select_columns_y = [
+        "lat",
+        "lon",
+        "precisao",
+        "tipo_resultado",
+        "desvio_metros",
+        "endereco_encontrado",
+    ]
+
+    # com resolver_empates = False os casos empatados voltam em duplicidade
+    # (uma linha por candidato), entao a coluna 'empate' precisa acompanhar o
+    # output mesmo sem resultado_completo, para o usuario identificar essas
+    # linhas. Com resultado_completo = True ela ja entra na lista abaixo.
+    if incluir_empate and not resultado_completo:
+        select_columns_y.append('empate')
+
+    if resultado_completo:
+        select_columns_y.extend(
+            [
+                "logradouro_encontrado",
+                "numero_encontrado",
+                "cep_encontrado",
+                "localidade_encontrada",
+                "municipio_encontrado",
+                "estado_encontrado",
+                "similaridade_logradouro",
+                "contagem_cnefe",
+                "empate",
+                "cod_setor",
+            ]
+        )
+
+    # espelha o setdiff(select_columns, key_column) do R: tempidgeocodebr é
+    # interno e sai da projeção, eliminando o re-sort com EXCLUDE no geocode()
+    select_x = ", ".join(
+        f"{quote_ident(x)}.{quote_ident(col)}"
+        for col in select_columns
+        if col != "tempidgeocodebr"
+    )
+
+    # COALESCE na projeção substitui o UPDATE de tabela inteira (mesma
+    # semântica: match determinístico tem similaridade NULL, exibida como 1)
+    y_exprs: list[str] = []
+    for col in select_columns_y:
+        if resultado_completo and col == "similaridade_logradouro":
+            expr = f"COALESCE({quote_ident(y)}.similaridade_logradouro, 1)"
+        else:
+            expr = f"{quote_ident(y)}.{quote_ident(col)}"
+        y_exprs.append(f"{expr} AS {quote_ident(col)}")
+    select_y = ", ".join(y_exprs)
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE geocodebr_result AS
+        SELECT {select_x}, {select_y}
+        FROM {quote_ident(x)}
+        LEFT JOIN {quote_ident(y)}
+          ON {quote_ident(x)}.tempidgeocodebr = {quote_ident(y)}.tempidgeocodebr
+        ORDER BY {quote_ident(x)}.tempidgeocodebr
+        """
+    )
+
+
+def cria_col_logradouro_confusao(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("ALTER TABLE input_padrao_db ADD COLUMN log_causa_confusao BOOLEAN DEFAULT false")
+    ruas_num_ext = "|".join(
+        "RUA " + value
+        for value in ["UM", "DOIS", "TRES", "QUATRO", "CINCO", "SEIS", "SETE", "OITO", "NOVE", "DEZ", "ONZE", "DOZE", "TREZE"]
+    )
+    con.execute(
+        rf"""
+        UPDATE input_padrao_db
+        SET log_causa_confusao = true
+        WHERE
+          (
+            REGEXP_MATCHES(logradouro, '^(RUA|TRAVESSA|RAMAL|BECO|BLOCO|AVENIDA|RODOVIA|ESTRADA)\s+([A-Z]{{1,2}}-?|[0-9]{{1,3}}|[A-Z]{{1,2}}-?[0-9]{{1,3}}|[A-Z]{{1,2}}\s+[0-9]{{1,3}}|[0-9]{{1,3}}-?[A-Z]{{1,2}})(\s+KM( \d+)?)?$')
+            OR REGEXP_MATCHES(logradouro, '({ruas_num_ext})$')
+          )
+          AND NOT REGEXP_MATCHES(logradouro, '\bDE (JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\b')
+        """
+    )
+
+
+def add_h3_columns(
+    con: duckdb.DuckDBPyConnection,
+    table_name: str,
+    h3_values: list[int],
+) -> None:
+    if not h3_values:
+        return
+    import h3
+
+    def h3_cell(lat: float, lon: float, res: int) -> str:
+        return h3.latlng_to_cell(lat, lon, res)
+
+    try:
+        con.create_function(
+            "_geocodebr_h3",
+            h3_cell,
+            ["DOUBLE", "DOUBLE", "INTEGER"],
+            "VARCHAR",
+            null_handling=FunctionNullHandling.DEFAULT,
+        )
+    except duckdb.InvalidInputException:  # pragma: no cover
+        pass
+
+    for value in h3_values:
+        colname = f"h3_{value:02d}"
+        con.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident(colname)} TEXT")
+        con.execute(
+            f"""
+            UPDATE {quote_ident(table_name)}
+            SET {quote_ident(colname)} = _geocodebr_h3(lat, lon, {value})
+            WHERE lat IS NOT NULL
+            """
+        )
 
 
 def trata_empates_geocode_duckdb(
