@@ -1,4 +1,11 @@
-# geocodebr Python: Geolocalização de Endereços Brasileiros
+# geocodebr Python: Geolocalização de Endereços Brasileiros <img align="right" src="../r-package/man/figures/logo.svg" alt="" width="180">
+
+[![PyPI](https://img.shields.io/badge/PyPI-em%20breve-9ca3af)]()
+[![python-check](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml)
+[![python-parity](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/ipea/geocodebr?branch=main)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.14-blue)]()
 
 Versão Python do `geocodebr`, usando DuckDB como motor tabular principal.
 A proposta é preservar a dinâmica de uso do pacote R, incluindo nomes
@@ -7,12 +14,12 @@ boa performance e menor uso de memória.
 
 O pacote geolocaliza endereços brasileiros sem limite de número de consultas,
 com base em dados abertos do CNEFE (Cadastro Nacional de Endereços para Fins
-Estatisticos), publicado pelo IBGE.
+Estatísticos), publicado pelo IBGE.
 
 ## Instalação
 
 No momento, esta versão Python ainda está em desenvolvimento dentro deste
-repositório. Para instalar localmente:
+repositório (a publicação no PyPI está planejada). Para instalar localmente:
 
 ```bash
 cd python-package
@@ -22,33 +29,11 @@ python -m pip install -e .
 Dependências principais:
 
 - `duckdb`: motor principal de dados e SQL.
-- `pyarrow`: formato padrao de retorno e interoperabilidade com Parquet.
-- `requests`: download dos dados CNEFE.
-- `h3`: criacao opcional de celulas H3.
-
-TODO: 
-- acrescentar enderecobr, para padronização dos endereços, garantindo paridade com R
-- acrescentar polars, usado para mapear o enderecobr
-
-Para desenvolvimento e testes:
-
-```bash
-uv run pytest -q
-```
-
-### Testes de paridade R vs Python
-
-O pacote tambem inclui testes que comparam a saída do Python com a saída do
-pacote R usando os dados de exemplo `inst/extdata/small_sample.csv` e
-`inst/extdata/large_sample.parquet`.
-
-Esses testes exigem `Rscript` no `PATH`, instalam o pacote R localmente em uma
-biblioteca temporária e podem baixar dados CNEFE. Se `Rscript` não estiver
-disponível, eles são pulados automaticamente.
-
-```bash
-uv run pytest -m r_parity -q
-```
+- `pyarrow`: formato padrão de retorno e interoperabilidade com Parquet.
+- `enderecobr`: padronização dos endereços, garantindo paridade com o pacote R.
+- `polars`: processamento tabular interno, usado para integrar o `enderecobr`.
+- `requests`: download dos dados do CNEFE.
+- `h3`: criação opcional de células H3.
 
 ## Utilização
 
@@ -61,30 +46,40 @@ O pacote possui três funções principais:
 As funções retornam, por padrão, um `pyarrow.Table`. Caso precise converter para
 `pandas`, use `.to_pandas()` no resultado final. Passando `resultado_gpd=True`, o
 retorno é um `geopandas.GeoDataFrame` de pontos no CRS SIRGAS 2000 (EPSG 4674),
-equivalente ao `sf` do pacote R. Esse retorno exige o extra `geo` na instalação.
+equivalente ao `sf` do pacote R. Esse retorno exige o extra `geo` na instalação
 (`python -m pip install geocodebr[geo]`).
 
-## 1. Geolocalização: de endereços para coordenadas
+### 1. Geolocalização: de endereços para coordenadas
 
 Primeiro, indique quais colunas da sua tabela representam cada campo do
 endereço usando `definir_campos()`. Depois, chame `geocode()`.
 
-O primeiro uso pode baixar os dados CNEFE em cache local.
+Por padrão, os endereços são padronizados internamente pela função
+`enderecobr_padronizar_enderecos()`, o que é essencial para uma
+geolocalização correta. O primeiro uso pode baixar os dados do CNEFE para o
+cache local.
 
 ```python
-import pyarrow.csv as pv
+import polars as pl
 
 from geocodebr import definir_campos, geocode
 
-enderecos = pv.read_csv("../inst/extdata/small_sample.csv")
+enderecos = pl.DataFrame({
+    "logradouro": ["RUA PRESIDENTE VARGAS", "AVENIDA PAULISTA"],
+    "numero": [123, 1000],
+    "cep": ["20080-901", "01310-100"],
+    "localidade": ["Centro", "Bela Vista"],
+    "municipio": ["RIO DE JANEIRO", "SAO PAULO"],
+    "estado": ["RJ", "SP"],
+})
 
 campos = definir_campos(
-    logradouro="nm_logradouro",
-    numero="Numero",
-    cep="Cep",
-    localidade="Bairro",
-    municipio="nm_municipio",
-    estado="nm_uf",
+    logradouro="logradouro",
+    numero="numero",
+    cep="cep",
+    localidade="localidade",
+    municipio="municipio",
+    estado="estado",
 )
 
 resultado = geocode(
@@ -104,7 +99,7 @@ Também é possível passar diretamente um caminho para arquivo `.csv` ou `.parq
 
 ```python
 resultado = geocode(
-    enderecos="../inst/extdata/small_sample.csv",
+    enderecos="caminho/para/enderecos.csv",
     campos_endereco=campos,
     verboso=False,
 )
@@ -124,8 +119,7 @@ Com `resultado_completo=True`, também retorna campos encontrados no CNEFE, como
 `localidade_encontrada`, `municipio_encontrado`, `estado_encontrado`,
 `similaridade_logradouro`, `contagem_cnefe`, `empate` e `cod_setor`.
 
-
-## 2. Geolocalização reversa: de coordenadas para endereços
+### 2. Geolocalização reversa: de coordenadas para endereços
 
 `geocode_reverso()` busca o endereço mais próximo de cada ponto dentro de uma
 distância máxima em metros. Assim como no R, a entrada deve ser um
@@ -157,7 +151,7 @@ print(enderecos_proximos)
 O resultado inclui os campos do endereço encontrado e a coluna
 `distancia_metros`.
 
-## 3. Busca por CEP
+### 3. Busca por CEP
 
 `busca_por_cep()` retorna os endereços associados a um ou mais CEPs.
 
@@ -187,25 +181,42 @@ O resultado inclui:
 
 Se `h3_res` for informado, o pacote adiciona colunas como `h3_08` ou `h3_10`.
 
-## Exemplos de uso do geocodebr Python
+### Padronização de endereços
 
-Esta pasta contém exemplos simples usando as funções principais da versão Python:
+A função `enderecobr_padronizar_enderecos()` também está disponível
+publicamente, para padronizar os endereços antes da geolocalização (ou usá-la
+de forma independente). Ela recebe um `polars.DataFrame` e o dicionário criado
+com `definir_campos()`, e adiciona as colunas `*_padr`:
 
-- `geocode()`: busca coordenadas a partir de enderecos.
-- `busca_por_cep()`: busca enderecos/coordenadas a partir de CEPs.
-- `geocode_reverso()`: busca endereco proximo a coordenadas.
+```python
+from geocodebr import enderecobr_padronizar_enderecos
 
-Execute os exemplos a partir da raiz do repositorio:
-
-```bash
-uv run python exemple/geocode_enderecos.py
-uv run python exemple/busca_por_cep.py
-uv run python exemple/geocode_reverso.py
+enderecos_padrao = enderecobr_padronizar_enderecos(
+    enderecos=enderecos,
+    campos_do_endereco=campos,
+    formato_estados="sigla",
+    formato_numeros="integer",
+    manter_cols_extras=True,
+)
 ```
 
-## Cache dos dados CNEFE
+Se os seus dados já estiverem padronizados (ou seja, já contiverem as colunas
+`*_padr`), chame `geocode(..., padronizar_enderecos=False)` para pular essa
+etapa.
 
-Na primeira execução, o pacote baixa arquivos Parquet do release CNEFE usado
+## Precisão dos resultados
+
+Os resultados do `geocode()` são classificados em seis categorias de
+`precisao` ("numero", "numero_aproximado", "logradouro", "cep", "localidade" e
+"municipio"), desagregadas em códigos de `tipo_resultado` (e.g. `dn01`,
+`pa03`), e incluem a coluna `desvio_metros`, com uma estimativa da incerteza
+da localização encontrada. A interpretação dessas colunas, o significado de
+cada código e as regras de resolução de empates estão documentadas na
+[**vignette "geocode"**](https://ipea.github.io/geocodebr/articles/geocode.html).
+
+## Cache dos dados do CNEFE
+
+Na primeira execução, o pacote baixa arquivos Parquet do release do CNEFE usado
 pelo `geocodebr`. Esses arquivos ficam em cache local para acelerar chamadas
 futuras.
 
@@ -225,30 +236,33 @@ download_cnefe(tabela="municipio_logradouro_cep_localidade", verboso=True)
 arquivos = listar_dados_cache()
 print(arquivos)
 
-# definir uma pasta de cache especifica
+# definir uma pasta de cache específica
 definir_pasta_cache("D:/dados/geocodebr-cache", verboso=True)
 
 # apagar cache configurado
 # deletar_pasta_cache()
 ```
 
-## DuckDB-first
+## Processamento interno (DuckDB-first)
 
-Esta versao evita usar `pandas` no pipeline interno. O fluxo principal registra
-entradas no DuckDB, executa joins/filtros/matches em SQL e so materializa o
+Esta versão evita usar `pandas` no pipeline interno. O fluxo principal registra
+as entradas no DuckDB, executa joins/filtros/matches em SQL e só materializa o
 resultado no final como `pyarrow.Table`.
 
-Isso facilita a paridade com o pacote R, que tambem usa DuckDB para o motor de
-geocodificacao, e ajuda em bases maiores.
+A padronização dos endereços é a única etapa fora do DuckDB: é feita em
+`polars`, fazendo a ponte com os bindings Python do `enderecobr`, sem
+materializar `pandas` em nenhum momento.
 
-TODO falar de polars
+Isso facilita a paridade com o pacote R, que também usa DuckDB para o motor de
+geocodificação, e ajuda em bases maiores.
 
 ## Windows e performance
 
-No Windows, o `python.exe` roda por padrão no heap NT legacy e não no mais moderno e eficaz Segment Heap.
-O heap legado degrada sob alocação multithread intensa do DuckDB: o `geocode()` fica mais lento 
-e piora a cada chamada na mesma sessão (contexto em
-[duckdb/duckdb#24027](https://github.com/duckdb/duckdb/issues/24027) e no 
+No Windows, o `python.exe` roda por padrão no heap NT legacy e não no mais
+moderno e eficaz Segment Heap. O heap legado degrada sob alocação multithread
+intensa do DuckDB: o `geocode()` fica mais lento e piora a cada chamada na
+mesma sessão (contexto em
+[duckdb/duckdb#24027](https://github.com/duckdb/duckdb/issues/24027) e no
 [relatório de diagnóstico do pacote](../quality_reports/diagnoses/2026-09-04_geocode-deterioracao-python-diagnostico.md)).
 
 O pacote mitiga o problema de duas formas:
@@ -261,28 +275,29 @@ O pacote mitiga o problema de duas formas:
    bacia plana entre 3 e 6 threads) e emite um aviso uma vez
    por sessão. Um `n_cores` passado de forma explícita é respeitado.
 
-2. **Interpretador com Segment Heap (recomendado)** — usuário pode gerar uma cópia do
-   interpretador python com o manifesto patcheado com o Segment Heap e rodar o `geocode()` 
-   a partir dele. Para criar a cópia, basta rodar: 
+2. **Interpretador com Segment Heap (recomendado)** — usuário pode gerar uma
+   cópia do interpretador Python com o manifesto patcheado com o Segment Heap
+   e rodar o `geocode()` a partir dele. Para criar a cópia, basta rodar:
 
    ```bash
    python -m geocodebr._heap_patch
    ```
 
-   O comando cria o arquivo `python-geocodebr-sh.exe` ao lado do interpretador 
-   base (`python.exe`), sem alterar o original. Inicie a sessão pela cópia para 
+   O comando cria o arquivo `python-geocodebr-sh.exe` ao lado do interpretador
+   base (`python.exe`), sem alterar o original. Inicie a sessão pela cópia para
    que o DuckDB use o Segment Heap.
 
-   **Em benchmarks internos com 10M de enderecos, o tempo total do `geocode()` caiu de 11:47 minutos para 3:08 minutos**.
+   **Em benchmarks internos com 10 milhões de endereços, o tempo total do
+   `geocode()` caiu de 11:47 minutos para 3:08 minutos**.
 
 Limitações conhecidas:
 
 - Requer Windows 10 (build 19041) ou superior.
-- Não existe configuração do Windows (variável de ambiente ou registro) que ligue
-  o Segment Heap por processo. A camada de compatibilidade — via
+- Não existe configuração do Windows (variável de ambiente ou registro) que
+  ligue o Segment Heap por processo. A camada de compatibilidade — via
   `__COMPAT_LAYER=SEGMENTHEAP` ou persistida no registro
-  (`AppCompatFlags\Layers` / `Image File Execution Options`) — não alcança o heap
-  criado no startup, por onde passam as alocações do DuckDB.
+  (`AppCompatFlags\Layers` / `Image File Execution Options`) — não alcança o
+  heap criado no startup, por onde passam as alocações do DuckDB.
 - O ganho vale apenas para sessões iniciadas pela cópia
   (`python-geocodebr-sh.exe`); Jupyter/IDEs que lançam outro interpretador não
   se beneficiam.
@@ -300,22 +315,41 @@ Limitações conhecidas:
   deterioração entre chamadas sucessivas na mesma sessão; a cópia com Segment
   Heap resolve os dois problemas.
 
-## Estado atual
+## Desenvolvimento e testes
 
-Esta versao Python ainda e experimental.
+Para rodar a suíte de testes:
 
-Ja implementado:
+```bash
+uv run pytest -q
+```
 
-- `definir_campos()`
-- `download_cnefe()`
-- funcoes de cache
-- `busca_por_cep()`
-- `geocode()` com motor DuckDB
-- `geocode_reverso()` com DuckDB Spatial
-- retorno em `geopandas.GeoDataFrame` (EPSG 4674) quando `resultado_gpd=True`
-- testes unitarios com Parquets sinteticos
+### Testes de paridade R vs Python
 
-Pontos que ainda precisam de validacao ampla:
+O pacote também inclui testes que comparam a saída do Python com a saída do
+pacote R usando os dados de exemplo `inst/extdata/small_sample.csv` e
+`inst/extdata/large_sample.parquet`.
 
-- paridade completa da padronizacao com o pacote R `enderecobr`
-- comparacao Python vs R em amostras reais maiores
+Esses testes exigem `Rscript` no `PATH`, instalam o pacote R localmente em uma
+biblioteca temporária e podem baixar dados do CNEFE. Se `Rscript` não estiver
+disponível, eles são pulados automaticamente.
+
+```bash
+uv run pytest -m r_parity -q
+```
+
+### Exemplos
+
+A pasta `exemple/` contém scripts simples usando as funções principais da
+versão Python:
+
+- `geocode_enderecos.py`: busca coordenadas a partir de endereços.
+- `busca_por_cep.py`: busca endereços/coordenadas a partir de CEPs.
+- `geocode_reverso.py`: busca endereço próximo a coordenadas.
+
+Execute os exemplos a partir da raiz do repositório:
+
+```bash
+uv run python exemple/geocode_enderecos.py
+uv run python exemple/busca_por_cep.py
+uv run python exemple/geocode_reverso.py
+```
