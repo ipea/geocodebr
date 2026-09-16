@@ -4,8 +4,7 @@
 [![python-check](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml)
 [![python-parity](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml)
 [![Codecov test
-coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/ipea/geocodebr?branch=main)
-[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.14-blue)]()
+coverage](https://codecov.io/gh/ipea/geocodebr/branch/test_python/graph/badge.svg?flag=python)](https://app.codecov.io/gh/ipea/geocodebr?tree/python_test?flag%5B0%5D=python)
 
 Versão Python do `geocodebr`, usando DuckDB como motor tabular principal.
 A proposta é preservar a dinâmica de uso do pacote R, incluindo nomes
@@ -320,8 +319,11 @@ Limitações conhecidas:
 Para rodar a suíte de testes:
 
 ```bash
-uv run pytest -q
+uv run pytest -q -m "not r_parity"
 ```
+
+Esse comando roda apenas os testes unitários, com
+Parquets sintéticos, sem baixar dados do CNEFE.
 
 ### Testes de paridade R vs Python
 
