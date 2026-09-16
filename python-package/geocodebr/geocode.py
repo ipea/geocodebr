@@ -93,7 +93,8 @@ def geocode(
         chamam `"estado"` e `"municipio"`.
     resultado_completo : bool, opcional
         Indica se o output deve incluir colunas adicionais, como o endereço
-        encontrado de referência. Por padrão, é `False`.
+        encontrado de referência e o código do setor censitário.
+        Por padrão, é `False`.
     resolver_empates : bool, opcional
         Alguns resultados da geolocalização podem indicar diferentes
         coordenadas possíveis (e.g. duas ruas diferentes com o mesmo nome em

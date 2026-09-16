@@ -8,7 +8,7 @@ coverage](https://codecov.io/gh/ipea/geocodebr/branch/python_test/graph/badge.sv
 
 Versão Python do `geocodebr`, usando DuckDB como motor tabular principal.
 A proposta é preservar a dinâmica de uso do pacote R, incluindo nomes
-de funções em português, mas mantendo o processamento interno em SQL/DuckDB para
+de funções em português, mantendo o processamento interno em SQL/DuckDB para
 boa performance e menor uso de memória.
 
 O pacote geolocaliza endereços brasileiros sem limite de número de consultas,
@@ -289,9 +289,9 @@ O pacote mitiga o problema de duas formas:
    **Em benchmarks internos com 10 milhões de endereços, o tempo total do
    `geocode()` caiu de 11:47 minutos para 3:08 minutos**.
 
-Limitações conhecidas:
+Limitações conhecidas das soluções apresentadas para uso do `geocodebr` no Windows:
 
-- Requer Windows 10 (build 19041) ou superior.
+- Interpretador com Segment Heap requer Windows 10 (build 19041) ou superior.
 - Não existe configuração do Windows (variável de ambiente ou registro) que
   ligue o Segment Heap por processo. A camada de compatibilidade — via
   `__COMPAT_LAYER=SEGMENTHEAP` ou persistida no registro
@@ -355,3 +355,42 @@ uv run python exemple/geocode_enderecos.py
 uv run python exemple/busca_por_cep.py
 uv run python exemple/geocode_reverso.py
 ```
+
+## Nota <a href="https://www.ipea.gov.br"><img src="../r-package/man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>
+
+Os dados originais do CNEFE são coletados pelo Instituto Brasileiro de
+Geografia e Estatística (IBGE). O **{geocodebr}** foi desenvolvido por
+uma equipe do Instituto de Pesquisa Econômica Aplicada (Ipea), e conta
+com apoio do Instituto Todos pela Saúde (ITpS).
+
+## Instituições utilizando o {geocodebr}
+
+Além de diversos pesquisadores e empresas que utilizam o {geocodebr}, o
+pacote também tem sido utilizado por algumas instituições públicas no
+planejamento e avaliação de políticas públicas. Entre elas:
+
+- Instituto Brasileiro de Geografia e Estatistica (IBGE)
+- Banco Central do Brasil (BCB)
+- Ministério do Desenvolvimento Social e Combate à Fome (MDS)
+
+## Projetos relacionados
+
+Existem diversos pacotes de geolocalização disponíveis, muitos dos quais
+podem ser utilizados em Python (listados abaixo). A maioria dessas
+alternativas depende de softwares e conjuntos de dados comerciais,
+geralmente impondo limites de número de consultas gratuitas. Em
+contraste, as principais vantagens do `geocodebr` são que o pacote:
+(a) é completamente gratuito, permitindo consultas ilimitadas sem nenhum
+custo; (b) opera com alta velocidade e escalabilidade eficiente,
+permitindo geocodificar milhões de endereços em apenas alguns minutos,
+sem a necessidade de infraestrutura computacional avançada ou de alto
+desempenho.
+
+- [geopy](https://pypi.org/project/geopy/): cliente para diversos
+  serviços de geocodificação (Nominatim/OSM, Google, ArcGIS, Photon etc.)
+- [googlemaps](https://pypi.org/project/googlemaps/): interface para a
+  API do Google Maps
+- [ArcGIS API for Python](https://pypi.org/project/arcgis/): utiliza o
+  serviço de geocodificação do ArcGIS
+- [opencage](https://pypi.org/project/opencage/): cliente do serviço
+  OpenCage
