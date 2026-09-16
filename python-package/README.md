@@ -4,7 +4,7 @@
 [![python-check](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml)
 [![python-parity](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml)
 [![Codecov test
-coverage](https://codecov.io/gh/ipea/geocodebr/branch/test_python/graph/badge.svg?flag=python)](https://app.codecov.io/gh/ipea/geocodebr?tree/python_test?flag%5B0%5D=python)
+coverage](https://codecov.io/gh/ipea/geocodebr/branch/python_test/graph/badge.svg?flag=python)](https://app.codecov.io/gh/ipea/geocodebr/tree/python_test?flags%5B0%5D=python)
 
 Versão Python do `geocodebr`, usando DuckDB como motor tabular principal.
 A proposta é preservar a dinâmica de uso do pacote R, incluindo nomes
