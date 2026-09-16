@@ -2,9 +2,9 @@
 
 Equivalente Python de ``sfheaders::sf_point(..., keep = TRUE)`` +
 ``sf::st_crs(...) <- 4674`` usados no pacote R: as colunas ``lon``/``lat``
-viram uma coluna de geometria de pontos (e sao consumidas por ela, como no
-R, onde ``keep`` controla a manutencao das linhas com coordenada ``NA``),
-e o CRS e fixado em SIRGAS 2000 (EPSG 4674).
+viram uma coluna de geometria de pontos (e são consumidas por ela, como no
+R, onde ``keep`` controla a manutenção das linhas com coordenada ``NA``),
+e o CRS é fixado em SIRGAS 2000 (EPSG 4674).
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ CRS_SIRGAS_2000 = "EPSG:4674"
 def arrow_to_geodataframe(table: pa.Table) -> gpd.GeoDataFrame:
     """Converte a tabela de resultado em um GeoDataFrame de pontos.
 
-    Levanta ``ImportError`` com instrucao de instalacao caso o extra ``geo``
-    (geopandas) nao esteja instalado.
+    Levanta ``ImportError`` com instrução de instalação caso o extra ``geo``
+    (geopandas) não esteja instalado.
     """
     gpd = _import_geopandas("resultado_gpd=True")
     return _points_geodataframe(gpd, table.to_pandas(), "lon", "lat")
@@ -34,9 +34,9 @@ def table_coords_to_geodataframe(
 ) -> gpd.GeoDataFrame:
     """Converte tabela + colunas de coordenadas em GeoDataFrame de pontos.
 
-    Usada pelo ``geocode_reverso()``, cuja geometria do output e o proprio
-    ponto de input. Levanta ``ImportError`` com instrucao de instalacao caso
-    o extra ``geo`` (geopandas) nao esteja instalado.
+    Usada pelo ``geocode_reverso()``, cuja geometria do output é o próprio
+    ponto de input. Levanta ``ImportError`` com instrução de instalação caso
+    o extra ``geo`` (geopandas) não esteja instalado.
     """
     gpd = _import_geopandas("geocode_reverso")
     return _points_geodataframe(gpd, table.to_pandas(), lon_col, lat_col)

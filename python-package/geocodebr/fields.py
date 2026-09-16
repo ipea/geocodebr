@@ -13,6 +13,62 @@ def definir_campos(
     cep: str | None = None,
     localidade: str | None = None,
 ) -> dict[str, str | None]:
+    """Especifica as colunas que descrevem os campos dos endereços.
+
+    Cria um dicionário especificando as colunas que representam cada campo do
+    endereço na tabela de endereços. Os campos `estado` e `municipio` são
+    obrigatórios.
+
+    Parameters
+    ----------
+    estado : str
+        O nome da coluna que representa o estado do endereço. Na tabela de
+        endereços, essa coluna pode conter os nomes dos estados por extenso,
+        ou a abreviação oficial dos estados com duas letras, e.g. "AM", "SP",
+        "DF", "RJ".
+    municipio : str
+        O nome da coluna que representa o município do endereço. Na tabela de
+        endereços, essa coluna pode conter o nome dos municípios, ou o seu
+        código IBGE de 7 dígitos.
+    logradouro : str, opcional
+        O nome da coluna que representa o *logradouro* (endereço da rua) do
+        endereço. Pode ser `None` se o campo não estiver especificado na
+        tabela de endereços. Na tabela de endereços, essa coluna deve incluir
+        o *tipo* e o *nome* do logradouro, indicando se trata-se de uma "Rua"
+        ou "Avenida" etc, por exemplo "Avenida Presidente Getúlio Vargas".
+        Além disso, essa coluna *não* deve incluir o `numero` do endereço,
+        pois o número deve ser indicado numa coluna separada.
+    numero : str, opcional
+        O nome da coluna que representa o número do endereço. Pode ser `None`
+        se o campo não estiver especificado na tabela de endereços. Na tabela
+        de endereços, valores como `0` ou caracteres não numéricos como "S/N"
+        ou "10a" são considerados como `NA`.
+    cep : str, opcional
+        O nome da coluna que representa o *CEP* (Código de Endereçamento
+        Postal) do endereço. Pode ser `None` se o campo não estiver
+        especificado na tabela de endereços.
+    localidade : str, opcional
+        O nome da coluna que representa a localidade (equivalente ao 'bairro'
+        em áreas urbanas) do endereço. Pode ser `None` se esse campo não
+        estiver presente na tabela de endereços.
+
+    Returns
+    -------
+    dict[str, str | None]
+        Dicionário no qual as chaves são os campos do endereço e os valores
+        são as colunas que os representam na tabela de endereços.
+
+    Examples
+    --------
+    >>> definir_campos(
+    ...     logradouro="Nome_logradouro",
+    ...     numero="Numero",
+    ...     cep="CEP",
+    ...     localidade="Bairro",
+    ...     municipio="Cidade",
+    ...     estado="UF",
+    ... )
+    """
     values = {
         "logradouro": logradouro,
         "numero": numero,
@@ -56,14 +112,14 @@ def fill_missing_fields(
     df_input: pl.DataFrame,
     campos_endereco: dict[str, str | None],
 ) -> tuple[pl.DataFrame, dict[str, str], list[str]]:
-    """Preenche campos nao declarados com colunas-fantasma NA.
+    """Preenche campos não declarados com colunas-fantasma NA.
 
     Espelha ``r-package/R/geocode.R:224-243``: para cada campo em
-    ``ADDRESS_FIELDS`` cujo valor em ``campos_endereco`` e ``None``, cria uma
-    coluna ``<campo>_tempgeocodebr`` preenchida com ``NA``. Retorna tambem a
+    ``ADDRESS_FIELDS`` cujo valor em ``campos_endereco`` é ``None``, cria uma
+    coluna ``<campo>_tempgeocodebr`` preenchida com ``NA``. Retorna também a
     lista de ``campos_nao_declarados`` -- usada no laço de matching para pular
     etapas cujas key_cols incluam um desses campos, e em
-    ``tabelas_necessarias()`` para baixar apenas as tabelas de referencia
+    ``tabelas_necessarias()`` para baixar apenas as tabelas de referência
     relevantes.
     """
     campos = dict(campos_endereco)  # cópia

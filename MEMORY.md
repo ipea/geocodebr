@@ -291,3 +291,30 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   um cap de threads aplicado por politica do pacote (ex.: `N_CORES_HEAP_LEGACY = 4`) precisa
   ser `min(cap, os.cpu_count())` para nao gerar oversubscription em maquinas pequenas — o
   DuckDB nao protege contra isso.
+
+- `[LEARN:duckdb]` O DuckDB **canonicaliza o caminho do banco no `connect()`** — o `path` reportado
+  por `duckdb_databases()` pode divergir textualmente do que foi passado: no macOS resolve o symlink
+  `/var` → `/private/var` e no Windows pode expandir nomes curtos 8.3 do TEMP (`RUNNER~1` →
+  `runneradmin`). Comparação textual (`Path ==`) com `tempfile.gettempdir()` falha mesmo sendo o
+  mesmo diretório — o `close_geocodebr_db()` (`python-package/geocodebr/db.py`) não apagava o
+  `.duckdb` temporário no mac/windows-latest e vazava 1 arquivo por chamada. → Comparar com
+  `Path(a).resolve() == Path(b).resolve()` (resolve symlinks e nomes curtos/case). **Por quê:**
+  só se manifestou num SO diferente do de desenvolvimento; a CI multi-SO foi o que expôs, a
+  máquina local nunca reproduziu.
+
+- `[LEARN:workflow]` Relatório de cobertura pro Codecov precisa ter filenames **relativos à raiz do
+  repo**, porque os `paths` das `flags` no `codecov.yml` são comparados com os filenames como
+  gravados no relatório processado. Gerar o `coverage.xml` rodando pytest dentro de `python-package/`
+  grava filenames tipo `__init__.py` com `<source>` absoluto — o match da flag fica dependente de
+  como o uploader junta `<source>` + filename. → Rodar o pytest com `--cov` **a partir da raiz**
+  (`working-directory: .` + `uv run --project python-package pytest python-package/tests`), que grava
+  `python-package/geocodebr/<modulo>.py` direto no XML. **Por quê:** quando não casa, a flag sobe
+  sem cobertura nenhuma no app.codecov.io e nada dá erro — foi a fonte de dor num pacote anterior.
+
+- `[LEARN:testes]` Teste que exercita função com guarda de plataforma (`sys.platform != "win32"`
+  → retorno antecipado) precisa **forçar a plataforma** via fixture (`win32` em `tests/test_heap.py`:
+  `monkeypatch.setattr(sys, "platform", "win32")`). Escrito e rodado só no Windows, passa; na CI
+  Linux/macOS falha com `assert None is False` porque a guarda devolve `None` (contrato documentado
+  de `tem_segment_heap`). Quando o objetivo do teste é o parser de bytes e não a guarda, forçar a
+  plataforma no teste em vez de acondicionar o comportamento ao SO do dev. **Por quê:** só apareceu
+  com a CI multi-SO; localmente era verde o tempo todo.

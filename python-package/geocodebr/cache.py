@@ -20,8 +20,8 @@ def caminho_parquet(nome_tabela: str, pasta_dados: str | None = None) -> str:
     """Monta o caminho de um arquivo parquet do CNEFE no disco.
 
     Espelha ``caminho_parquet()`` em ``r-package/R/cache.R``. ``pasta_dados`` e
-    o ``data_release`` vigente ja foram resolvidos pelo chamador (via
-    ``download_cnefe``), nao sao redescobertos aqui. O arquivo nao precisa
+    o ``data_release`` vigente já foram resolvidos pelo chamador (via
+    ``download_cnefe``), não são redescobertos aqui. O arquivo não precisa
     existir.
     """
     if pasta_dados is None:
@@ -40,6 +40,32 @@ def listar_arquivo_config() -> str:
 
 
 def definir_pasta_cache(path: str | None, verboso: bool = True) -> str:
+    """Define a pasta de cache do geocodebr.
+
+    Define o diretório de cache para os dados do geocodebr. Essa configuração
+    é persistente entre sessões do Python.
+
+    Parameters
+    ----------
+    path : str ou None
+        O caminho para o diretório usado para armazenar os dados em cache.
+        Se `None`, o pacote usará o diretório padrão do pacote.
+    verboso : bool, opcional
+        Indica se uma mensagem de confirmação deve ser exibida. O padrão é
+        `True`.
+
+    Returns
+    -------
+    str
+        O caminho do diretório de cache configurado.
+
+    Examples
+    --------
+    >>> definir_pasta_cache("D:/dados/geocodebr-cache")
+
+    # retoma pasta padrão do pacote
+    >>> definir_pasta_cache(path=None)
+    """
     cache_dir = Path(listar_pasta_cache_padrao()) if path is None else Path(path)
     cache_dir = cache_dir.expanduser()
 
@@ -54,6 +80,19 @@ def definir_pasta_cache(path: str | None, verboso: bool = True) -> str:
 
 
 def listar_pasta_cache() -> str:
+    """Obtém a pasta de cache usada pelo geocodebr.
+
+    Obtém o caminho da pasta utilizada para armazenar em cache os dados do
+    geocodebr. Útil para inspecionar a pasta configurada com
+    `definir_pasta_cache()` em uma sessão anterior. Retorna a pasta de cache
+    padrão caso nenhuma pasta personalizada tenha sido configurada
+    anteriormente.
+
+    Returns
+    -------
+    str
+        O caminho da pasta de cache.
+    """
     config_file = Path(listar_arquivo_config())
     if config_file.exists():
         value = config_file.read_text(encoding="utf-8").strip()
@@ -63,6 +102,19 @@ def listar_pasta_cache() -> str:
 
 
 def listar_dados_cache(print_tree: bool = False) -> list[str]:
+    """Lista os dados salvos localmente na pasta de cache.
+
+    Parameters
+    ----------
+    print_tree : bool, opcional
+        Indica se o conteúdo da pasta de cache deve ser exibido em um formato
+        de árvore. O padrão é `False`.
+
+    Returns
+    -------
+    list[str]
+        Os caminhos para os arquivos em cache.
+    """
     cache_dir = Path(listar_pasta_cache())
     if not cache_dir.exists():
         message_cache(True)
@@ -75,6 +127,13 @@ def listar_dados_cache(print_tree: bool = False) -> list[str]:
 
 
 def deletar_pasta_cache() -> str:
+    """Deleta todos os arquivos da pasta de cache do geocodebr.
+
+    Returns
+    -------
+    str
+        O caminho do diretório de cache deletado.
+    """
     cache_dir = Path(listar_pasta_cache())
     if cache_dir.exists():
         shutil.rmtree(cache_dir)

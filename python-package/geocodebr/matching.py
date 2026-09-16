@@ -572,19 +572,19 @@ def _build_found_columns(
 
     Espelha ``monta_colunas_encontradas()`` em ``r-package/R/match_helpers.R``.
 
-    ``logradouro_encontrado`` e coluna de trabalho interna (a resolucao de
-    empates em ``trata_empates_geocode_duckdb()`` a usa para aplicar a excecao
-    dos logradouros com nome de data). Por isso e populada sempre que
-    ``'logradouro'`` esta em ``key_cols``, independentemente de
+    ``logradouro_encontrado`` é coluna de trabalho interna (a resolução de
+    empates em ``trata_empates_geocode_duckdb()`` a usa para aplicar a exceção
+    dos logradouros com nome de data). Por isso é populada sempre que
+    ``'logradouro'`` está em ``key_cols``, independentemente de
     ``resultado_completo``. As demais colunas ``*_encontrado`` e ``cod_setor``
-    so entram quando ``resultado_completo=True``.
+    só entram quando ``resultado_completo=True``.
 
     ``colunas_prefix``/``additional_prefix`` permitem ao chamador injetar
     colunas extras antes deste helper (ex.: ``similaridade_logradouro`` nos
-    caminhos probabilisticos, condicional a ``resultado_completo`` mas nao
+    caminhos probabilísticos, condicional a ``resultado_completo`` mas não
     parte de ``key_cols``).
 
-    Com ``agregado=True``, cada coluna e embrulhada em
+    Com ``agregado=True``, cada coluna é embrulhada em
     ``FIRST(... {ordem_first})`` em vez do ``SELECT`` direto -- usado na
     segunda parte da query (agregada por ``GROUP BY``) de
     ``match_weighted_cases()`` e ``match_weighted_cases_probabilistic()``.
@@ -642,9 +642,9 @@ def _complete_weighted_columns(
     """Wrapper para os dois passes (temp_db + agregado) dos ``match_weighted_*``.
 
     Espelha a estrutura de ``r-package/R/match_weighted_cases.R`` (chamada
-    dupla de ``monta_colunas_encontradas``): o primeiro passe (nao agregado)
+    dupla de ``monta_colunas_encontradas``): o primeiro passe (não agregado)
     popula o ``temp_db``; o segundo (agregado, ``FIRST(... ordem_first)``)
-    alimenta o SELECT final apos o ``GROUP BY``.
+    alimenta o SELECT final após o ``GROUP BY``.
     """
     colunas_encontradas, additional_first = _build_found_columns(
         y, key_cols, resultado_completo,

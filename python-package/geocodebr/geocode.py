@@ -65,6 +65,128 @@ def geocode(
     cache: bool = True,
     n_cores: int | None = None,
 ) -> pa.Table | gpd.GeoDataFrame:
+    """Geolocaliza endereços no Brasil.
+
+    Geocodifica endereços brasileiros com base nos dados do CNEFE (Cadastro
+    Nacional de Endereços para Fins Estatísticos), publicado pelo IBGE. Os
+    endereços de input devem ser passados como uma tabela na qual cada coluna
+    descreve um campo do endereço (logradouro, número, CEP, etc.). As
+    coordenadas de output utilizam o sistema de referência SIRGAS 2000,
+    EPSG 4674.
+
+    Parameters
+    ----------
+    enderecos : pyarrow.Table, polars.DataFrame, pandas.DataFrame, str ou Path
+        Os endereços a serem geolocalizados. Cada coluna deve representar um
+        campo do endereço. Também aceita o caminho para um arquivo `.csv`,
+        `.txt` ou `.parquet`.
+    campos_endereco : dict[str, str | None], opcional
+        A correspondência entre cada campo de endereço e o nome da coluna que
+        o descreve na tabela `enderecos`. A função `definir_campos()` auxilia
+        na criação deste dicionário e realiza verificações nos dados de
+        entrada. Campos de endereço passados como `None` são ignorados, e a
+        função deve receber pelo menos um campo não nulo, além dos campos
+        `"estado"` e `"municipio"`, obrigatórios. Note que o campo
+        `"localidade"` é equivalente a 'bairro', e que o campo `"logradouro"`
+        deve conter o tipo e o nome do logradouro (e.g. "Rua Castro Alves",
+        "Avenida Ipiranga"). Por padrão (`None`), assume-se que as colunas se
+        chamam `"estado"` e `"municipio"`.
+    resultado_completo : bool, opcional
+        Indica se o output deve incluir colunas adicionais, como o endereço
+        encontrado de referência. Por padrão, é `False`.
+    resolver_empates : bool, opcional
+        Alguns resultados da geolocalização podem indicar diferentes
+        coordenadas possíveis (e.g. duas ruas diferentes com o mesmo nome em
+        uma mesma cidade). Esses casos são tratados como 'empate' e o
+        parâmetro `resolver_empates` indica se a função deve resolver esses
+        empates automaticamente. Por padrão, é `True`, e a função retorna
+        apenas o caso mais provável, preservando uma linha de output por
+        linha de input. Com `False`, cada endereço empatado retorna uma linha
+        por coordenada candidata (o output pode ter mais linhas que o input)
+        e a coluna `empate` é incluída no output para identificar esses casos.
+    resultado_gpd : bool, opcional
+        Indica se o retorno deve ser um `geopandas.GeoDataFrame` de pontos no
+        CRS SIRGAS 2000 (EPSG 4674), equivalente ao `sf` do R. Por padrão, é
+        `False`, e o retorno é um `pyarrow.Table`. Requer o extra `geo`
+        (`pip install geocodebr[geo]`).
+    h3_res : int, list[int] ou None, opcional
+        Número que indica a resolução espacial das células hexagonais H3 da
+        localização dos pontos retornados. Também aceita uma lista de
+        números, e.g. `[8, 10]`. Por padrão, é `None`. Detalhes sobre as
+        resoluções disponíveis em https://h3geo.org/docs/core-library/restable/
+    padronizar_enderecos : bool, opcional
+        Indica se os dados de endereço de entrada devem ser padronizados. Por
+        padrão, é `True`. Essa padronização é essencial para uma
+        geolocalização correta. Alerta! Apenas utilize
+        `padronizar_enderecos = False` caso os dados de input já tenham sido
+        padronizados anteriormente com `enderecobr_padronizar_enderecos(...)`,
+        com `formato_estados = "sigla"` e `formato_numeros = "integer"`.
+    verboso : bool, opcional
+        Indica se barras de progresso e mensagens devem ser exibidas durante
+        o download dos dados do CNEFE e a geocodificação dos endereços. O
+        padrão é `True`.
+    cache : bool, opcional
+        Indica se os dados do CNEFE devem ser salvos ou lidos do cache,
+        reduzindo o tempo de processamento em chamadas futuras. O padrão é
+        `True`. Quando `False`, os dados do CNEFE são baixados para um
+        diretório temporário.
+    n_cores : int, opcional
+        O número de núcleos de CPU a serem utilizados no processamento dos
+        dados. Por padrão, `n_cores = None` e o pacote utiliza o número
+        máximo de núcleos disponíveis. No Windows sem Segment Heap, o número
+        de threads do DuckDB é limitado a `min(4, núcleos disponíveis)`, com
+        aviso, como mitigação à degradação de performance do DuckDB (veja a
+        seção "Windows e performance" do README). Um valor explícito é
+        respeitado.
+
+    Returns
+    -------
+    pyarrow.Table or geopandas.GeoDataFrame
+        O input `enderecos` adicionado das colunas de latitude (`lat`) e
+        longitude (`lon`), bem como das colunas `precisao` e `tipo_resultado`
+        que indicam o nível de precisão e o tipo de resultado. Endereços não
+        encontrados retornam `lat`/`lon` e as colunas de precisão vazias.
+
+    See Also
+    --------
+    definir_campos : Especifica as colunas que descrevem os campos dos
+        endereços.
+    download_cnefe : Faz o download dos dados do CNEFE.
+
+    Notes
+    -----
+    Os resultados são classificados em seis categorias de `precisao`
+    ("numero", "numero_aproximado", "logradouro", "cep", "localidade" e
+    "municipio"), desagregadas em códigos de `tipo_resultado` (e.g. `dn01`,
+    `pa03`), e incluem a coluna `desvio_metros` com a estimativa de incerteza
+    da localização encontrada. Com `resultado_completo = True`, o output
+    também inclui a coluna `cod_setor` com o código do setor censitário.
+
+    A interpretação dessas colunas, o significado de cada código de
+    `tipo_resultado` e as regras de resolução de empates (comuns aos pacotes
+    R e Python) estão documentadas na vignette "geocode":
+    https://ipea.github.io/geocodebr/articles/geocode.html
+
+    Examples
+    --------
+    >>> import pyarrow.csv as pv
+    >>> from geocodebr import definir_campos, geocode
+    >>> enderecos = pv.read_csv("enderecos.csv")
+    >>> campos = definir_campos(
+    ...     logradouro="nm_logradouro",
+    ...     numero="Numero",
+    ...     cep="Cep",
+    ...     localidade="Bairro",
+    ...     municipio="nm_municipio",
+    ...     estado="nm_uf",
+    ... )
+    >>> resultado = geocode(
+    ...     enderecos=enderecos,
+    ...     campos_endereco=campos,
+    ...     resolver_empates=True,
+    ...     verboso=False,
+    ... )
+    """
 
     if n_cores is not None and (not isinstance(n_cores, int) or n_cores < 1):
         raise ValueError("n_cores deve ser um inteiro positivo ou None.")

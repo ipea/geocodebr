@@ -21,13 +21,43 @@ def geocode_reverso(
     cache: bool = True,
     n_cores: int | None = None,
 ) -> gpd.GeoDataFrame:
-    """Geocode reverso de coordenadas geograficas para enderecos.
+    """Geocodificação reversa de coordenadas geográficas para endereços.
 
-    Recebe um `GeoDataFrame` com geometria do tipo POINT no CRS SIRGAS 2000
-    (EPSG 4674) e retorna o endereco mais proximo dentro de `dist_max`
-    (em metros). O output e o proprio `GeoDataFrame` de input acrescido das
-    colunas do endereco encontrado e de `distancia_metros`; a geometria e o
-    proprio ponto de input, como no sf do R. Requer o extra `geo`.
+    Recebe um `GeoDataFrame` de pontos e retorna o endereço mais próximo
+    dentro de uma distância máxima de busca. Requer o extra `geo`
+    (`pip install geocodebr[geo]`).
+
+    Parameters
+    ----------
+    pontos : geopandas.GeoDataFrame
+        Tabela de dados com geometria do tipo POINT no sistema de referência
+        SIRGAS 2000 (EPSG 4674).
+    dist_max : int, opcional
+        Distância máxima aceitável (em metros) entre os pontos de input e o
+        endereço encontrado. Por padrão, é 1000 metros. Valores aceitos entre
+        500 e 100000 metros.
+    verboso : bool, opcional
+        Indica se mensagens devem ser exibidas durante o download dos dados
+        do CNEFE. O padrão é `True`.
+    cache : bool, opcional
+        Indica se os dados do CNEFE devem ser salvos ou lidos do cache,
+        reduzindo o tempo de processamento em chamadas futuras. O padrão é
+        `True`. Quando `False`, os dados do CNEFE são baixados para um
+        diretório temporário.
+    n_cores : int, opcional
+        O número de núcleos de CPU a serem utilizados no processamento dos
+        dados. Por padrão, `n_cores = None` e o pacote utiliza o número
+        máximo de núcleos disponíveis.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        O próprio `GeoDataFrame` de input acrescido das colunas do endereço
+        encontrado e da coluna `distancia_metros`, que indica a distância
+        entre o ponto de input e o endereço mais próximo. A geometria do
+        output é o próprio ponto de input. Pontos sem nenhum endereço dentro
+        de `dist_max` são descartados do output; se nenhum ponto encontrar
+        endereço, a função interrompe com erro.
     """
     _validate_pontos(pontos)
     if not isinstance(dist_max, (int, float)) or dist_max < 500 or dist_max > 100000:

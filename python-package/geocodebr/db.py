@@ -34,13 +34,13 @@ def create_geocodebr_db(
 
 
 def close_geocodebr_db(con: duckdb.DuckDBPyConnection) -> None:
-    """Fecha a conexao e apaga o arquivo do banco se for temporario do pacote.
+    """Fecha a conexão e apaga o arquivo do banco se for temporário do pacote.
 
-    Com ``db_path="tempdir"`` (o padrao), o DuckDB recria o arquivo no
-    ``connect`` mesmo apos o ``unlink`` do placeholder do NamedTemporaryFile,
-    e o arquivo permanece no disco apos ``con.close()`` — um `.duckdb` por
-    chamada se acumula no diretorio temporario do sistema. Bancos em memoria
-    nao tem arquivo associado e caminhos customizados pelo usuario sao
+    Com ``db_path="tempdir"`` (o padrão), o DuckDB recria o arquivo no
+    ``connect`` mesmo após o ``unlink`` do placeholder do NamedTemporaryFile,
+    e o arquivo permanece no disco após ``con.close()`` — um `.duckdb` por
+    chamada se acumula no diretório temporário do sistema. Bancos em memória
+    não têm arquivo associado e caminhos customizados pelo usuário são
     preservados.
     """
     paths = [
@@ -75,12 +75,12 @@ def _remove_temp_db_file(path: str) -> None:
 
 
 def _mesmo_diretorio(a: Path, b: Path) -> bool:
-    """Compara dois diretorios resolvendo symlinks e nomes curtos.
+    """Compara dois diretórios resolvendo symlinks e nomes curtos.
 
     O DuckDB canonicaliza o caminho do banco no connect: no macOS resolve
     o symlink /var -> /private/var e no Windows pode expandir nomes curtos
-    8.3 do TEMP, de modo que a comparacao textual com tempfile.gettempdir()
-    falha mesmo tratando-se do mesmo diretorio.
+    8.3 do TEMP, de modo que a comparação textual com tempfile.gettempdir()
+    falha mesmo tratando-se do mesmo diretório.
     """
     try:
         return a.resolve() == b.resolve()

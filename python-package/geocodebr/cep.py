@@ -28,6 +28,48 @@ def busca_por_cep(
     verboso: bool = True,
     cache: bool = True,
 ) -> pa.Table | gpd.GeoDataFrame:
+    """Busca endereços e coordenadas a partir de CEPs.
+
+    Recebe um CEP (ou uma lista de CEPs) e retorna os endereços associados a
+    cada CEP presentes no CNEFE, com suas coordenadas geográficas. As
+    coordenadas de output utilizam o sistema de referência SIRGAS 2000,
+    EPSG 4674.
+
+    Parameters
+    ----------
+    cep : int, str ou list[int | str]
+        Um CEP ou uma lista de CEPs. CEPs duplicados são eliminados antes da
+        consulta, e o output não guarda relação de 1 para 1 com o input.
+    h3_res : int, list[int] ou None, opcional
+        Número que indica a resolução espacial das células hexagonais H3 da
+        localização dos pontos retornados. Também aceita uma lista de
+        números, e.g. `[8, 10]`. Por padrão, é `None`. Detalhes sobre as
+        resoluções disponíveis em https://h3geo.org/docs/core-library/restable/
+    resultado_gpd : bool, opcional
+        Indica se o retorno deve ser um `geopandas.GeoDataFrame` de pontos no
+        CRS SIRGAS 2000 (EPSG 4674), equivalente ao `sf` do R. Por padrão, é
+        `False`, e o retorno é um `pyarrow.Table`. Requer o extra `geo`
+        (`pip install geocodebr[geo]`).
+    verboso : bool, opcional
+        Indica se barras de progresso e mensagens devem ser exibidas durante
+        o download dos dados do CNEFE. O padrão é `True`.
+    cache : bool, opcional
+        Indica se os dados do CNEFE devem ser salvos ou lidos do cache,
+        reduzindo o tempo de processamento em chamadas futuras. O padrão é
+        `True`. Quando `False`, os dados do CNEFE são baixados para um
+        diretório temporário.
+
+    Returns
+    -------
+    pyarrow.Table or geopandas.GeoDataFrame
+        Os endereços presentes nos CEPs informados, com as colunas `cep`,
+        `estado`, `municipio`, `logradouro`, `localidade`, `lon` e `lat`. Um
+        mesmo CEP pode cobrir vários logradouros/localidades, de modo que o
+        output pode ter mais linhas que o número de CEPs informados. CEPs sem
+        correspondência retornam como linhas com apenas a coluna `cep`
+        preenchida. Se nenhum CEP for encontrado, a função interrompe com
+        erro.
+    """
     h3_values = normalize_h3_res(h3_res)
     ceps = _normalize_ceps(cep)
     

@@ -6,7 +6,7 @@ def inform(message: str, verboso: bool = True) -> None:
 
 
 def message_standardizing_addresses(verboso: bool = True) -> None:
-    inform("Padronizando enderecos de entrada", verboso)
+    inform("Padronizando endereços de entrada", verboso)
 
 
 def message_baixando_cnefe(verboso: bool = True) -> None:
@@ -18,7 +18,7 @@ def message_usando_cnefe_local(verboso: bool = True) -> None:
 
 
 def message_looking_for_matches(verboso: bool = True) -> None:
-    inform("Geolocalizando enderecos", verboso)
+    inform("Geolocalizando endereços", verboso)
 
 
 def message_preparando_output(verboso: bool = True) -> None:

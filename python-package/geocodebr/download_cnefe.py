@@ -17,6 +17,35 @@ def download_cnefe(
     verboso: bool = True,
     cache: bool = True,
 ) -> str:
+    """Faz o download dos dados do CNEFE.
+
+    Faz o download de uma versão pré-processada e enriquecida do CNEFE
+    (Cadastro Nacional de Endereços para Fins Estatísticos) que foi criada
+    para o uso deste pacote.
+
+    Parameters
+    ----------
+    tabela : str ou Iterable[str], opcional
+        Nome de uma ou mais tabelas a serem baixadas. Pode ser uma única
+        string ou uma lista de strings. Por padrão, baixa `"todas"` as
+        tabelas de referência do CNEFE (não pode ser combinado com outros
+        nomes). Os nomes válidos são os mesmos nomes-base dos arquivos
+        `.parquet` distribuídos pelo pacote (e.g. `"municipio_cep"`,
+        `"municipio_logradouro_cep_localidade"`).
+    verboso : bool, opcional
+        Indica se mensagens devem ser exibidas durante o download dos dados
+        do CNEFE. O padrão é `True`.
+    cache : bool, opcional
+        Indica se os dados do CNEFE devem ser salvos ou lidos do cache,
+        reduzindo o tempo de processamento em chamadas futuras. O padrão é
+        `True`. Quando `False`, os dados do CNEFE são baixados para um
+        diretório temporário.
+
+    Returns
+    -------
+    str
+        O caminho para o diretório onde os dados foram salvos.
+    """
     if not isinstance(tabela, Iterable):
         raise TypeError("`tabela` deve ser uma string ou lista de strings.")
 

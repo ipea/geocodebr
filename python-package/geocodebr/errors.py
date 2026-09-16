@@ -2,7 +2,7 @@ class GeocodeBRError(Exception):
     """Erro base do geocodebr Python."""
 
 class SemCorrespondenciaError(GeocodeBRError):
-    """Todos os nomes coluna de correspondência com campos de endereço nulos"""
+    """Erro quando todos os campos de endereço são nulos."""
 
 
 class InputNaoPadronizadoError(GeocodeBRError):

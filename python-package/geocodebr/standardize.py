@@ -48,7 +48,7 @@ def _padronizar_numero_expr(
     enderecos: pl.DataFrame,
     formato: str,
 ) -> pl.Expr:
-    """Padroniza números de logradouro e retorna no formato em `formato`
+    """Padroniza números de logradouro e retorna no formato em `formato`.
 
     Binding Python:
     - ``padronizar_numeros_para_int`` (str -> int|None);
@@ -95,7 +95,7 @@ def _padronizar_estado_expr(
     col_orig: str,
     formato: str,
 ) -> pl.Expr:
-    """Padroniza estados e retorna no formato em `formato`
+    """Padroniza estados e retorna no formato em `formato`.
 
     Binding Python:
     - ``padronizar_estados_para_sigla`` (str -> sigla, ex: 'RJ');
@@ -118,8 +118,9 @@ def _padronizar_estado_expr(
 def _padronizar_municipio_expr(
     col_orig: str,
 ) -> pl.Expr:
-    """Padroniza municípios e retorna o nome por extenso
-    Pode receber nome por extenso, sigla e código do IBGE como int ou str
+    """Padroniza municípios e retorna o nome por extenso.
+
+    Pode receber nome por extenso, sigla e código do IBGE como int ou str.
 
     Binding Python: ``padronizar_municipios`` (str -> str).
 
