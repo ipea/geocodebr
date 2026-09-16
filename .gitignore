@@ -17,6 +17,10 @@ docs
 *.pyc
 __pycache__/
 .venv/
+# artefatos locais de pytest/coverage (Python)
+.coverage
+coverage.xml
+.pytest_cache/
 geocodebr.Rproj
 
 # Sample de benchmark com microdados (hospedada em repo privada, não commitar)
