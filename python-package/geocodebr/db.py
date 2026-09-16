@@ -56,7 +56,9 @@ def close_geocodebr_db(con: duckdb.DuckDBPyConnection) -> None:
 
 def _remove_temp_db_file(path: str) -> None:
     arquivo = Path(path)
-    no_diretorio_temporario = arquivo.parent == Path(tempfile.gettempdir())
+    no_diretorio_temporario = _mesmo_diretorio(
+        arquivo.parent, Path(tempfile.gettempdir())
+    )
     if not (
         no_diretorio_temporario
         and arquivo.name.startswith("geocodebr")
@@ -70,4 +72,18 @@ def _remove_temp_db_file(path: str) -> None:
     except OSError:
         # remocao cosmetica: nao deve interromper o fluxo do usuario
         pass
+
+
+def _mesmo_diretorio(a: Path, b: Path) -> bool:
+    """Compara dois diretorios resolvendo symlinks e nomes curtos.
+
+    O DuckDB canonicaliza o caminho do banco no connect: no macOS resolve
+    o symlink /var -> /private/var e no Windows pode expandir nomes curtos
+    8.3 do TEMP, de modo que a comparacao textual com tempfile.gettempdir()
+    falha mesmo tratando-se do mesmo diretorio.
+    """
+    try:
+        return a.resolve() == b.resolve()
+    except OSError:
+        return a.absolute() == b.absolute()
 

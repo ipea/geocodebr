@@ -92,7 +92,7 @@ def exe_legacy(tmp_path, monkeypatch, win32):
     [(False, False), (True, True), (None, None)],
     ids=["legacy", "patched", "exe_ausente"],
 )
-def test_tem_segment_heap(tmp_path, patched, esperado):
+def test_tem_segment_heap(tmp_path, win32, patched, esperado):
     exe = tmp_path / "python.exe"
     if patched is not None:
         data = _heap_patch.patch_manifesto(MANIFESTO) if patched else MANIFESTO
