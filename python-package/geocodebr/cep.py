@@ -10,6 +10,7 @@ import pyarrow as pa
 from .cache import caminho_parquet
 from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
+from .errors import SemCorrespondenciaError
 from .geo import arrow_to_geodataframe
 from .matching import add_h3_columns
 from .utils import (
@@ -94,7 +95,7 @@ def busca_por_cep(
         }
         missing = sorted(set(ceps) - found_ceps)
         if len(missing) == len(set(ceps)):
-            raise ValueError("Nenhum CEP foi encontrado.")
+            raise SemCorrespondenciaError("Nenhum CEP foi encontrado.")
         if missing:
             values = ", ".join(f"({sql_string(value)})" for value in missing)
             con.execute(f"INSERT INTO output_df (cep) VALUES {values}")

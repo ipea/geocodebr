@@ -341,7 +341,7 @@ uv run pytest -m r_parity -q
 
 ### Exemplos
 
-A pasta `exemple/` contém scripts simples usando as funções principais da
+A pasta `exemplos/` contém scripts simples usando as funções principais da
 versão Python:
 
 - `geocode_enderecos.py`: busca coordenadas a partir de endereços.
@@ -351,9 +351,9 @@ versão Python:
 Execute os exemplos a partir da raiz do repositório:
 
 ```bash
-uv run python exemple/geocode_enderecos.py
-uv run python exemple/busca_por_cep.py
-uv run python exemple/geocode_reverso.py
+uv run python exemplos/geocode_enderecos.py
+uv run python exemplos/busca_por_cep.py
+uv run python exemplos/geocode_reverso.py
 ```
 
 ## Nota <a href="https://www.ipea.gov.br"><img src="../r-package/man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>

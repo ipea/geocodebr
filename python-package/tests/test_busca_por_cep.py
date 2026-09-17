@@ -3,6 +3,7 @@ import pyarrow as pa
 
 from geocodebr import busca_por_cep
 from geocodebr.cep import _normalize_ceps
+from geocodebr.errors import SemCorrespondenciaError
 
 
 def test_normalize_ceps_deduplicates_sorts_and_accepts_int():
@@ -51,5 +52,5 @@ def test_busca_por_cep_none_found(cnefe_cache):
     )
     cnefe_cache(table, "municipio_logradouro_cep_localidade")
 
-    with pytest.raises(ValueError, match="Nenhum CEP"):
+    with pytest.raises(SemCorrespondenciaError, match="Nenhum CEP"):
         busca_por_cep(["99999-999"], verboso=False)

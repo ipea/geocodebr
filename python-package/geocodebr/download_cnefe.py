@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .cache import apaga_data_release_antigo, listar_pasta_cache
 from .constants import ALL_CNEFE_FILES, DATA_RELEASE
-from .messages import message_baixando_cnefe, message_usando_cnefe_local
+from .messages import message_downloading_cnefe, message_using_local_cnefe
 
 
 def download_cnefe(
@@ -68,10 +68,10 @@ def download_cnefe(
     to_download = [(url, data_dir / Path(url).name) for url in urls if Path(url).name not in existing]
 
     if not to_download:
-        message_usando_cnefe_local(verboso)
+        message_using_local_cnefe(verboso)
         return str(cache_dir)
 
-    message_baixando_cnefe(verboso)
+    message_downloading_cnefe(verboso)
     for url, dest in tqdm(to_download, disable=not verboso):
         _download_file(url, dest)
 

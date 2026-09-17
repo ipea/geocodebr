@@ -8,6 +8,7 @@ import pyarrow as pa
 from .cache import caminho_parquet
 from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
+from .errors import SemCorrespondenciaError
 from .geo import table_coords_to_geodataframe
 from .utils import check_clean_colnames, quote_ident, db_table_columns
 
@@ -178,7 +179,7 @@ def geocode_reverso(
         )
         n_rows = con.execute("SELECT COUNT(*) FROM geocodebr_reverse_result").fetchone()[0]
         if n_rows == 0:
-            raise ValueError("Nenhum endereco proximo foi encontrado.")
+            raise SemCorrespondenciaError("Nenhum endereco proximo foi encontrado.")
         table = con.execute("SELECT * FROM geocodebr_reverse_result").to_arrow_table()
         return table_coords_to_geodataframe(table, "_geocodebr_lon", "_geocodebr_lat")
     finally:

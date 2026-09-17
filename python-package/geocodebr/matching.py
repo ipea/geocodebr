@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 import duckdb
 from duckdb.func import FunctionNullHandling
 
@@ -16,6 +18,7 @@ from .match_types import (
 )
 from .string_dist import calculate_string_dist
 from .tables import register_cnefe_table, register_unique_logradouros_table
+from .messages import inform
 from .utils import quote_ident
 
 
@@ -505,8 +508,8 @@ def trata_empates_geocode_duckdb(
         )
 
         plural = "caso" if n_casos_empate == 1 else "casos"
-        print(
-          f"Foram encontrados {n_casos_empate} {plural} de empate. " 
+        warnings.warn(
+          f"Foram encontrados {n_casos_empate} {plural} de empate. "
           "Estes casos foram marcados com valor `TRUE` na coluna 'empate', "
           "e podem ser inspecionados na coluna 'endereco_encontrado'. "
           "Alternativamente, use `resolver_empates = TRUE` para que o pacote lide "
@@ -723,7 +726,7 @@ def trata_empates_geocode_duckdb(
 
     if verboso:
         plural = "caso" if n_casos_empate == 1 else "casos"
-        print(f"Foram encontrados e resolvidos {n_casos_empate} {plural} de empate.")
+        inform(f"Foram encontrados e resolvidos {n_casos_empate} {plural} de empate.")
     return n_casos_empate
 
 

@@ -18,7 +18,7 @@ from .match_types import (
 from .standardize import enderecobr_padronizar_enderecos
 from .db import close_geocodebr_db, create_geocodebr_db
 from .download_cnefe import download_cnefe
-from .errors import error_input_nao_padronizado
+from .errors import InputNaoPadronizadoError
 from .fields import (
     assert_and_assign_address_fields,
     definir_campos,
@@ -36,13 +36,12 @@ from .matching import (
 )
 from .messages import (
     message_looking_for_matches,
-    message_preparando_output,
+    message_preparing_output,
     message_standardizing_addresses,
-    message_add_precision,
-    message_merge_input,
-    message_as_arrow,
-    message_fim,
-    message_conexao_fechada
+    # message_add_precision,
+    # message_merge_input,
+    # message_as_arrow,
+    # message_closed_connection
 )
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -242,7 +241,7 @@ def geocode(
         df_padrao = _keep_rename_padr_columns(df_padrao)
 
         # Create temp id in both tables
-        df_input = df_input.with_row_count("tempidgeocodebr")
+        df_input = df_input.with_row_index("tempidgeocodebr")
         original_columns = [col for col in input_columns] + ["tempidgeocodebr"]
         df_padrao = df_padrao.with_columns(df_input["tempidgeocodebr"])
         # Create temp `logradouro` columns to be used in probabilistic match
@@ -288,14 +287,14 @@ def geocode(
                     if matched_rows == n_rows:
                         break
 
-        message_preparando_output(verboso)
+        message_preparing_output(verboso)
         empates_resolvidos = trata_empates_geocode_duckdb(
             con, resultado_completo, resolver_empates, verboso
         )
         output_table_to_use = "output_db" if empates_resolvidos == 0 else "output_db2"
-        message_add_precision(verboso)
+        ## message_add_precision(verboso)
         add_precision_col(con, output_table_to_use)
-        message_merge_input(verboso)
+        ## message_merge_input(verboso)
         merge_results_to_input(
             con,
             x="input_db",
@@ -305,9 +304,8 @@ def geocode(
             incluir_empate=not resolver_empates,
         )
         add_h3_columns(con, "geocodebr_result", h3_values)
-        message_as_arrow(verboso)
+        ## message_as_arrow(verboso)
         result = con.execute("SELECT * FROM geocodebr_result").to_arrow_table()
-        message_fim(verboso)
 
         if resultado_gpd:
             return arrow_to_geodataframe(result)
@@ -315,7 +313,7 @@ def geocode(
         return result
     finally:
         close_geocodebr_db(con)
-        message_conexao_fechada(verboso)
+        ## message_closed_connection(verboso)
 
 
 def _materialize_input(enderecos: Any) -> pl.DataFrame:
@@ -347,7 +345,10 @@ def _materialize_input(enderecos: Any) -> pl.DataFrame:
 def _assert_standardized_columns(df: pl.DataFrame) -> None:
     expected = {field+"_padr" for field in ADDRESS_FIELDS}
     if not expected.issubset(df.columns):
-        error_input_nao_padronizado()
+        raise InputNaoPadronizadoError(
+            "Os dados de entrada nao estao padronizados. Use "
+            "padronizar_enderecos=True ou informe colunas *_padr equivalentes."
+        )
 
 def _keep_rename_padr_columns(df: pl.DataFrame) -> pl.DataFrame:
     # Select only "_padr" columns

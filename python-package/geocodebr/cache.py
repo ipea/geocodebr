@@ -3,16 +3,9 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-try:
-    from platformdirs import user_cache_dir, user_config_dir
-except ModuleNotFoundError:  # pragma: no cover
-    def user_cache_dir(appname: str) -> str:
-        return str(Path.home() / "AppData" / "Local" / appname / "Cache")
+from platformdirs import user_cache_dir, user_config_dir
 
-    def user_config_dir(appname: str) -> str:
-        return str(Path.home() / "AppData" / "Roaming" / appname)
-
-from .messages import message_cache
+from .messages import confirm
 from .constants import DATA_RELEASE
 
 
@@ -74,7 +67,7 @@ def definir_pasta_cache(path: str | None, verboso: bool = True) -> str:
     config_file.write_text(str(cache_dir), encoding="utf-8")
 
     if verboso:
-        print(f"Definido como pasta de cache {cache_dir}.")
+        confirm(f"Definido como pasta de cache {cache_dir}.")
 
     return str(cache_dir)
 
@@ -117,7 +110,7 @@ def listar_dados_cache(print_tree: bool = False) -> list[str]:
     """
     cache_dir = Path(listar_pasta_cache())
     if not cache_dir.exists():
-        message_cache(True)
+        confirm("Nenhum dado em cache local")
         return []
 
     files = sorted(str(path) for path in cache_dir.rglob("*") if path.is_file())
@@ -137,7 +130,7 @@ def deletar_pasta_cache() -> str:
     cache_dir = Path(listar_pasta_cache())
     if cache_dir.exists():
         shutil.rmtree(cache_dir)
-    print(f"Deletada a pasta de cache que se encontrava em {cache_dir}.")
+    confirm(f"Deletada a pasta de cache que se encontrava em {cache_dir}.")
     return str(cache_dir)
 
 

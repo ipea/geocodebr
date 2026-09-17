@@ -5,6 +5,7 @@ from shapely import LineString
 gpd = pytest.importorskip("geopandas")
 
 from geocodebr import geocode_reverso
+from geocodebr.errors import SemCorrespondenciaError
 
 
 def test_geocode_reverso_with_duckdb_spatial(cnefe_cache):
@@ -107,7 +108,7 @@ def test_geocode_reverso_no_address_within_radius(cnefe_cache):
         crs="EPSG:4674",
     )
 
-    with pytest.raises(ValueError, match="Nenhum endereco proximo"):
+    with pytest.raises(SemCorrespondenciaError, match="Nenhum endereco proximo"):
         geocode_reverso(pontos, dist_max=500, verboso=False)
 
 

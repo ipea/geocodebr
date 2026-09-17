@@ -1,11 +1,13 @@
-import pytest
-
 from geocodebr.errors import (
+    GeocodeBRError,
     InputNaoPadronizadoError,
-    error_input_nao_padronizado,
+    SemCorrespondenciaError,
 )
 
 
-def test_error_input_nao_padronizado():
-    with pytest.raises(InputNaoPadronizadoError, match="padronizados"):
-        error_input_nao_padronizado()
+def test_input_nao_padronizado_error_herda_de_geocodebr():
+    assert issubclass(InputNaoPadronizadoError, GeocodeBRError)
+
+
+def test_sem_correspondencia_error_herda_de_geocodebr():
+    assert issubclass(SemCorrespondenciaError, GeocodeBRError)

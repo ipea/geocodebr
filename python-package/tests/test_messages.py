@@ -3,7 +3,7 @@ import re
 import pytest
 
 from geocodebr import messages
-from geocodebr.messages import inform, message_cache
+from geocodebr.messages import confirm, inform
 
 
 def test_inform_prints_timestamp_when_verbose(capsys):
@@ -17,9 +17,11 @@ def test_inform_silent_when_not_verbose(capsys):
     assert capsys.readouterr().out == ""
 
 
-def test_message_cache(capsys):
-    message_cache(True)
-    assert "cache" in capsys.readouterr().out
+def test_confirm_prints_message_without_timestamp(capsys):
+    confirm("Cache definido")
+    out = capsys.readouterr().out
+    assert out.strip() == "Cache definido"
+    assert not re.search(r"\d{2}:\d{2}:\d{2}", out)
 
 
 @pytest.mark.parametrize(

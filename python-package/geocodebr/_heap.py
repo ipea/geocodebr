@@ -114,6 +114,6 @@ def _mensagem_aviso(exe: str, n_cores_original: int | None, n_cores_efetivo: int
         "Aceleração real: gere um interpretador com Segment Heap com "
         "python -m geocodebr._heap_patch\n"
         "e inicie a sessão pela cópia gerada (python-geocodebr-sh.exe). "
-        'Veja a seção "Windows e performance" do READ.ME.'
+        'Veja a seção "Windows e performance" do README.'
     )
     return "\n".join(linhas)
