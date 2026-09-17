@@ -225,3 +225,96 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   observável e adicionar complexidade sem necessidade. **Por quê:** um sintoma "essa coluna deveria ser
   condicional e não é" pode já estar coberto por um filtro mais a jusante no pipeline — ler até o fim do
   caminho do dado (aqui, `merge_results_to_input()`) antes de assumir que a origem precisa mudar.
+
+- `[LEARN:duckdb]` "Python é mais lento que R com o mesmo DuckDB no Windows" → **a variável não é a
+  toolchain (MSVC vs MinGW), é o heap do processo hospedeiro**. O `Rscript.exe`/`Rterm.exe` optam pelo
+  **Segment Heap** no manifest embutido; o `python.exe` (python.org) e o CLI usam o heap NT legacy, cujo
+  lock global serializa alocação/free multithread — e o DuckDB no Windows não tem jemalloc pra bypassar
+  isso. Piora com MAIS threads (24 threads é pior que 8 no legacy; escala negativa). Causa raiz
+  documentada em [duckdb/duckdb#24027](https://github.com/duckdb/duckdb/issues/24027) (autor: Douglas
+  Braga, Ipea, máquina 24 cores/512GB igual à nossa); fix upstream [duckdb#24036](https://github.com/duckdb/duckdb/pull/24036)
+  conserta **só o CLI** — o wheel Python nunca vai se auto-consertar (manifest pertence ao exe
+  hospedeiro). Medido no port Python (10M CadÚnico, 24 threads): total 11:47 → **3:08** rodando com uma
+  cópia do interpretador com manifest SegmentHeap (`python-sh.exe`, criada com o
+  `patch_segment_heap.py` da reprodução da issue; o `python.exe` original fica intocado).
+  Esse mesmo mecanismo explicou dois mistérios: a inflação ~10× dos empates em dados reais (strings
+  reais ampliam o tráfego de alocação; 1:51 → 0:05) e o `con.close()` de ~3 min (frees na mesma fila;
+  2:56 → 0:05). Mitigação sem patch: `n_cores≈4`. Ver tabela completa em
+  `python-package/benchmarks/resultados_benchmark.md`. **Por quê:** a hipótese inicial (toolchain) veio
+  da pesquisa de docs e estava errada — a issue nasceu exatamente com essa hipótese errada e o próprio
+  autor a refutou com cross-hosting da DLL do R dentro do python.exe (fica lenta) e do MSVC CLI
+  patcheado (fica rápido). Ao comparar clientes DuckDB no Windows, parear SEMPRE o processo hospedeiro.
+
+- `[LEARN:testes]` Nesta máquina compartilhada, benchmarks de tempos curtos variam ±15-20% entre
+  rodadas (carga da máquina), então comparações antes/depois precisam ser **pareadas e intercaladas na
+  mesma janela** (run A, run B, run A, run B) — foi o que fechou o sinal do heap (o primeiro A/B da
+  investigação, em janelas separadas, mediu "1,4× de toolchain"; pareado e em escala maior, o fator
+  real era ~4×). Fases determinísticas de sort/materialização são reprodutíveis (merge deu 0:41 três
+  vezes seguidas) e podem ser lidas de rodada única; fases de matching/empates não. Protocolo fixo no
+  `python-package/benchmarks/benchmark_sample.py` (sample 10M em `data/sample_cad_unico.parquet`).
+  **Por quê:** direção de melhoria medida em janelas separadas numa máquina compartilhada não é
+  evidência — pode ser só a carga do momento.
+
+
+- `[LEARN:python-port]` Patch de Segment Heap no Windows (v1, `python -m geocodebr._heap_patch`):
+  (1) **`GetProcessHeap`/`HeapQueryInformation` NAO e indicador valido de Segment Heap** — reporta 0
+  (legacy) ate no exe patcheado que performa bem (wall 3:08 vs 11:47 no benchmark 10M); a deteccao do
+  pacote le o RT_MANIFEST do exe (`_heap.py::tem_segment_heap`), nunca consulta o heap. (2) A copia
+  patcheada precisa ser criada **na mesma pasta do original** — copiar o exe para outro diretorio
+  quebra a resolucao de DLLs (exit 0xC0000135 STATUS_DLL_NOT_FOUND). (3) O patch e size-preserving
+  (o recurso RT_MANIFEST tem tamanho fixo no PE): comprime whitespace entre tags e preenche com
+  espacos antes de `</assembly>`. (4) Mensagens user-facing no port Python sao ASCII-safe — o
+  codepage do console Windows embaralha acentos quando a saida e pipada. **Por que:** os tres
+  pontos custaram uma rodada de debugging cada; o (1) contradiz a intuicao da API Win32.
+
+- `[LEARN:python-port]` Registro do Windows NAO liga Segment Heap por processo:
+  `AppCompatFlags\Layers` e `Image File Execution Options` persistem a MESMA camada de
+  shim do `__COMPAT_LAYER` (env) — ja refutada na Fase 0. Teste pareado (2026-09-10,
+  workload canonico 8M, duckdb 1.5.3): 18,9 s com layer no registro vs 20,0 s sem layer
+  (gap 1,07x, ambos deteriorando 1,2->6 s) vs 8,4 s plano no exe patcheado via manifesto.
+  **Por que:** o shim de compatibilidade nao alcanca o heap criado pelo UCRT no startup,
+  por onde passam as alocacoes do DuckDB; so o manifesto (lido no image load) muda o
+  escopo do heap. Detalhes no adendo da Fase 0 do plano de 2026-09-08.
+
+- `[LEARN:python-port]` Minimo da curva tempo x threads no heap legacy CONFIRMADO em
+  4 threads por sweep real (`benchmarks/verifica_sweep_threads.py`, 2026-09-10,
+  workload canonico 8M, 3 rodadas intercaladas, filho fresco por ponto): 4t = 18,9 s
+  (minimo), bacia plana 3-6 (±11%/4%), escala negativa a partir de ~8t (+31% em 24t,
+  close tambem cresce com threads). **Por que:** o cap `N_CORES_HEAP_LEGACY = 4` do
+  `geocode()` era premissa da issue do duckdb ("peak around 4 threads") sem sweep
+  proprio; agora e medicao local. Filho fresco por ponto e essencial: a deterioracao
+  acumulada do heap dentro de um processo contaminaria a curva.
+
+- `[LEARN:duckdb]` `SET threads = N` NAO e clampeado ao numero de cores: `SET threads = 64`
+  numa maquina de 24 cores gruda (`current_setting('threads')` = 64) e o processo cria os
+  workers de verdade (92 threads no processo). So rejeita < 1 (SyntaxException). **Por que:**
+  um cap de threads aplicado por politica do pacote (ex.: `N_CORES_HEAP_LEGACY = 4`) precisa
+  ser `min(cap, os.cpu_count())` para nao gerar oversubscription em maquinas pequenas — o
+  DuckDB nao protege contra isso.
+
+- `[LEARN:duckdb]` O DuckDB **canonicaliza o caminho do banco no `connect()`** — o `path` reportado
+  por `duckdb_databases()` pode divergir textualmente do que foi passado: no macOS resolve o symlink
+  `/var` → `/private/var` e no Windows pode expandir nomes curtos 8.3 do TEMP (`RUNNER~1` →
+  `runneradmin`). Comparação textual (`Path ==`) com `tempfile.gettempdir()` falha mesmo sendo o
+  mesmo diretório — o `close_geocodebr_db()` (`python-package/geocodebr/db.py`) não apagava o
+  `.duckdb` temporário no mac/windows-latest e vazava 1 arquivo por chamada. → Comparar com
+  `Path(a).resolve() == Path(b).resolve()` (resolve symlinks e nomes curtos/case). **Por quê:**
+  só se manifestou num SO diferente do de desenvolvimento; a CI multi-SO foi o que expôs, a
+  máquina local nunca reproduziu.
+
+- `[LEARN:workflow]` Relatório de cobertura pro Codecov precisa ter filenames **relativos à raiz do
+  repo**, porque os `paths` das `flags` no `codecov.yml` são comparados com os filenames como
+  gravados no relatório processado. Gerar o `coverage.xml` rodando pytest dentro de `python-package/`
+  grava filenames tipo `__init__.py` com `<source>` absoluto — o match da flag fica dependente de
+  como o uploader junta `<source>` + filename. → Rodar o pytest com `--cov` **a partir da raiz**
+  (`working-directory: .` + `uv run --project python-package pytest python-package/tests`), que grava
+  `python-package/geocodebr/<modulo>.py` direto no XML. **Por quê:** quando não casa, a flag sobe
+  sem cobertura nenhuma no app.codecov.io e nada dá erro — foi a fonte de dor num pacote anterior.
+
+- `[LEARN:testes]` Teste que exercita função com guarda de plataforma (`sys.platform != "win32"`
+  → retorno antecipado) precisa **forçar a plataforma** via fixture (`win32` em `tests/test_heap.py`:
+  `monkeypatch.setattr(sys, "platform", "win32")`). Escrito e rodado só no Windows, passa; na CI
+  Linux/macOS falha com `assert None is False` porque a guarda devolve `None` (contrato documentado
+  de `tem_segment_heap`). Quando o objetivo do teste é o parser de bytes e não a guarda, forçar a
+  plataforma no teste em vez de acondicionar o comportamento ao SO do dev. **Por quê:** só apareceu
+  com a CI multi-SO; localmente era verde o tempo todo.
