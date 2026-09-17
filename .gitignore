@@ -24,6 +24,7 @@ coverage.xml
 geocodebr.Rproj
 
 # Sample de benchmark com microdados (hospedada em repo privada, não commitar)
+data/
 python-package/benchmarks/data/
 .cnefe-cache/
 

@@ -14,7 +14,10 @@ authors = [
   { name = "Rafael H. M. Pereira", email = "rafa.pereira.br@gmail.com" },
   { name = "Daniel Herszenhut", email = "dhersz@gmail.com" },
   { name = "Gabriel Garcia de Almeida" },
+]
+maintainers = [
   { name = "Camila Gonçalves de Brito" },
+  { name = "Jefferson Silva dos Anjos" }
 ]
 keywords = ["geocoding", "geolocation", "enderecos", "brasil", "cnefe", "ibge", "duckdb"]
 classifiers = [

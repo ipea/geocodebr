@@ -1,7 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Rafael H. M. Pereira, Daniel Herszenhut, Gabriel Garcia
-de Almeida e Camila Gonçalves de Brito
+Copyright (c) 2026 Institute for Applied Economic Research (Ipea)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
