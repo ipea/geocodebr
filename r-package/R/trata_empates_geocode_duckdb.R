@@ -42,11 +42,12 @@ trata_empates_geocode_duckdb <- function(
   # - calcula / identifica casos de empate
   # - gera warning
   # - retorna resultado assim mesmo
+
   if (isFALSE(resolver_empates)) {
     # marca o flag de empate in-place e renomeia, em vez de copiar output_db
-    # inteira: o resto do pipeline (add_precision_col / merge_results_to_input)
-    # usa o nome 'output_db2' sempre que n_casos_empate > 0, e nada mais
-    # referencia 'output_db' depois deste ponto.
+    # inteira: o resto do pipeline (merge_results_to_input) usa o nome
+    # 'output_db2' sempre que n_casos_empate > 0, e nada mais referencia
+    # 'output_db' depois deste ponto.
     # tempidgeocodebr nunca e NULL (id sequencial criado na padronizacao); se
     # um dia for, o IN () abaixo deixaria o flag FALSE onde a window function
     # antiga (COUNT(*) OVER) agrupava os NULLs juntos.

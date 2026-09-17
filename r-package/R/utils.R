@@ -189,7 +189,15 @@ merge_results_to_input <- function(
   }
 
   # Create the SELECT clause dynamically
-  select_x <- paste0(x, '.', c(select_columns), collapse = ', ')
+  # a chave temporaria e interna ao pacote e nao faz parte do output: fica de
+  # fora do SELECT (mas segue valida no JOIN e no ORDER BY abaixo), evitando
+  # materializar uma coluna inteira que seria descartada em seguida
+  select_x <- paste0(
+    x,
+    '.',
+    setdiff(select_columns, key_column),
+    collapse = ', '
+  )
 
   select_clause <- paste0(
     select_x,
@@ -635,6 +643,29 @@ check_clean_colnames <- function(df) {  # nocov start
       "Invalid column names detected.",
       "x" = "Column names must use only letters, numbers, and underscores ({.val _}).",
       "i" = "Please rename these columns: {.val {bad_cols}}"
+    ),
+    "call" = rlang::caller_env()
+    )
+  }
+
+  # nomes reservados: colunas que o proprio geocode() cria no output ou usa
+  # como chave interna. Se ja existirem no input, o merge final produziria
+  # colunas duplicadas/ambiguas (e.g. duas colunas 'lat') e o pos-processamento
+  # (H3, sf) leria a coluna errada em silencio -- melhor abortar cedo.
+  reserved <- c(
+    'tempidgeocodebr', 'lat', 'lon', 'precisao', 'tipo_resultado',
+    'desvio_metros', 'endereco_encontrado', 'logradouro_encontrado',
+    'numero_encontrado', 'cep_encontrado', 'localidade_encontrada',
+    'municipio_encontrado', 'estado_encontrado', 'similaridade_logradouro',
+    'contagem_cnefe', 'empate', 'cod_setor'
+  )
+  reserved_cols <- cols[cols %in% reserved]
+
+  if (length(reserved_cols) > 0) {
+    cli::cli_abort(c(
+      "Reserved column names detected.",
+      "x" = "These column names are created by {.fn geocode} in the output and cannot be present in the input.",
+      "i" = "Please rename these columns: {.val {reserved_cols}}"
     ),
     "call" = rlang::caller_env()
     )

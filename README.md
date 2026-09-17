@@ -13,7 +13,7 @@ coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg)](htt
 [![Lifecycle:
 experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html)
 
-O **{geocodebr}** é um pacote computacional para geolicalização de
+O **{geocodebr}** é um pacote computacional para geolocalização de
 endereços Brasileiros. O pacote oferece uma maneira simples e eficiente
 de geolocalizar dados sem limite de número de consultas. O pacote é
 baseado em conjuntos de dados espaciais abertos de endereços
