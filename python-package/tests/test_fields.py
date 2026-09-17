@@ -22,7 +22,7 @@ def test_definir_campos_rejects_non_string():
 
 
 def test_definir_campos_rejects_all_null():
-    with pytest.raises(ValueError, match="nao pode ser nulo"):
+    with pytest.raises(ValueError, match="deve ser não nulo"):
         definir_campos(estado=None, municipio=None)
 
 

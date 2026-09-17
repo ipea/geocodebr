@@ -81,7 +81,7 @@ def definir_campos(
         if value is not None and not isinstance(value, str):
             raise TypeError(f"{name} deve ser uma string ou None.")
     if all(value is None for value in values.values()):
-        raise ValueError("Pelo menos um campo nao pode ser nulo.")
+        raise ValueError("Ao menos um dos campos de endereço deve ser não nulo")
     return values
 
 

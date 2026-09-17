@@ -1,6 +1,6 @@
 import pytest
 
-from geocodebr.constants import ALL_CNEFE_FILES, DATA_RELEASE
+from geocodebr.constants import ALL_CNEFE_FILES
 from geocodebr.db import create_geocodebr_db
 from geocodebr.tables import register_cnefe_table
 from geocodebr.match_types import (
@@ -12,7 +12,6 @@ from geocodebr.match_types import (
 from geocodebr.matching import merge_results_to_input
 from geocodebr.utils import (
     check_clean_colnames,
-    find_cached_parquet,
     normalize_h3_res,
     quote_ident,
     sql_string,
@@ -47,21 +46,6 @@ def test_get_key_cols_rejects_unknown_match_type():
 def test_get_prob_match_cutoff():
     assert get_prob_match_cutoff("pn01") == 0.85
     assert get_prob_match_cutoff("dn01") == 0.9
-
-
-def test_find_cached_parquet_finds_release_file():
-    files = [
-        f"c/cache/geocodebr_data_release_{DATA_RELEASE}/municipio.parquet",
-        f"c/cache/geocodebr_data_release_{DATA_RELEASE}/municipio_logradouro.parquet",
-    ]
-    found = find_cached_parquet(files, "municipio")
-    assert found.endswith("municipio.parquet")
-
-
-def test_find_cached_parquet_ignores_old_release():
-    files = ["c/cache/geocodebr_data_release_v8/municipio.parquet"]
-    with pytest.raises(FileNotFoundError, match="download_cnefe"):
-        find_cached_parquet(files, "municipio")
 
 
 def test_add_h3_columns_no_resolutions_keeps_table():

@@ -216,7 +216,9 @@ def _looks_like_geodataframe(value: Any) -> bool:
     return hasattr(value, "geometry") and hasattr(value, "crs")
 
 
-def _validate_points_bbox(con: duckdb.DuckDBPyConnection) -> None:
+def _validate_points_bbox(
+    con: duckdb.DuckDBPyConnection,
+) -> tuple[float, float, float, float]:
     xmin, ymin, xmax, ymax = con.execute(
         """
         SELECT
