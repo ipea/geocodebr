@@ -201,9 +201,9 @@ geocode_core <- function(
   #   .marks <- list()
   #   .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
   #   .t_prev <- .t0_rt
-  #
+  
   #   fmt <- function(secs) sprintf("%.3f s", secs)
-  #
+  
   #   mark <- function(label) {
   #     now <- proc.time()[["elapsed"]]
   #     step  <- now - .t_prev
@@ -213,7 +213,7 @@ geocode_core <- function(
   #     if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
   #     invisible(now)
   #   }
-  #
+  
   #   summary <- function(print_summary = verbose) {
   #     if (length(.marks) == 0) return(invisible(data.frame()))
   #     df <- data.frame(
@@ -223,21 +223,21 @@ geocode_core <- function(
   #       stringsAsFactors = FALSE
   #     )
   #     df$step_relative <- round(df$step_sec / max(df$total_sec) * 100, 1)
-  #
+  
   #     if (print_summary) {
   #       message("-- Timing summary --")
   #       print(df, row.names = FALSE)
   #     }
   #     df
   #   }
-  #
+  
   #   time_it <- function(label, expr) {
   #     force(label)
   #     res <- eval.parent(substitute(expr))
   #     mark(label)
   #     invisible(res)
   #   }
-  #
+  
   #   list(mark = mark, summary = summary, time_it = time_it)
   # }
   # timer <- .make_timer(verbose = isTRUE(verboso))
