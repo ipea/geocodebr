@@ -1,16 +1,14 @@
 ---
 title: "Geocode"
-date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
-code-annotations: hover
-urlcolor: blue
+lang: pt-BR
 vignette: >
   %\VignetteIndexEntry{Geocode}
-  %\VignetteEngine{knitr::rmarkdown}
-  \usepackage[utf8]{inputenc}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r}
+#| include: false
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -24,21 +22,24 @@ Sys.setenv(OMP_THREAD_LIMIT = 2)
 
 ## Geolocalização: de endereços para coordenadas espaciais
 
-A principal função do pacote {geocodebr} é a `geocode()`, que recebe uma tabela 
+A principal função do pacote {geocodebr} é a `geocode()`, que recebe uma tabela
 (`data.frame`) de endereços como entrada e retorna a mesma tabela geolocalizada
-como saída. Para demonstrar essa função, utilizamos no exemplo abaixo pequeno 
-conjunto de dados que contém endereços com problemas comuns, como informações 
-ausentes e campos digitados incorretamente. 
+como saída. Para demonstrar essa função, utilizamos no exemplo abaixo pequeno
+conjunto de dados que contém endereços com problemas comuns, como informações
+ausentes e campos digitados incorretamente.
 
-A geolocalização desses dados com **{geocodebr}** pode ser feita em apenas dois 
+A geolocalização desses dados com **{geocodebr}** pode ser feita em apenas dois
 passos:
 
-1. O primeiro passo é usar a função `definir_campos()` para indicar os nomes das 
-colunas no seu `data.frame` que correspondem a cada campo dos endereços. No 
-exemplo abaixo, nós indicamos que coluna que contém a informação de logradouro se 
-chama `"nm_logradouro"`, que a coluna de número se chama `"Numero"`, etc. 
+1. O primeiro passo é usar a função `definir_campos()` para indicar os nomes das
+colunas no seu `data.frame` que correspondem a cada campo dos endereços. No
+exemplo abaixo, nós indicamos que coluna que contém a informação de logradouro se
+chama `"nm_logradouro"`, que a coluna de número se chama `"Numero"`, etc.
 
-obs. Note que as colunas indicando o `"estado"` e `"município"` são obrigatórias.
+::: {.callout-tip title="Dica"}
+As colunas indicando o `estado` e o `municipio` são obrigatórias. Os demais
+campos são opcionais.
+:::
 
 ```{r}
 library(geocodebr)
@@ -57,22 +58,23 @@ campos <- definir_campos(
 )
 ```
 
-
-2. O segundo passo é usar a função `geocode()` para encontrar as coordenadas 
+2. O segundo passo é usar a função `geocode()` para encontrar as coordenadas
 geográficas dos dados de input.
 
-**Nota:** A função `geocode()` requer que os dados do CNEFE estejam armazenados
-localmente. A primeita vez que a função é executada, ela baixa os dados do CNEFE 
-e salva em um cache local na sua máquina. No total, esses dados somam cerca de 
-1.2 GB, o que pode fazer com que a primeira execução da função demore. Esses dados, 
+::: {.callout-note title="Nota"}
+A função `geocode()` requer que os dados do CNEFE estejam armazenados
+localmente. A primeita vez que a função é executada, ela baixa os dados do CNEFE
+e salva em um cache local na sua máquina. No total, esses dados somam cerca de
+1.2 GB, o que pode fazer com que a primeira execução da função demore. Esses dados,
 no entanto, são salvos de forma  persistente, logo eles são baixados uma única vez.
 Mais informações sobre o cache de dados [aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
+:::
 
 ```{r}
 # geolicalização
 ends_geo <- geocode(
-  enderecos = ends, 
-  campos_endereco = campos, 
+  enderecos = ends,
+  campos_endereco = campos,
   resultado_completo = FALSE,
   resolver_empates = TRUE,
   h3_res = 9,
@@ -88,19 +90,19 @@ Por padrão, a tabela de *output* é igual à tabela de input do usuário acresc
 
 Cabe também destacar aqui outros três argumentos da função `geocode()`:
 
-- `h3_res` : que permite o usuário inserir uma coluna no output indicando o id 
-da célula H3 na resolução espacial desejada. Detalhes sobre as resoluções 
-disponíveis em \code{\link{https://h3geo.org/docs/core-library/restable/};
-- `resolver_empates`: serve para indicar se o usuário quer que a função resolva automaticamente casos de empate, i.e. casos que o endereço de input do usuário 
-pode se referir a diferentes localidades na cidade (e.g. logradouros diferentes 
-com mesmo nome mas em bairros distintos). Quando `TRUE`, a função resolve os 
-empates selecioando os endereços com maior número de visitas do CNEFE. Quando 
-`FALSE`, a função retorna todos os resultados indicando os casos empatados na 
+- `h3_res` : que permite o usuário inserir uma coluna no output indicando o id
+da célula H3 na resolução espacial desejada. Detalhes sobre as resoluções
+disponíveis na [documentação do H3](https://h3geo.org/docs/core-library/restable/);
+- `resolver_empates`: serve para indicar se o usuário quer que a função resolva automaticamente casos de empate, i.e. casos que o endereço de input do usuário
+pode se referir a diferentes localidades na cidade (e.g. logradouros diferentes
+com mesmo nome mas em bairros distintos). Quando `TRUE`, a função resolve os
+empates selecioando os endereços com maior número de visitas do CNEFE. Quando
+`FALSE`, a função retorna todos os resultados indicando os casos empatados na
 coluna 'empate' para que o usuário possa inspecionar cada caso coluna 'endereco_encontrado'.
 - `resultado_sf`: quando `TRUE`, o output é retornado como um objeto espacial de classe `sf` simple feature.
 
-As coordendas espaciais do resultado usam o sistema de referência SIRGAS2000 
-(EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil. 
+As coordendas espaciais do resultado usam o sistema de referência SIRGAS2000
+(EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.
 
 
 
@@ -108,12 +110,12 @@ As coordendas espaciais do resultado usam o sistema de referência SIRGAS2000
 
 As coordenadas incluídas no resultado da `geocode()` são calculadas a partir da
 média das coordenadas dos endereços do CNEFE que correspondem a cada um dos
-endereços de *input*. Esse cálculo é feito em duas etapas, e retorna o ponto 
-médio dos 95% pontos mais próximos entre si, evitando eventual distorção por 
-devido a poucos pontos muito isolados. 
+endereços de *input*. Esse cálculo é feito em duas etapas, e retorna o ponto
+médio dos 95% pontos mais próximos entre si, evitando eventual distorção por
+devido a poucos pontos muito isolados.
 
-A correspondência entre os endereços de entrada e os do CNEFE pode ser feita com 
-base em diferentes combinações de campos, impactando, assim, na precisão do 
+A correspondência entre os endereços de entrada e os do CNEFE pode ser feita com
+base em diferentes combinações de campos, impactando, assim, na precisão do
 resultado retornado. No caso mais rigoroso, a função encontra uma correspondência determinística para todos os campos do endereço (estado, município, logradouro, número, CEP e localidade). Pense, por exemplo, em um prédio com vários apartamentos, cuja única variação no endereço se dá a nível de apartamento: o resultado, nesse
 caso, é a média das coordenadas dos apartamentos, que podem diferir ligeiramente.
 
@@ -210,22 +212,22 @@ Endereços não encontrados são retornados com latitude, longitude, precisão e
 
 ### Desvio em metros
 
-A coluna `desvio_metros` apresenta uma forma intuitiva e prática de saber o grau 
-de incerteza do resultado encontrado. Essa coluna informa que pelo menos 95% de 
-todos os pontos do CNEFE que possuem corrêspondência com o endereço de input 
-estão num raio de x metros da localização encontrada. 
+A coluna `desvio_metros` apresenta uma forma intuitiva e prática de saber o grau
+de incerteza do resultado encontrado. Essa coluna informa que pelo menos 95% de
+todos os pontos do CNEFE que possuem corrêspondência com o endereço de input
+estão num raio de x metros da localização encontrada.
 
 Um desvio de `30` metros, por exemplo, tende a representar um resultado muito confiável. A depender de como o dado geolocalizado será utilizado, até mesmos resultados com um `desvio_metros` de até 500 ou 900 metros podem ser ser aceitáveis.
 
-A coluna `desvio_metros` pode ser particularmente útil para decidir por exemplo 
-se um resultado encontrado com a `precisao` de CEP deveria ser aceitável. Muitas cidades do Brasil possuem um CEP único, o que tende a gerar resultados com 
-altíssimo grau de incerteza. Em várias cidades, no entanto, um CEP pode ser circunscrito a uma área muito pequena e as vezes até um único edifício. Nesses 
+A coluna `desvio_metros` pode ser particularmente útil para decidir por exemplo
+se um resultado encontrado com a `precisao` de CEP deveria ser aceitável. Muitas cidades do Brasil possuem um CEP único, o que tende a gerar resultados com
+altíssimo grau de incerteza. Em várias cidades, no entanto, um CEP pode ser circunscrito a uma área muito pequena e as vezes até um único edifício. Nesses
 casos, o valor do `desvio_metros` tende a ser bem pequeno.
 
 
 ## Código do setor censitário
 
-- Quando o usuário passa o argumento `resultado_completo = TRUE`, a função `geocode()` também retorna a coluna `cod_setor` com o código do setor censitário do endereço encontrado. Atualmente, a função somente retorna o código do setor dos casos em 
-que todos os pontos do CNEFE correspondentes estão 100% dentro de um único setor 
-censitário. Quando os dados do CNEFE correspondentes ao endereço buscado estão 
+- Quando o usuário passa o argumento `resultado_completo = TRUE`, a função `geocode()` também retorna a coluna `cod_setor` com o código do setor censitário do endereço encontrado. Atualmente, a função somente retorna o código do setor dos casos em
+que todos os pontos do CNEFE correspondentes estão 100% dentro de um único setor
+censitário. Quando os dados do CNEFE correspondentes ao endereço buscado estão
 em mais de um setor, o resultado da coluna `cod_setor` é `NA`.

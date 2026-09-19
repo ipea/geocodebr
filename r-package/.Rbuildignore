@@ -13,3 +13,5 @@
 ^pkgdown$
 ^README\.Rmd$
 ^codemeta\.json$
+^vignettes/\.quarto$
+^vignettes/.*_files$

@@ -158,6 +158,18 @@
     },
     {
       "@type": "SoftwareApplication",
+      "identifier": "quarto",
+      "name": "quarto",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=quarto"
+    },
+    {
+      "@type": "SoftwareApplication",
       "identifier": "rmarkdown",
       "name": "rmarkdown",
       "provider": {
@@ -303,7 +315,7 @@
       "@type": "SoftwareApplication",
       "identifier": "duckspatial",
       "name": "duckspatial",
-      "version": ">= 1.0.0",
+      "version": ">= 1.2.1",
       "provider": {
         "@id": "https://cran.r-project.org",
         "@type": "Organization",
@@ -316,7 +328,7 @@
       "@type": "SoftwareApplication",
       "identifier": "enderecobr",
       "name": "enderecobr",
-      "version": ">= 0.5.0",
+      "version": ">= 0.6.1",
       "provider": {
         "@id": "https://cran.r-project.org",
         "@type": "Organization",
@@ -452,9 +464,9 @@
       "identifier": "tools",
       "name": "tools"
     },
-    "SystemRequirements": null
+    "SystemRequirements": "Quarto command line tool\n    (<https://github.com/quarto-dev/quarto-cli>), needed only to build the\n    Quarto vignettes"
   },
-  "fileSize": "2798.045KB",
+  "fileSize": "2821.38KB",
   "citation": [
     {
       "@type": "SoftwareSourceCode",

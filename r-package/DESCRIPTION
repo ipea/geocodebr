@@ -59,11 +59,16 @@ Suggests:
     ggplot2 (>= 3.3.1),
     knitr,
     pkgload,
+    quarto,
     rmarkdown,
     scales,
     testthat (>= 3.0.0)
 VignetteBuilder: 
-    knitr
+    knitr,
+    quarto
+SystemRequirements: Quarto command line tool
+    (<https://github.com/quarto-dev/quarto-cli>), needed only to build the
+    Quarto vignettes
 Config/testthat/edition: 3
 Encoding: UTF-8
 Language: pt

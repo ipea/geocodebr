@@ -5,6 +5,10 @@
 .Ruserdata
 censobr_*.tar.gz
 r-package/vignettes/*.html
+
+# Quarto vignettes - arquivos intermediarios
+r-package/vignettes/.quarto/
+r-package/vignettes/*_files/
 .parquet
 .tmp
 *.o
@@ -16,5 +20,5 @@ r-package/data_prep/data/*
 r-package/data_prep/data_raw/*
 geocodebr.Rproj
 
-# Claude Code — config local de máquina (não versionada)
+# Claude Code â config local de mÃ¡quina (nÃ£o versionada)
 .claude/settings.local.json
