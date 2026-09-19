@@ -78,10 +78,10 @@ head(ends_geo)
 #> 6  6      Rua Princesa Isabel    263           Estacao Experimental
 #>      nm_municipio code_muni nm_uf        lat       lon   precisao
 #> 1     Nova Iguacu   3303500    RJ -22.695509 -43.47116     numero
-#> 2 Duque de Caxias   3301702    RJ -22.779174 -43.31132     numero
-#> 3  Angra dos Reis   3300100    RJ -22.978800 -44.20846 logradouro
-#> 4  Rio de Janeiro   3304557    RJ -22.869117 -43.51140 logradouro
-#> 5     Mangaratiba   3302601    RJ -22.929864 -43.97214     numero
+#> 2 Duque de Caxias   3301702    RJ -22.779175 -43.31132     numero
+#> 3  Angra dos Reis   3300100    RJ -22.978800 -44.20847 logradouro
+#> 4  Rio de Janeiro   3304557    RJ -22.869116 -43.51140 logradouro
+#> 5     Mangaratiba   3302601    RJ -22.929865 -43.97214     numero
 #> 6      Rio Branco   1200401    AC  -9.963438 -67.83559     numero
 #>   tipo_resultado desvio_metros
 #> 1           dn01             8

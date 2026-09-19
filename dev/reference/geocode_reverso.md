@@ -82,6 +82,6 @@ head(df_enderecos)
 #> # A tibble: 1 × 8
 #>      id estado municipio logradouro        cep       localidade distancia_metros
 #>   <int> <chr>  <chr>     <chr>             <chr>     <chr>                 <dbl>
-#> 1     1 ES     COLATINA  CORREGO BOA VISTA 29700-005 SAO JOAO …             50.2
+#> 1     1 ES     COLATINA  CORREGO BOA VISTA 29700-005 SAO JOAO …             50.3
 #> # ℹ 1 more variable: geometry <POINT [°]>
 ```

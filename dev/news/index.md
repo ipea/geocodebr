@@ -4,11 +4,17 @@
 
 ### Mudanças grandes (Major changes)
 
+- Novo cache de dados
+  ([v0.5.0](https://github.com/ipea/padronizacao_cnefe/releases/tag/v0.5.0))
+  com dados significamente mais. O tamanho do cache completo com todas
+  tabelas caiu em aprox 18%. De 1.29 GB na V0.4.1 para 1.06 GB na
+  v0.5.0.
+
 - A função
   [`geocode_reverso()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode_reverso.md)
   agora usa como referência de busca a tabela
-  `municipio_logradouro_cep_localidade`, o que pemite captar melhor
-  casos onde não há número no logradouro.
+  `municipio_logradouro_cep_localidade`, o que pemite captar mais casos
+  onde não há número no logradouro.
 
 - Nos casos de resultado encontrado com número aproximado (interpolação
   — tipos `da01` a `da04` e `pa01` a `pa03`), as colunas extras do
@@ -103,6 +109,10 @@
 
 ### Correção de bugs (Bug fixes)
 
+- Correção da estimativa da coluna `desvio_metros`, que pode causar
+  alguma variação para cima ou para baixo em comparação às versões
+  anteriores.
+
 - As funções
   [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md),
   [`geocode_reverso()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode_reverso.md)
@@ -184,6 +194,16 @@
   correto, mas lido do cache, com o download recém-feito descartado.
   Agora a leitura usa a pasta devolvida por
   [`download_cnefe()`](https://ipeagit.github.io/geocodebr/dev/reference/download_cnefe.md).
+
+- Corrigido um erro em
+  [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+  quando o pacote é carregado em modo de desenvolvimento
+  (`devtools::load_all()`) ou quando há uma versão antiga instalada na
+  biblioteca: o subprocesso usado internamente (via `callr`) carregava o
+  geocodebr *instalado* em vez do da sessão, e a chamada falhava com
+  `could not find function "geocode_core"`. Agora o subprocesso carrega
+  o mesmo código da sessão e, em caso de divergência de versão, emite
+  uma mensagem clara.
 
 ## geocodebr v0.6.4
 

@@ -46,11 +46,11 @@ head(df_enderecos)
 #> # A tibble: 6 × 8
 #>      id estado municipio  logradouro           cep   localidade distancia_metros
 #>   <int> <chr>  <chr>      <chr>                <chr> <chr>                 <dbl>
-#> 1     1 ES     COLATINA   CORREGO BOA VISTA    2970… SAO JOAO …             50.2
+#> 1     1 ES     COLATINA   CORREGO BOA VISTA    2970… SAO JOAO …             50.3
 #> 2     6 ES     VIANA      ESTRADA BOM JESUS    2913… BOM JESUS…            606. 
 #> 3     7 ES     COLATINA   FAZENDA SANTA LUCIA… 2970… FAZENDA S…            483. 
 #> 4     8 ES     SAO MATEUS FAZENDA ESCADINHA    2994… ESCADINHA             540. 
-#> 5    11 ES     SAO MATEUS RODOVIA ES 381       2994… KM 13                 239. 
+#> 5    11 ES     SAO MATEUS RODOVIA ES-381       2994… KM 13                 239. 
 #> 6    12 ES     SAO MATEUS LADEIRA DE DONA ANA  2994… KM 28                 773. 
 #> # ℹ 1 more variable: geometry <POINT [°]>
 ```
