@@ -14,9 +14,6 @@ library(enderecobr)
 # mapview::mapviewOptions(platform = 'leafgl')
 set.seed(42)
 
-2+2
-# stop()
-
 
 
 
@@ -58,7 +55,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  # dplyr::slice_sample(n = sample_size) |> # sample 20K
+  dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -77,16 +74,19 @@ stop()
 
 gc(T,T,T)
 
-bench::system_time(
-# bench::mark(iterations = 1,
-  cadgeo <- geocode(
+#bench::system_time(
+bench::mark(iterations = 1,
+  cadgeo_novo <- geocodebr:::geocode_core(
     enderecos  = df,
     campos_endereco = campos,
     n_cores = NULL, # 7
     verboso = T,
     resultado_completo = F,
+    resultado_sf = F,
     resolver_empates = T,
-    padronizar_enderecos = T
+    padronizar_enderecos = T,
+    h3_res = NULL,
+    cache = T
     )
   )
 
@@ -104,7 +104,9 @@ bench::system_time(
 # v0.4.0 CRAN      33.5m  33.5m  0.000497    8.06GB  0.00746     1    15      33.5m <NULL> <Rprofmem>
 # v0.5.0 CRAN      6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.6.4 CRAN      5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 devendbr2 4.66m  4.66m   0.00357     916MB  0.00715     1     2      4.66m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2        4.66m  4.66m   0.00357     916MB  0.00715     1     2      4.66m <df>   <Rprofmem> <bench_tm> <tibble>
+#plus claude       2.33m  2.33m   0.00716    1.43GB  0.00716     1     1      2.33m <df>   <Rprofmem> <bench_tm> <tibble>
+#plus claude-core 21.90m  21.9m  0.000761    4.95GB  0.00457     1     6      21.9m <df>   <Rprofmem> <bench_tm> <tibble>
 
 
 # 43 milhoes
