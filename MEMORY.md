@@ -16,7 +16,8 @@ Os achados da revisão das três funções exportadas principais estão em
 [`quality_reports/diagnoses/`](quality_reports/diagnoses/), com evidência e reprodução de cada item.
 A lista priorizada de eficiência do `geocode()` — a referência viva para retomar o trabalho — é
 `2026-08-24_geocode-eficiencia-consolidado.md`; ela é atualizada a cada item concluído e é o primeiro
-lugar a checar no início de uma sessão nova. Status em 25/08 (ver essa lista para detalhes de cada um):
+lugar a checar no início de uma sessão nova. Status conferido contra o código em **18/09/2026**
+(ver essa lista para detalhes de cada um):
 
 | # | item | status |
 |---|---|---|
@@ -24,15 +25,39 @@ lugar a checar no início de uma sessão nova. Status em 25/08 (ver essa lista p
 | 2 | Jaro redundante em `pa01-03` | ✅ commitado (`282c302`) |
 | 3 | `FIRST()`/`QUALIFY` sem `ORDER BY` (não-determinismo) | ✅ commitado (`0592c83`) |
 | 4 | `TEMP VIEW` em vez de `TEMP TABLE` | ❌ testado e **refutado** — não retentar |
-| 5 | Baixar só as tabelas de referência necessárias | ⏳ aberto |
+| 5 | Baixar só as tabelas de referência necessárias | ✅ commitado (`fdf7a9e`) — `tabelas_necessarias()` em `R/utils.R` |
 | 6 | Dedup dos quatro `match_*()` | ✅ commitado (`889e331`) — `R/match_helpers.R` |
-| 7 | Código morto em `register_cnefe_tables.R` | ⏳ aberto |
+| 7 | Código morto em `register_cnefe_tables.R` | ⏳ **aberto** (único item pendente da lista) |
+
+Frentes concluídas depois dessa lista:
+
+- **Eficiência de `trata_empates_geocode_duckdb()`** — itens 1-5 em `28b0365`, bugfix do `\b` + `RUA QUATRO`
+  em `2cb0034`. Planos em `quality_reports/plans/2026-08-26_empates-*.md`.
+- **Registro do `input_padrao` no DuckDB** — `dbWriteTable()` direto em vez de converter para Arrow;
+  43M: 88,5 s → 17,6 s. Plano: `2026-08-27_registro-input-padrao.md`.
+- **`merge_results_to_input()`** — frente **revertida**; ver `2026-08-27_merge-results-otimizacao.md`.
+  Sobreviveu só a guarda de nomes reservados em `check_clean_colnames()`.
+- **Migração para o CNEFE `v0.5.0`** — feita em `9d03781`; `data_release` (`R/cache.R:1`) = `"v0.5.0"`.
+  Auditoria em `2026-09-15_cnefe-v041-vs-v050-auditoria.md`. Pendências ainda abertas: `n_setor` e
+  `code_muni` (colunas novas do v0.5.0) não são consumidas em lugar nenhum de `R/` — o único uso de
+  `code_muni` lê de `inst/extdata/munis_bbox_2022.parquet`. O mínimo do `{enderecobr}` já foi alinhado
+  (`>= 0.6.1`, commit `a993cf1`, 18/09).
+- **Namespace do subprocesso do `callr`** — `86cf874`; ver a entrada `[LEARN:testes]` sobre `package = FALSE`.
+- **`geocode_reverso()` passou a usar `municipio_logradouro_cep_localidade`** (`f4bf358`), a tabela sem
+  número — captura mais logradouros sem numeração, e em troca o output não tem coluna de número.
 
 Relatórios de diagnóstico mais antigos, ainda com contexto útil:
 
 - `2026-08-22_geocode-pipeline-achados.md` — `geocode()`
 - `2026-08-23_geocode-reverso-e-busca-por-cep-achados.md` — `geocode_reverso()` e `busca_por_cep()`
+- `2026-08-23_analise-pacote-desempenho-manutencao.md` — análise de manutenibilidade
 - `2026-08-24_geocode-revisao-critica.md` — rodada de acompanhamento do relatório de 22/08
+- `2026-09-15_perda-performance-v050.md` — hipótese de regressão de performance no v0.5.0 (refutada)
+
+**Ativos de benchmark:** `df_sample_empates.parquet` (1M linhas, ~17 MB, 84.238 empates) e
+`df_full_data.parquet` (43.882.020 linhas, ~658 MB) vivem hoje **na raiz do repo e não são rastreados no
+git** (`df_sample_empates.parquet` foi commitado em `28b0365` e removido em `f88f12d`). Se sumirem, pedir ao
+usuário — não tentar regenerar.
 
 ---
 
@@ -91,9 +116,11 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   dentro do mesmo CEP/bairro/municipio, e a media ponderada e o centroide que a `precisao` (`cep`,
   `localidade`, `municipio`) promete. O ramo "perdidos" existe para o problema oposto — logradouros
   homonimos espalhados pela cidade, onde a media cai num ponto que nao e nenhum dos candidatos.
-  **Por que:** hoje essas categorias ficam de fora por propagacao de `NULL` em
-  `NOT REGEXP_MATCHES(logradouro_encontrado, ...)`, o que parece bug e convida a um `COALESCE`
-  "corretivo" que seria regressao.
+  **Corrigido** (26/08, commit `2cb0034`): a exclusao agora e **explicita**, via
+  `AND logradouro_encontrado IS NOT NULL` no predicado do ramo E em `trata_empates_geocode_duckdb.R`.
+  **Por que:** antes elas ficavam de fora por acidente — propagacao de `NULL` em
+  `NOT REGEXP_MATCHES(logradouro_encontrado, ...)` — o que parecia bug e convidava a um `COALESCE`
+  "corretivo" que seria regressao. Nao remover a guarda explicita achando que e redundante.
 
 - `[LEARN:duckdb]` `shared_home` (e os demais argumentos de configuracao do driver) pertence ao construtor
   `duckdb::duckdb()`, **nao** ao `DBI::dbConnect()`. Passado ao `dbConnect()` ele e engolido pelo `...` sem
@@ -213,9 +240,15 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   "RUA QUINZE DE NOVEMBRO" empatada a <1 km cai no ramo "perdidos" (fica o candidato top) em vez de
   "salváveis" (média ponderada), contra a intenção documentada no próprio comentário. Repro mínimo:
   `REGEXP_MATCHES('RUA QUINZE DE NOVEMBRO', <padrão>)` → `FALSE` com `\\b` duplo no fonte, `TRUE` com
-  simples. Fix pendente (é mudança de comportamento; tratar junto com a unificação das listas de
-  logradouro ambíguo). **Por quê:** o mesmo padrão visual (`\\\\b`) funciona em outras engines que
-  processam escapes na string SQL, e o erro é silencioso — a cláusula simplesmente nunca filtra.
+  simples. **Corrigido** em 26/08 (commit `2cb0034`): o fonte hoje tem `'\\bDE (JANEIRO|…)\\b'` (escape
+  simples). O fix veio junto com uma **reestruturação do predicado** — viva, a exceção de datas era um
+  conjunto *top-level* e anularia até o critério `max_dist > 1000`; foi movida para dentro do braço do
+  regex de números por extenso, e o bug do `\b` estava mascarando essa falha estrutural. Também entrou
+  `QUATRO` na lista de logradouros ambíguos de `cria_col_logradouro_confusao()`. Caracterização em 1M:
+  43 linhas (0,004%) mudam. A unificação completa das duas listas de logradouro ambíguo foi **avaliada e
+  rejeitada** (o flag ancorado perderia números compostos) — não repropor sem evidência nova.
+  **Por quê:** o mesmo padrão visual (`\\\\b`) funciona em outras engines que processam escapes na string
+  SQL, e o erro é silencioso — a cláusula simplesmente nunca filtra.
 
 - `[LEARN:testes]` Em bases grandes com `n_cores` default, `identical()` bit-a-bit é critério
   **inatingível** para o caminho de empates: a média ponderada (`SUM(lat*contagem_cnefe) OVER (...)`)
@@ -231,7 +264,8 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   ele já é filtrado a jusante. `match_weighted_cases_probabilistic.R` sempre calculava/agregava
   `similaridade_logradouro` mesmo com `resultado_completo = FALSE`, o que parecia um bug (a regra do
   pacote é: colunas extra só aparecem com `resultado_completo = TRUE`). Mas `merge_results_to_input()`
-  (`R/utils.R:147-170`) **já exclui** `similaridade_logradouro` da lista de colunas selecionadas quando
+  (`select_columns_y` em `merge_results_to_input()`, `R/utils.R`) **já exclui** `similaridade_logradouro`
+  da lista de colunas selecionadas quando
   `resultado_completo = FALSE`, então o valor nunca chegava ao usuário — confirmado com `identical()`
   antes/depois da "correção" (0 diferença nos dois casos). A mudança foi revertida por não ter efeito
   observável e adicionar complexidade sem necessidade. **Por quê:** um sintoma "essa coluna deveria ser
@@ -254,3 +288,83 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   contagem de linhas. Atribuir os bytes coluna a coluna (`parquet_metadata()` do DuckDB, que lê só o footer)
   e usar `sum(n_casos)` + anti-join na chave natural como teste real de conteúdo. Ver
   `quality_reports/diagnoses/2026-09-15_cnefe-v041-vs-v050-auditoria.md` e os dois scripts ao lado.
+
+- `[LEARN:benchmark]` Em 43,9M, duas corridas do MESMO código variam até ~20 % no total (1112 s a
+  frio na primeira corrida da noite → 894/910 s quentes), e etapas isoladas variam ainda mais (Jaro
+  em `pn02`: 57-130 s; `merge`: 93-115 s). **Diferença de total abaixo de ~10 % é inconclusiva.**
+  O que funcionou em 19/09: baselines intercalados na fila (início, meio, fim), mediana dos quentes
+  como referência, e **Δ por etapa** (o timer por função dentro do filho) como evidência primária
+  para patches pequenos — `p04` deu −5 s na etapa de DELETE numa corrida cujo total ficou 150 s
+  *acima* do baseline por ruído em etapas que o patch nem toca. **Por quê:** sem isso, patches
+  pequenos parecem regressões e patches grandes parecem maiores do que são.
+
+- `[LEARN:duckdb]` `DROP TABLE` de uma TEMP TABLE libera a memória na hora (sem `CHECKPOINT`);
+  `DELETE` não libera nada (+256 MB de delete vectors por 15M linhas) e `UPDATE` cria versões. Até
+  19/09 `geocode()` nunca dropava nada: 8 tabelas de referência + `input_padrao_db` + `output_db`
+  + `output_db2` + `input_db` somavam 51 GB no DuckDB e 82 GB de working set no filho durante o
+  merge, quando só `output_db2` e `input_db` eram necessárias. Dropar cada tabela de referência
+  após a última etapa que a usa (`dropa_tabelas_obsoletas()`, derivado de
+  `reference_table_by_match_type` + ordem do laço) + dropar `input_padrao_db` após o laço +
+  `output_db`/`ids_empatados`/`empates_classif` quando `output_db2` existe: pico 80,6 → 46,8 GB,
+  custo 2,3 s. **Por quê:** numa máquina de 16-32 GB isso é a diferença entre rodar em memória e
+  fazer spill para disco.
+
+- `[LEARN:geocode]` O transporte do resultado pelo `callr` (saveRDS sem compressão no filho +
+  readRDS no pai, 6,9 GB em 43,9M) custava ~160 s, mais ~100 s do `dbGetQuery` que materializava
+  as 43,9M linhas no filho. `COPY (<mesmo SELECT ... ORDER BY>) TO '<tmp>.parquet'` no DuckDB +
+  `arrow::read_parquet()` no pai (com `arrow.use_altrep = FALSE`): 880 → 738 s ponta a ponta.
+  Tipos que NÃO sobrevivem ao parquet e precisam de restauração no pai (`restaura_classes_input()`):
+  `factor` (volta como character; o caminho antigo devolvia factor não-ordenado com os níveis
+  originais), `POSIXct` (o driver antigo sempre rotulava `tzone = "UTC"`), `difftime` (DuckDB
+  INTERVAL → FIXED_SIZE_BINARY(12) → `blob` no arrow, e ainda quebrava `resultado_sf`; resolvido
+  com `epoch()` no SELECT + `as.difftime(units = "secs")`). Trade-off: pico do pai 9 → 18 GB
+  (o arrow materializa a tabela antes de converter). **Por quê:** `identical()` só fechou depois
+  de uma matriz de tipos (factor ordenado, POSIXct com 3 tz, integer64, lógico com NA, "" vs NA).
+
+- `[LEARN:enderecobr]` Os construtores de aviso/erro do enderecobr (0.6.1) inspecionam a pilha por
+  deslocamento fixo — `sys.call(-15)` em `warning_conversao_invalida()`, `sys.call(-10)` nos
+  `erro_cep_*`. Chamar `padronizar_numeros()`/`padronizar_ceps()` etc. **direto** de outro ponto
+  da pilha faz o construtor falhar com "cannot coerce type 'closure' to vector of type
+  'character'", transformando o aviso benigno de número não-convertível em erro fatal dentro do
+  `callr`. `padronizar_dedup()` (utils.R) por isso chama `padronizar_enderecos()` sobre uma
+  `data.table` de 1 coluna com os valores únicos — mesma profundidade de pilha, avisos/erros
+  idênticos (índices de erro de CEP preservados por rerun no vetor inteiro em caso de erro).
+  Padronizar sobre `unique()` + `chmatch()`: 118 → 24 s em 43,9M, `identical()` TRUE.
+
+- `[LEARN:duckdb]` A refutação de agosto do "dedup do Jaro" (5-18× mais lento) era sobre o
+  **mecanismo** (TEMP TABLE + `UNIQUE` + `ON CONFLICT` por chamada), não sobre a ideia. Dedup
+  puro em CTE — `SELECT DISTINCT (chave, logradouro_input)` → `jaro_similarity` contra
+  `SELECT DISTINCT (chave, logradouro)` dos candidatos → `FIRST(... ORDER BY similarity DESC,
+  logradouro_cnefe)` + `MAX(similarity)` com `GROUP BY ALL` → `UPDATE ... FROM` com o filtro de
+  elegibilidade REPETIDO no `WHERE` — deu 250 → 107 s em 43,9M (`pl02` 140 → 23 s, `pn02` 57 →
+  28 s) com `identical()` TRUE. Mas **perde** nas etapas cuja chave já inclui cep E localidade
+  (`pn01` 6 → 29 s): ali quase não há repetição e o join-back por 4 colunas de texto custa mais
+  que o Jaro por linha. Solução: híbrido por etapa (`usa_dedup` em `string_dist.R`). A causa da
+  explosão em `pn02`/`pl02`: ao soltar `localidade`, o conjunto de candidatos por linha cresce
+  10,6× (Σk² de logradouros por (muni, cep) = 783M vs 74M por (muni, cep, localidade)), e a
+  `unique_logr_*` criada em `pn01` repete cada logradouro uma vez por localidade do CEP (2,1× pares
+  a mais, rank-1 duplicado engolido em silêncio pelo `UPDATE`). **Por quê:** "já foi refutado" só
+  vale para o mecanismo medido; ler o relatório antes de descartar a ideia.
+
+- `[LEARN:geocode]` Nas etapas `pl0k`, linhas com `numero` preenchido nunca encontram candidato:
+  já foram testadas em `pn0k` (mesma chave de lookup, mesma `unique_logr_*`, mesmo corte) e
+  `similaridade_logradouro` só é setada, nunca limpa. Filtrar `numero IS NULL` em `pl01/pl02/pl03`
+  (4 linhas): Jaro 250 → 178 s, 0 acertos perdidos (verificado em 20k e `identical()` em 1M/43,9M).
+  Mesmo princípio de `match_types_jaro_redundante`.
+
+- `[LEARN:workflow]` `TaskStop` numa fila `bash` em background mata só o `Rscript` corrente; o
+  `bash` sobrevive e passa para o próximo item — resultado: duas filas de benchmark concorrentes
+  gravando nos mesmos arquivos. Para filas longas (> 10 min): lançar destacado via PowerShell
+  `Start-Process -FilePath 'C:\Program Files\Git\usr\bin\bash.exe' -ArgumentList ...` (o `bash`
+  não está no PATH do PowerShell; e o script precisa de `export PATH="/usr/bin:$PATH"` para
+  `date`), guardar o PID, e matar por PID (`Stop-Process -Id`) — `taskkill /F` no Git Bash vira
+  um path. Verificar `Get-Process Rscript,bash` com `StartTime` antes de relançar.
+
+- `[LEARN:testes]` Ao fundir patches feitos por agentes em cópias separadas: (1) `devtools::test()`
+  apaga `tests/testthat/_snaps/download_cnefe.md` em cada cópia — restaurar do base antes de
+  fundir; (2) alguns agentes reescrevem arquivos com LF enquanto o repo usa CRLF, o que faz o
+  `git merge` ver o arquivo inteiro como conflito — normalizar tudo para LF num repo git
+  descartável (`git init` + um branch por patch + `git merge` sequencial) e só então resolver os
+  conflitos reais (19/09: P1×P8 na mesma query; P5×P10 no bloco de padronização). `git checkout
+  --ours` num conflito descarta também os hunks que já tinham sido auto-fundidos daquele arquivo —
+  conferir com `grep` e reaplicar.
