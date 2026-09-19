@@ -1,0 +1,64 @@
+diff --git a/R/geocode.R b/R/geocode.R
+index ccad269..31b1ee0 100644
+--- a/R/geocode.R
++++ b/R/geocode.R
+@@ -345,7 +345,9 @@ geocode_core <- function(
+   # same column names used in cnefe data set
+   data.table::setDT(input_padrao)
+   cols_to_keep <- names(input_padrao)[names(input_padrao) %like% '_padr']
+-  input_padrao <- input_padrao[, .SD, .SDcols = c(cols_to_keep)]
++  # remove as colunas extras por referencia em vez de copiar as 6 colunas
++  # padronizadas para uma tabela nova (.SD copia)
++  input_padrao[, setdiff(names(input_padrao), cols_to_keep) := NULL]
+   names(input_padrao) <- c(gsub("_padr", "", names(input_padrao)))
+ 
+   if ('bairro' %in% names(input_padrao)) {
+@@ -409,6 +411,13 @@ geocode_core <- function(
+     temporary = TRUE
+   )
+ 
++  # daqui em diante so o numero de linhas e os nomes das colunas sao usados:
++  # libera o data.table padronizado (uma copia integral do input) antes do
++  # laco de matching, que e a fase mais longa
++  n_rows <- nrow(input_padrao)
++  cols_input_padrao <- names(input_padrao)
++  rm(input_padrao)
++
+   # systime register standardized 66666 ----------------
+   # timer$mark("Register standardized input")
+ 
+@@ -471,11 +480,10 @@ geocode_core <- function(
+ 
+   # start progress bar
+   if (verboso) {
+-    prog <- create_progress_bar(input_padrao)
++    prog <- create_progress_bar(n_rows)
+     message_looking_for_matches()
+   }
+ 
+-  n_rows <- nrow(input_padrao)
+   matched_rows <- 0
+ 
+   # start matching
+@@ -490,7 +498,7 @@ geocode_core <- function(
+     # somente busca essa categoria match_type se todas colunas estiverem na base
+     # e nenhuma delas for um campo que o usuario nao declarou -- caso
+     # contrario, passa para proxima categoria
+-    if (all(key_cols %in% names(input_padrao)) && !any(key_cols %in% campos_nao_declarados)) {
++    if (all(key_cols %in% cols_input_padrao) && !any(key_cols %in% campos_nao_declarados)) {
+       # select match function
+       match_fun <- reference_match_fun_by_match_type(match_type)
+ 
+diff --git a/R/progress_bar.R b/R/progress_bar.R
+index 32adf45..22cfabf 100644
+--- a/R/progress_bar.R
++++ b/R/progress_bar.R
+@@ -1,6 +1,6 @@
+-create_progress_bar <- function(standard_locations, .envir = parent.frame()) {
++create_progress_bar <- function(n_total, .envir = parent.frame()) {
+   cli::cli_progress_bar(
+-    total = nrow(standard_locations),
++    total = n_total,
+     format = " Casos processados: {formatC(cli::pb_current, big.mark = ',', format = 'd')}/{formatC(cli::pb_total, big.mark = ',', format = 'd')} {cli::pb_bar} {cli::pb_percent} - {cli::pb_status}",
+     clear = FALSE,
+     .envir = .envir

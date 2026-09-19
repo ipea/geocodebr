@@ -1,0 +1,1364 @@
+diff --git a/R/create_geocodebr_db.R b/R/create_geocodebr_db.R
+index 8609c36..667655a 100644
+--- a/R/create_geocodebr_db.R
++++ b/R/create_geocodebr_db.R
+@@ -40,6 +40,12 @@ create_geocodebr_db <- function(
+   # Silence progress bar from duckdb
+   DBI::dbExecute(con, "SET enable_progress_bar = false")
+ 
++  # Garante que a ordem das linhas produzida por um ORDER BY sobreviva ate a
++  # escrita do resultado (o COPY ... TO parquet em merge_results_to_input()
++  # depende disso para devolver o output na ordem original do input). Este ja e
++  # o default do DuckDB -- declarado aqui de proposito, como trava
++  DBI::dbExecute(con, "SET preserve_insertion_order = true")
++
+   # load spatial extension
+   if (isTRUE(load_spatial)) {
+     duckspatial::ddbs_install(conn = con, upgrade = FALSE, quiet = TRUE)
+diff --git a/R/geocode.R b/R/geocode.R
+index ccad269..6c6e67b 100644
+--- a/R/geocode.R
++++ b/R/geocode.R
+@@ -96,7 +96,19 @@ geocode <- function(
+   dev_path <- caminho_pacote_dev()
+   versao_sessao <- as.character(getNamespaceVersion(asNamespace("geocodebr")))
+ 
+-  callr::r(
++  # O resultado NAO volta do subprocesso como objeto R. O filho grava o output
++  # em parquet neste caminho e devolve so o caminho; o pai le com arrow. Trazer
++  # 43M de linhas como data.frame serializado pelo callr custava ~160s (RDS de
++  # ida e volta) mais uma copia de ~7GB dentro do filho. Barras normalizadas
++  # porque o caminho vai literal para dentro de um COPY ... TO '<path>' do DuckDB
++  arquivo_saida <- normalizePath(
++    tempfile(pattern = "geocodebr_output", fileext = ".parquet"),
++    winslash = "/",
++    mustWork = FALSE
++  )
++  on.exit(unlink(arquivo_saida), add = TRUE)
++
++  resumo_filho <- callr::r(
+     func = function(
+       dev_path,
+       versao_sessao,
+@@ -109,7 +121,8 @@ geocode <- function(
+       padronizar_enderecos,
+       verboso,
+       cache,
+-      n_cores
++      n_cores,
++      arquivo_saida
+     ) {
+       if (!is.null(dev_path)) {
+         if (!requireNamespace("pkgload", quietly = TRUE)) {
+@@ -137,6 +150,9 @@ geocode <- function(
+       }
+ 
+       # Run internal engine
++      # resultado_sf/h3_res seguem sendo passados mesmo que o pos-processamento
++      # (H3, sf) rode no processo pai: e o geocode_core() que valida os dois com
++      # checkmate, e essa validacao precisa continuar acontecendo aqui
+       geocode_core <- get("geocode_core", envir = ns)
+       geocode_core(
+         enderecos = enderecos,
+@@ -148,7 +164,8 @@ geocode <- function(
+         padronizar_enderecos = padronizar_enderecos,
+         verboso = verboso,
+         cache = cache,
+-        n_cores = n_cores
++        n_cores = n_cores,
++        arquivo_saida = arquivo_saida
+       )
+     },
+     args = list(
+@@ -163,11 +180,44 @@ geocode <- function(
+       padronizar_enderecos = padronizar_enderecos,
+       verboso = verboso,
+       cache = cache,
+-      n_cores = n_cores
++      n_cores = n_cores,
++      arquivo_saida = arquivo_saida
+     ),
+     show = TRUE,
+     package = FALSE
+   )
++
++  # le o resultado gravado pelo filho ------------------------------------------
++  # altrep desligado de proposito: com altrep as colunas voltam lazy e o custo de
++  # materializacao apenas migra para a primeira vez que cada coluna e tocada
++  # (inclusive dentro do setDT/H3 abaixo), o que torna o ganho ilusorio
++  old_altrep <- getOption("arrow.use_altrep")
++  options(arrow.use_altrep = FALSE)
++  on.exit(options(arrow.use_altrep = old_altrep), add = TRUE)
++
++  output_df <- tryCatch(
++    as.data.frame(arrow::read_parquet(resumo_filho$arquivo)),
++    error = function(e) {
++      cli::cli_abort(
++        c(
++          "Nao foi possivel ler o resultado intermediario do geocode().",
++          "x" = "Falha ao ler {.file {resumo_filho$arquivo}}: {conditionMessage(e)}"
++        ),
++        call = NULL
++      )
++    }
++  )
++
++  # factor, tzone de POSIXct e difftime nao sobrevivem ao parquet -- reconstroi
++  # usando o input original, que continua intacto neste processo, como gabarito
++  output_df <- restaura_classes_input(output_df, enderecos)
++
++  # pos-processamento que antes rodava dentro do filho
++  pos_processa_output(
++    output_df = output_df,
++    h3_res = h3_res,
++    resultado_sf = resultado_sf
++  )
+ }
+ 
+ 
+@@ -184,6 +234,14 @@ caminho_pacote_dev <- function() {
+ 
+ 
+ #' @keywords internal
++#
++# arquivo_saida: string ou NULL. Caminho de um .parquet onde o resultado deve ser
++#   gravado em vez de devolvido como data.frame. Com NULL (padrao), a funcao
++#   devolve o resultado pos-processado, como sempre. Com um caminho, o resultado
++#   sai do DuckDB direto para disco e a funcao devolve, invisivelmente, apenas
++#   list(arquivo =, new_colnames =) -- o pos-processamento (colunas-fantasma, H3,
++#   sf) fica a cargo de quem chamou. Usado por geocode() para nao trazer o
++#   resultado inteiro de volta pelo callr.
+ geocode_core <- function(
+   enderecos,
+   campos_endereco,
+@@ -194,7 +252,8 @@ geocode_core <- function(
+   padronizar_enderecos,
+   verboso,
+   cache,
+-  n_cores
++  n_cores,
++  arquivo_saida = NULL
+ ) {
+   # ## ---- tiny timing toolkit (self-contained) ------------------------------
+   # .make_timer <- function(verbose = TRUE) {
+@@ -286,6 +345,10 @@ geocode_core <- function(
+   # essas etapas sem materializar a tabela de referencia correspondente.
+   campos_nao_declarados <- names(missing_cols)
+ 
++  # nomes das colunas-fantasma efetivamente criadas (vazio quando o usuario
++  # declarou todos os campos)
++  new_colnames <- character(0)
++
+   if (length(missing_cols)>=1) {
+ 
+     # add empty string to missing cols
+@@ -307,53 +370,76 @@ geocode_core <- function(
+       message_standardizing_addresses()
+     }
+ 
+-    input_padrao <- enderecobr::padronizar_enderecos(
+-      enderecos = enderecos,
+-      campos_do_endereco = enderecobr::correspondencia_campos(
+-        logradouro = campos_endereco[["logradouro"]],
+-        numero = campos_endereco[["numero"]],
+-        cep = campos_endereco[["cep"]],
+-        bairro = campos_endereco[["localidade"]],
+-        municipio = campos_endereco[["municipio"]],
+-        estado = campos_endereco[["estado"]]
++    # padroniza campo a campo em vez de uma chamada unica a
++    # enderecobr::padronizar_enderecos() sobre a tabela inteira: cada coluna passa
++    # por padronizar_dedup() (ver R/utils.R), que padroniza so os valores
++    # distintos daquele campo e expande de volta com chmatch(). O resultado e
++    # identical() ao da chamada antiga, incluindo a ORDEM das colunas
++    # (logradouro, numero, cep, localidade, municipio, estado), que precisa ser
++    # preservada porque define o schema da tabela gravada no DuckDB.
++    input_padrao <- data.table::data.table(
++      logradouro = padronizar_dedup(
++        enderecos[[campos_endereco[["logradouro"]]]],
++        "logradouro"
++      ),
++      numero = padronizar_dedup(
++        enderecos[[campos_endereco[["numero"]]]],
++        "numero"
++      ),
++      cep = padronizar_dedup(
++        enderecos[[campos_endereco[["cep"]]]],
++        "cep"
++      ),
++      localidade = padronizar_dedup(
++        enderecos[[campos_endereco[["localidade"]]]],
++        "bairro"
+       ),
+-      formato_estados = "sigla",
+-      formato_numeros = 'integer'
++      municipio = padronizar_dedup(
++        enderecos[[campos_endereco[["municipio"]]]],
++        "municipio"
++      ),
++      estado = padronizar_dedup(
++        enderecos[[campos_endereco[["estado"]]]],
++        "estado"
++      )
+     )
+   }
+ 
+   if (isFALSE(padronizar_enderecos)) {
+     input_padrao <- data.table::copy(enderecos)
+-  }
+ 
+-  # checa se input foi mesmo padronizado
+-  all_cols_padr <- c(
+-    "estado_padr",
+-    "municipio_padr",
+-    "logradouro_padr",
+-    "numero_padr",
+-    "cep_padr",
+-    "bairro_padr"
+-  )
+-  check_padr <- all(all_cols_padr %in% names(input_padrao))
++    # checa se input foi mesmo padronizado -- so faz sentido neste ramo, ja que
++    # no ramo TRUE as colunas padronizadas sao construidas aqui mesmo
++    all_cols_padr <- c(
++      "estado_padr",
++      "municipio_padr",
++      "logradouro_padr",
++      "numero_padr",
++      "cep_padr",
++      "bairro_padr"
++    )
++    check_padr <- all(all_cols_padr %in% names(input_padrao))
+ 
+-  if (isFALSE(check_padr)) {
+-    error_input_nao_padronizado()
+-  }
++    if (isFALSE(check_padr)) {
++      error_input_nao_padronizado()
++    }
+ 
+-  # keep and rename colunms of input_padrao to use the
+-  # same column names used in cnefe data set
+-  data.table::setDT(input_padrao)
+-  cols_to_keep <- names(input_padrao)[names(input_padrao) %like% '_padr']
+-  input_padrao <- input_padrao[, .SD, .SDcols = c(cols_to_keep)]
+-  names(input_padrao) <- c(gsub("_padr", "", names(input_padrao)))
+-
+-  if ('bairro' %in% names(input_padrao)) {
+-    data.table::setnames(
+-      x = input_padrao,
+-      old = 'bairro',
+-      new = 'localidade'
+-    )
++    # keep and rename colunms of input_padrao to use the
++    # same column names used in cnefe data set
++    data.table::setDT(input_padrao)
++    cols_to_keep <- names(input_padrao)[names(input_padrao) %like% '_padr']
++    # remove as colunas extras por referencia em vez de copiar as 6 colunas
++    # padronizadas para uma tabela nova (.SD copia)
++    input_padrao[, setdiff(names(input_padrao), cols_to_keep) := NULL]
++    names(input_padrao) <- c(gsub("_padr", "", names(input_padrao)))
++
++    if ('bairro' %in% names(input_padrao)) {
++      data.table::setnames(
++        x = input_padrao,
++        old = 'bairro',
++        new = 'localidade'
++      )
++    }
+   }
+ 
+   # systime padronizacao 66666 ----------------
+@@ -409,6 +495,13 @@ geocode_core <- function(
+     temporary = TRUE
+   )
+ 
++  # daqui em diante so o numero de linhas e os nomes das colunas sao usados:
++  # libera o data.table padronizado (uma copia integral do input) antes do
++  # laco de matching, que e a fase mais longa
++  n_rows <- nrow(input_padrao)
++  cols_input_padrao <- names(input_padrao)
++  rm(input_padrao)
++
+   # systime register standardized 66666 ----------------
+   # timer$mark("Register standardized input")
+ 
+@@ -431,8 +524,9 @@ geocode_core <- function(
+       tipo_resultado = arrow::string(),
+       contagem_cnefe = arrow::int32(),
+       desvio_metros = arrow::int32(),
+-      log_causa_confusao = arrow::boolean(),
+-      similaridade_logradouro = arrow::float16()
++      log_causa_confusao = arrow::boolean()
++      # similaridade_logradouro so e gravada (e lida) com resultado_completo =
++      # TRUE; declara-la aqui alocava uma coluna DOUBLE inteira sempre NULL
+     )
+ 
+   } else {
+@@ -471,11 +565,10 @@ geocode_core <- function(
+ 
+   # start progress bar
+   if (verboso) {
+-    prog <- create_progress_bar(input_padrao)
++    prog <- create_progress_bar(n_rows)
+     message_looking_for_matches()
+   }
+ 
+-  n_rows <- nrow(input_padrao)
+   matched_rows <- 0
+ 
+   # start matching
+@@ -490,7 +583,7 @@ geocode_core <- function(
+     # somente busca essa categoria match_type se todas colunas estiverem na base
+     # e nenhuma delas for um campo que o usuario nao declarou -- caso
+     # contrario, passa para proxima categoria
+-    if (all(key_cols %in% names(input_padrao)) && !any(key_cols %in% campos_nao_declarados)) {
++    if (all(key_cols %in% cols_input_padrao) && !any(key_cols %in% campos_nao_declarados)) {
+       # select match function
+       match_fun <- reference_match_fun_by_match_type(match_type)
+ 
+@@ -504,6 +597,12 @@ geocode_core <- function(
+ 
+       matched_rows <- matched_rows + n_rows_affected
+ 
++      # libera as tabelas de referencia que as etapas restantes nao usam mais
++      restantes <- all_possible_match_types[
++        seq_along(all_possible_match_types) > match(match_type, all_possible_match_types)
++      ]
++      dropa_tabelas_obsoletas(con, restantes, campos_nao_declarados)
++
+       # leave the loop early if we find all addresses before covering all cases
+       if (matched_rows == n_rows) break
+     }
+@@ -513,6 +612,12 @@ geocode_core <- function(
+     finish_progress_bar(matched_rows)
+   }
+ 
++  # nada apos o laco le input_padrao_db nem as tabelas de referencia: so
++  # output_db (empates) e input_db (merge). Liberar aqui derruba o pico de
++  # memoria do DuckDB nas etapas finais.
++  dropa_tabelas_obsoletas(con, character(0), campos_nao_declarados)
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS input_padrao_db;")
++
+   # systime matching 66666 ----------------
+   # timer$mark("Matching")
+ 
+@@ -535,16 +640,12 @@ geocode_core <- function(
+   # bring original input back -----------------------------------------------
+ 
+   # output with all original columns
+-  duckdb::dbWriteTable(
+-    con,
+-    "input_db",
+-    enderecos,
+-    temporary = TRUE,
+-    overwrite = TRUE
+-  )
+-  # enderecos_arrw <- arrow::as_arrow_table(enderecos)
+-  # DBI::dbWriteTableArrow(con, name = "input_db", enderecos_arrw,
+-  #                        overwrite = TRUE, temporary = TRUE)
++  # registra o data.frame como view (zero copia) em vez de gravar uma tabela:
++  # input_db so e lido uma vez, pelo LEFT JOIN de merge_results_to_input(),
++  # nunca alterado. dbWriteTable() e exatamente register + CREATE TABLE AS,
++  # entao os tipos das colunas sao os mesmos -- sem a copia integral do input
++  # dentro do DuckDB nem o tempo de escrita. A view some no dbDisconnect().
++  duckdb::duckdb_register(con, "input_db", enderecos)
+ 
+   # systime write original input back 66666 ----------------
+   # timer$mark("Write original input back")
+@@ -560,8 +661,16 @@ geocode_core <- function(
+   # systime add precision 66666 ----------------
+   # timer$mark("Add precision")
+ 
++  # com arquivo_saida, as colunas-fantasma sao deixadas de fora ja no SELECT --
++  # assim nunca chegam ao parquet e nao precisam ser removidas depois. A ordem
++  # das colunas e a mesma dos dois jeitos, porque as fantasmas ficam sempre
++  # entre as colunas do usuario e as colunas do resultado
+   x_columns <- names(enderecos)
+ 
++  if (!is.null(arquivo_saida)) {
++    x_columns <- setdiff(x_columns, new_colnames)
++  }
++
+   output_df <- merge_results_to_input(
+     con,
+     x = 'input_db',
+@@ -569,12 +678,22 @@ geocode_core <- function(
+     key_column = 'tempidgeocodebr',
+     select_columns = x_columns,
+     resultado_completo = resultado_completo,
+-    incluir_empate = isFALSE(resolver_empates)
++    incluir_empate = isFALSE(resolver_empates),
++    arquivo_saida = arquivo_saida
+   )
+ 
+   # Disconnect from DuckDB when done
+   duckdb::dbDisconnect(con)
+ 
++  # o resultado ja esta em disco: devolve so o necessario para o processo pai
++  # fazer o pos-processamento (ver geocode())
++  if (!is.null(arquivo_saida)) {
++    return(invisible(list(
++      arquivo = arquivo_saida,
++      new_colnames = new_colnames
++    )))
++  }
++
+   # systime merge results 66666 ----------------
+   # timer$mark("Merge results")
+ 
+@@ -599,49 +718,16 @@ geocode_core <- function(
+   # )]
+ 
+ 
+-  # add H3
+-  if (!is.null(h3_res)) {
+-    for (i in h3_res) {
+-      colname <- paste0(
+-        'h3_',
+-        formatC(i, width = 2, flag = "0")
+-      )
+-
+-      output_df[
+-        !is.na(lat),
+-        {{ colname }} := h3r::latLngToCell(lat = lat, lng = lon, resolution = i)
+-      ]
+-    }
+-
+-    # systime add h3 66666 ----------------
+-    # timer$mark("Add H3")
+-  }
+-
+   # drop eventual mock columns with empty strings
+-  if (length(missing_cols)>=1) {
++  if (length(new_colnames) >= 1) {
+     output_df[, (new_colnames) := NULL]
+   }
+ 
+-  # remove data.table class
+-  data.table::setindex(output_df, NULL)
+-  data.table::setDF(output_df)
+-
+-  # convert df to simple feature
+-  if (isTRUE(resultado_sf)) {
+-    output_sf <- sfheaders::sf_point(
+-      obj = output_df,
+-      x = 'lon',
+-      y = 'lat',
+-      keep = TRUE
+-    )
+-
+-    sf::st_crs(output_sf) <- 4674
+-
+-    # systime convert to sf 66666 ----------------
+-    # timer$mark("Convert to sf")
+-
+-    return(output_sf)
+-  }
+-
+-  return(output_df[])
++  # H3, remocao da classe data.table e conversao para sf -- mesmas etapas que o
++  # processo pai aplica no caminho com arquivo_saida (ver R/utils.R)
++  pos_processa_output(
++    output_df = output_df,
++    h3_res = h3_res,
++    resultado_sf = resultado_sf
++  )
+ }
+diff --git a/R/match_cases.R b/R/match_cases.R
+index de276fc..b3c01e1 100644
+--- a/R/match_cases.R
++++ b/R/match_cases.R
+@@ -16,7 +16,7 @@ match_cases <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+   # Create the JOIN condition by concatenating the key columns
+   join_condition <- paste(
+@@ -68,7 +68,8 @@ match_cases <- function(
+   temp_n <- update_input_db(
+     con,
+     update_tb = x,
+-    reference_tb = output_tb
++    reference_tb = output_tb,
++    match_type = match_type
+   )
+ 
+   return(temp_n)
+diff --git a/R/match_cases_probabilistic.R b/R/match_cases_probabilistic.R
+index bd8a506..a466342 100644
+--- a/R/match_cases_probabilistic.R
++++ b/R/match_cases_probabilistic.R
+@@ -24,7 +24,7 @@ match_cases_probabilistic <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+   # 1st step: create small table with unique logradouros -----------------------
+   unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type, pasta_dados)
+@@ -106,7 +106,8 @@ match_cases_probabilistic <- function(
+   temp_n <- update_input_db(
+     con,
+     update_tb = x,
+-    reference_tb = output_tb
++    reference_tb = output_tb,
++    match_type = match_type
+   )
+ 
+   return(temp_n)
+diff --git a/R/match_weighted_cases.R b/R/match_weighted_cases.R
+index 09d8359..00d0f1b 100644
+--- a/R/match_weighted_cases.R
++++ b/R/match_weighted_cases.R
+@@ -17,7 +17,7 @@ match_weighted_cases <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+ 
+   # cols that cannot be null
+@@ -35,6 +35,23 @@ match_weighted_cases <- function(
+     collapse = ' AND '
+   )
+ 
++  # colunas de y que compoem endereco_completo e nao estao fixadas pelo join
++  # (key_cols aqui ja sem 'numero'); e por elas que os candidatos de um mesmo
++  # tempidgeocodebr se separam em enderecos distintos. Sao essas colunas que
++  # entram no GROUP BY da parte 2, em vez da string endereco_encontrado (~70
++  # bytes): a particao (tempidgeocodebr, endereco_encontrado) e identica a
++  # (tempidgeocodebr, cols_livres), porque endereco_completo e constante dentro
++  # de cada grupo (estado, municipio, logradouro, cep, localidade) do CNEFE e
++  # valores distintos de cep/localidade geram strings distintas. Assim o regex
++  # roda 1x por grupo, e nao 1x por candidato (~17-21 candidatos por endereco)
++  cols_livres <- setdiff(intersect(c("cep", "localidade"), strsplit(y, "_")[[1]]), key_cols)
++  sel_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {y}.{cols_livres} AS {cols_livres}_cnefe"), collapse = "")
++  } else ""
++  grp_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {cols_livres}_cnefe"), collapse = "")
++  } else ""
++
+   # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
+   # candidato mais proximo do numero buscado vence; empate exato de distancia
+   # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
+@@ -73,7 +90,7 @@ match_weighted_cases <- function(
+              {x}.numero,
+              {y}.numero AS numero_cnefe,
+              {y}.lat, {y}.lon,
+-             REGEXP_REPLACE( {y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
++             {y}.endereco_completo{sel_livres},
+              {y}.desvio_metros,
+              {x}.log_causa_confusao,
+              {y}.n_casos AS contagem_cnefe {additional_cols_first}
+@@ -88,13 +105,13 @@ match_weighted_cases <- function(
+       SELECT tempidgeocodebr,
+         SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
+         SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
+-        FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
++        REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
+         '{match_type}' AS tipo_resultado,
+         AVG(desvio_metros) as desvio_metros,
+         FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+         FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
+     FROM temp_db
+-    GROUP BY tempidgeocodebr, endereco_encontrado;"
++    GROUP BY tempidgeocodebr, numero {grp_livres};"
+   )
+ 
+   DBI::dbExecute(con, query_match)
+@@ -107,7 +124,8 @@ match_weighted_cases <- function(
+   temp_n <- update_input_db(
+     con,
+     update_tb = x,
+-    reference_tb = output_tb
++    reference_tb = output_tb,
++    match_type = match_type
+   )
+ 
+   return(temp_n)
+diff --git a/R/match_weighted_cases_probabilistic.R b/R/match_weighted_cases_probabilistic.R
+index 76d5e1f..ccaac04 100644
+--- a/R/match_weighted_cases_probabilistic.R
++++ b/R/match_weighted_cases_probabilistic.R
+@@ -21,7 +21,7 @@ match_weighted_cases_probabilistic <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+ 
+   # 1st + 2nd steps: recalcula o logradouro provavel (Jaro)  eatualiza input_padrao_db   --------------------------------------------------------
+@@ -67,6 +67,23 @@ match_weighted_cases_probabilistic <- function(
+     cols_not_null
+   )
+ 
++  # colunas de y que compoem endereco_completo e nao estao fixadas pelo join
++  # (key_cols aqui ja sem 'numero'); e por elas que os candidatos de um mesmo
++  # tempidgeocodebr se separam em enderecos distintos. Sao essas colunas que
++  # entram no GROUP BY da parte 2, em vez da string endereco_encontrado (~70
++  # bytes): a particao (tempidgeocodebr, endereco_encontrado) e identica a
++  # (tempidgeocodebr, cols_livres), porque endereco_completo e constante dentro
++  # de cada grupo (estado, municipio, logradouro, cep, localidade) do CNEFE e
++  # valores distintos de cep/localidade geram strings distintas. Assim o regex
++  # roda 1x por grupo, e nao 1x por candidato (~17-21 candidatos por endereco)
++  cols_livres <- setdiff(intersect(c("cep", "localidade"), strsplit(y, "_")[[1]]), key_cols)
++  sel_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {y}.{cols_livres} AS {cols_livres}_cnefe"), collapse = "")
++  } else ""
++  grp_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {cols_livres}_cnefe"), collapse = "")
++  } else ""
++
+   # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
+   # candidato mais proximo do numero buscado vence; empate exato de distancia
+   # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
+@@ -125,7 +142,7 @@ match_weighted_cases_probabilistic <- function(
+              {x}.numero,
+              {y}.numero AS numero_cnefe,
+              {y}.lat, {y}.lon,
+-             REGEXP_REPLACE( {y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
++             {y}.endereco_completo{sel_livres},
+              {y}.desvio_metros,
+              {x}.log_causa_confusao,
+              {y}.n_casos AS contagem_cnefe {additional_cols_first}
+@@ -142,13 +159,13 @@ match_weighted_cases_probabilistic <- function(
+        SELECT tempidgeocodebr,
+          SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
+          SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
+-         FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
++         REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
+          '{match_type}' AS tipo_resultado,
+          AVG(desvio_metros) AS desvio_metros,
+          FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+          FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
+       FROM temp_db
+-      GROUP BY tempidgeocodebr, endereco_encontrado;"
++      GROUP BY tempidgeocodebr, numero {grp_livres};"
+   )
+ 
+   DBI::dbExecute(con, query_match)
+@@ -160,7 +177,8 @@ match_weighted_cases_probabilistic <- function(
+   temp_n <- update_input_db(
+     con,
+     update_tb = x,
+-    reference_tb = output_tb
++    reference_tb = output_tb,
++    match_type = match_type
+   )
+ 
+   return(temp_n)
+diff --git a/R/progress_bar.R b/R/progress_bar.R
+index 32adf45..22cfabf 100644
+--- a/R/progress_bar.R
++++ b/R/progress_bar.R
+@@ -1,6 +1,6 @@
+-create_progress_bar <- function(standard_locations, .envir = parent.frame()) {
++create_progress_bar <- function(n_total, .envir = parent.frame()) {
+   cli::cli_progress_bar(
+-    total = nrow(standard_locations),
++    total = n_total,
+     format = " Casos processados: {formatC(cli::pb_current, big.mark = ',', format = 'd')}/{formatC(cli::pb_total, big.mark = ',', format = 'd')} {cli::pb_bar} {cli::pb_percent} - {cli::pb_status}",
+     clear = FALSE,
+     .envir = .envir
+diff --git a/R/register_cnefe_tables.R b/R/register_cnefe_tables.R
+index 1a3da23..66a2d31 100644
+--- a/R/register_cnefe_tables.R
++++ b/R/register_cnefe_tables.R
+@@ -1,4 +1,4 @@
+-register_cnefe_table <- function(con, match_type, pasta_dados) {
++register_cnefe_table <- function(con, match_type, pasta_dados, resultado_completo = TRUE) {
+   # nocov start
+ 
+   # message("register_cnefe_table")
+@@ -53,6 +53,16 @@ register_cnefe_table <- function(con, match_type, pasta_dados) {
+     return(TRUE)
+   }
+ 
++  # colunas do parquet que nenhuma query do pacote le: code_muni e n_setor nunca;
++  # cod_setor so entra no output com resultado_completo = TRUE (ver
++  # monta_colunas_encontradas). Deixa-las de fora da materializacao economiza
++  # ~10% da memoria de cada tabela de referencia.
++  cols_excluir <- c("code_muni", "n_setor")
++  if (isFALSE(resultado_completo)) {
++    cols_excluir <- c(cols_excluir, "cod_setor")
++  }
++  cols_excluir <- paste(cols_excluir, collapse = ", ")
++
+   query_filter_cnefe <- glue::glue(
+     "CREATE TEMP TABLE IF NOT EXISTS {cnefe_table_name} AS
+           WITH unique_munis AS (
+@@ -63,7 +73,7 @@ register_cnefe_table <- function(con, match_type, pasta_dados) {
+               SELECT DISTINCT estado
+               FROM input_padrao_db
+           )
+-          SELECT *
++          SELECT * EXCLUDE ({cols_excluir})
+           FROM read_parquet('{path_to_parquet}') m
+           WHERE m.estado IN (SELECT estado FROM unique_states)
+                AND m.municipio IN (SELECT municipio FROM unique_munis);"
+diff --git a/R/string_dist.R b/R/string_dist.R
+index 463c481..58e5e20 100644
+--- a/R/string_dist.R
++++ b/R/string_dist.R
+@@ -14,86 +14,102 @@ calculate_string_dist <- function(con, match_type, unique_logradouros_tbl) {
+   # remove numero and logradouro from key cols to allow for the matching
+   key_cols_string_dist <- key_cols[!key_cols %in% c("numero", "logradouro")]
+ 
++  # min cutoff for string match
++  min_cutoff <- get_prob_match_cutoff(match_type)
++
++  # nas etapas sem numero (pl0k), as linhas com numero preenchido ja foram
++  # testadas na etapa pn0k correspondente -- mesma chave de lookup, mesma
++  # tabela unique_logr_* e mesmo corte -- e nao passaram. similaridade_logradouro
++  # so e preenchida, nunca limpa, entao recalcular Jaro para elas aqui e um
++  # no-op garantido (mesmo principio de match_types_jaro_redundante em utils.R).
++  # So as linhas com numero NULL (que pn0k exclui via cols_not_null) restam.
++  # Se numero nao foi declarado, a coluna-fantasma e toda NULL e o filtro nao
++  # exclui nada.
++  filtro_sem_numero <- if (match_type %in% probabilistic_types_no_number) {
++    "AND input_padrao_db.numero IS NULL"
++  } else {
++    ""
++  }
++
++  #-----------------------------------------------------------------------------
++  # Jaro depende apenas de (key_cols_string_dist, logradouro) -- nao do
++  # tempidgeocodebr. Como muitas linhas do input compartilham essa combinacao,
++  # deduplicamos o input ANTES de calcular a similaridade e devolvemos o
++  # resultado por join. Dentro de cada grupo o candidato vencedor eh unico
++  # (a tabela de candidatos entra DISTINCT, e o desempate por logradouro_cnefe
++  # torna a ordenacao total), logo RANK() = 1 equivale a
++  # FIRST(... ORDER BY ...) + MAX(similarity) -- e agregacao eh mais barata que
++  # window function.
++
++  # colunas-chave qualificadas para cada lado do join
++  cols_to_compute <- paste(
++    glue::glue("t.{key_cols_string_dist}"),
++    collapse = ', '
++  )
+   join_condition_lookup <- paste(
++    glue::glue("t.{key_cols_string_dist} = c.{key_cols_string_dist}"),
++    collapse = ' AND '
++  )
++  join_condition_update <- paste(
+     glue::glue(
+-      "{unique_logradouros_tbl}.{key_cols_string_dist} = input_padrao_db.{key_cols_string_dist}"
++      "input_padrao_db.{key_cols_string_dist} = computed.{key_cols_string_dist}"
+     ),
+     collapse = ' AND '
+   )
++  key_cols_sql <- paste(key_cols_string_dist, collapse = ', ')
+ 
+-  # min cutoff for string match
+-  min_cutoff <- get_prob_match_cutoff(match_type)
+-
+-  #-----------------------------------------------------------------------------
+-
+-  # query novo
+   query_calc_dist <- glue::glue(
+     "
+-    -- STEP 1: pick only rows that do NOT have similarity in temp table
++    -- STEP 1: combinacoes distintas de chave + logradouro que ainda nao tem similaridade
+     WITH to_compute AS (
+-      SELECT
+-          input_padrao_db.tempidgeocodebr,
+-          input_padrao_db.logradouro AS logradouro_input,
+-          {unique_logradouros_tbl}.logradouro AS logradouro_cnefe
++      SELECT DISTINCT
++          {key_cols_sql},
++          input_padrao_db.logradouro AS logradouro_input
+       FROM input_padrao_db
+-      JOIN {unique_logradouros_tbl}
+-        ON {join_condition_lookup}
+       WHERE input_padrao_db.similaridade_logradouro IS NULL
+         AND input_padrao_db.log_causa_confusao = FALSE
+         AND {cols_not_null}
++        {filtro_sem_numero}
+         ),
+ 
+-    -- STEP 2: calculate similarity only for missing pairs
++    -- STEP 2: calcula Jaro apenas para os pares distintos
++    pairs AS (
++      SELECT
++          {cols_to_compute},
++          t.logradouro_input,
++          c.logradouro AS logradouro_cnefe,
++          CAST(jaro_similarity(t.logradouro_input, c.logradouro) AS NUMERIC(5,3)) AS similarity
++      FROM to_compute t
++      JOIN (SELECT DISTINCT {key_cols_sql}, logradouro FROM {unique_logradouros_tbl}) c
++        ON {join_condition_lookup}
++      ),
++
++    -- STEP 3: melhor candidato por combinacao (equivalente a RANK() = 1)
+     computed AS (
+       SELECT
+-          tempidgeocodebr,
+-          logradouro_cnefe,
+-          CAST(jaro_similarity(logradouro_input, logradouro_cnefe) AS NUMERIC(5,3)) AS similarity,
+-          RANK() OVER (PARTITION BY tempidgeocodebr ORDER BY similarity DESC, logradouro_cnefe) AS rank
+-      FROM to_compute
++          {key_cols_sql},
++          logradouro_input,
++          FIRST(logradouro_cnefe ORDER BY similarity DESC, logradouro_cnefe) AS logradouro_cnefe,
++          MAX(similarity) AS similarity
++      FROM pairs
+       WHERE similarity > {min_cutoff}
++      GROUP BY ALL
+       )
+ 
+-    -- STEP 3: distances to input db
++    -- STEP 4: devolve o resultado ao input (o filtro de elegibilidade tem de
++    -- ser repetido aqui, senao linhas ja resolvidas ou com confusao seriam
++    -- sobrescritas)
+     UPDATE input_padrao_db
+       SET temp_lograd_determ = computed.logradouro_cnefe,
+-          similaridade_logradouro = similarity
++          similaridade_logradouro = computed.similarity
+       FROM computed
+-      WHERE input_padrao_db.tempidgeocodebr = computed.tempidgeocodebr
+-            AND computed.rank = 1;"
++      WHERE {join_condition_update}
++            AND input_padrao_db.logradouro = computed.logradouro_input
++            AND input_padrao_db.similaridade_logradouro IS NULL
++            AND input_padrao_db.log_causa_confusao = FALSE
++            AND {cols_not_null}
++            {filtro_sem_numero};"
+   )
+ 
+   DBI::dbExecute(con, query_calc_dist)
+-  #-----------------------------------------------------------------------------
+-
+-  # # query antigo
+-  # query_lookup <- glue::glue(
+-  #   "WITH ranked_data AS (
+-  #       SELECT
+-  #         input_padrao_db.tempidgeocodebr,
+-  #         {unique_logradouros_tbl}.logradouro AS logradouro_cnefe,
+-  #         CAST(jaro_similarity(input_padrao_db.logradouro, {unique_logradouros_tbl}.logradouro) AS NUMERIC(5,3)) AS similarity,
+-  #         RANK() OVER (PARTITION BY input_padrao_db.tempidgeocodebr ORDER BY similarity DESC, logradouro_cnefe) AS rank
+-  #       FROM input_padrao_db
+-  #       JOIN {unique_logradouros_tbl}
+-  #         ON {join_condition_lookup}
+-  #      WHERE {cols_not_null}
+-  #            AND input_padrao_db.log_causa_confusao is false
+-  #            AND input_padrao_db.similaridade_logradouro IS NULL
+-  #            AND similarity > {min_cutoff}
+-  #     )
+-  #
+-  #     UPDATE input_padrao_db
+-  #        SET temp_lograd_determ = ranked_data.logradouro_cnefe,
+-  #            similaridade_logradouro = similarity
+-  #      FROM ranked_data
+-  #     WHERE input_padrao_db.tempidgeocodebr = ranked_data.tempidgeocodebr
+-  #           AND ranked_data.similarity > {min_cutoff}
+-  #           AND ranked_data.rank = 1;"
+-  #     )
+-  #
+-  # DBI::dbExecute(con, query_lookup)
+-
+-  # a <- DBI::dbReadTable(con, 'input_padrao_db')
+-  # sum(is.na(a$similaridade_logradouro))
+ }
+diff --git a/R/trata_empates_geocode_duckdb.R b/R/trata_empates_geocode_duckdb.R
+index 876a26d..7bb464d 100644
+--- a/R/trata_empates_geocode_duckdb.R
++++ b/R/trata_empates_geocode_duckdb.R
+@@ -65,6 +65,7 @@ trata_empates_geocode_duckdb <- function(
+       conn = con,
+       statement = "ALTER TABLE output_db RENAME TO output_db2;"
+     )
++    DBI::dbExecute(con, "DROP TABLE IF EXISTS ids_empatados;")
+ 
+     cli::cli_warn(
+       "Foram encontrados {n_casos_empate} casos de empate. Estes casos foram
+@@ -299,6 +300,13 @@ trata_empates_geocode_duckdb <- function(
+ 
+   DBI::dbExecute(con, sql_resolve)
+ 
++  # output_db2 e a unica saida deste ponto em diante (add_precision_col e
++  # merge_results_to_input usam output_table_to_use = output_db2): as tabelas
++  # de trabalho e a output_db original podem ser liberadas ja
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS output_db;")
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS empates_classif;")
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS ids_empatados;")
++
+   if (verboso) {
+     plural <- ifelse(n_casos_empate == 1, 'caso', 'casos')
+     message(glue::glue(
+diff --git a/R/utils.R b/R/utils.R
+index 9abf7e1..9d073d2 100644
+--- a/R/utils.R
++++ b/R/utils.R
+@@ -70,21 +70,40 @@ cache_message <- function(local_file, cache) {
+ #' @param con A db connection
+ #' @param update_tb String. Name of a table to be updated in con
+ #' @param reference_tb A table written in con used as reference
++#' @param match_type String. Se informado, apaga apenas os ids inseridos em
++#'   `reference_tb` com esse `tipo_resultado` (os da etapa corrente)
+ #'
+ #' @return Drops observations from input_padrao_db
+ #'
+ #' @keywords internal
+-update_input_db <- function(con, update_tb = 'input_padrao_db', reference_tb) {
++update_input_db <- function(
++  con,
++  update_tb = 'input_padrao_db',
++  reference_tb,
++  match_type = NULL
++) {
+   # nocov start
+ 
+   # update_tb = 'input_padrao_db'
+   # reference_tb = 'output_caso_1'
+ 
++  # so os ids inseridos NESTA etapa precisam sair de input_padrao_db: pelo
++  # invariante do laco (input e output nunca compartilham id apos o DELETE de
++  # cada etapa), os ids das etapas anteriores ja nao estao na tabela. Filtrar
++  # por tipo_resultado evita varrer a output_db inteira -- que cresce a cada
++  # etapa -- 25 vezes. A contagem de linhas apagadas e a mesma.
++  filtro_etapa <- if (is.null(match_type)) {
++    ""
++  } else {
++    glue::glue("WHERE tipo_resultado = '{match_type}'")
++  }
++
+   query_remove_matched <- glue::glue(
+     "DELETE FROM {update_tb}
+      WHERE tempidgeocodebr IN (
+       SELECT tempidgeocodebr
+       FROM {reference_tb}
++      {filtro_etapa}
+     );"
+   )
+ 
+@@ -141,7 +160,8 @@ merge_results_to_input <- function(
+   key_column,
+   select_columns,
+   resultado_completo,
+-  incluir_empate = FALSE
++  incluir_empate = FALSE,
++  arquivo_saida = NULL
+ ) {
+   # nocov start
+ 
+@@ -192,12 +212,28 @@ merge_results_to_input <- function(
+   # a chave temporaria e interna ao pacote e nao faz parte do output: fica de
+   # fora do SELECT (mas segue valida no JOIN e no ORDER BY abaixo), evitando
+   # materializar uma coluna inteira que seria descartada em seguida
+-  select_x <- paste0(
+-    x,
+-    '.',
+-    setdiff(select_columns, key_column),
+-    collapse = ', '
+-  )
++  cols_x <- setdiff(select_columns, key_column)
++  expr_x <- paste0(x, '.', cols_x)
++
++  # No caminho via parquet, colunas INTERVAL precisam de tratamento: o DuckDB
++  # grava difftime como INTERVAL, e INTERVAL vira um FIXED_SIZE_BINARY de 12
++  # bytes no parquet -- que o arrow le como blob, nao como difftime. epoch()
++  # devolve o total em segundos, que e exatamente o que o dbGetQuery entregava
++  # (difftime com units = "secs"). A classe e reposta em restaura_classes_input()
++  if (!is.null(arquivo_saida)) {
++    tipos_x <- DBI::dbGetQuery(con, glue::glue("DESCRIBE {x}"))
++    eh_interval <- cols_x %in% tipos_x$column_name[
++      tipos_x$column_type == "INTERVAL"
++    ]
++
++    if (any(eh_interval)) {
++      expr_x[eh_interval] <- glue::glue(
++        "epoch({expr_x[eh_interval]}) AS {cols_x[eh_interval]}"
++      )
++    }
++  }
++
++  select_x <- paste0(expr_x, collapse = ', ')
+ 
+   select_clause <- paste0(
+     select_x,
+@@ -211,22 +247,132 @@ merge_results_to_input <- function(
+     collapse = ' ON '
+   )
+ 
+-  # Create SQL query
++  # Create SQL query (sem ';' -- ele e adicionado abaixo, e a variante COPY
++  # precisa da query como subconsulta)
+   query <- glue::glue(
+     "SELECT {select_clause}
+         FROM {x}
+         LEFT JOIN {y}
+         ON {join_condition}
+       ORDER BY
+-        {x}.tempidgeocodebr;"
++        {x}.tempidgeocodebr"
+   )
+ 
++  # Com arquivo_saida, o resultado sai do DuckDB direto para parquet em disco,
++  # sem materializar no R. Quem chama (o processo filho de geocode()) devolve
++  # apenas o caminho, e o processo pai le com arrow::read_parquet(). Isso evita
++  # o dbGetQuery + o serialize/unserialize do callr sobre o resultado inteiro.
++  # A ordem das linhas e preservada pelo preserve_insertion_order do DuckDB
++  # (ver create_geocodebr_db())
++  if (!is.null(arquivo_saida)) {
++    # o caminho entra literal na string SQL: dobra eventual apostrofo
++    caminho_sql <- gsub("'", "''", arquivo_saida, fixed = TRUE)
++
++    DBI::dbExecute(
++      con,
++      glue::glue("COPY ({query}) TO '{caminho_sql}' (FORMAT PARQUET);")
++    )
++
++    return(invisible(arquivo_saida))
++  }
++
+   # Execute the query and fetch the merged data
+-  merged_data <- DBI::dbGetQuery(con, query)
++  merged_data <- DBI::dbGetQuery(con, paste0(query, ";"))
+ 
+   return(merged_data)
+ } # nocov end
+ 
++
++# Pos-processamento do output do geocode(): etapas finais comuns aos dois
++# caminhos de transporte do resultado (data.frame devolvido pelo callr, ou
++# parquet lido pelo processo pai) -- colunas H3, remocao da classe data.table e
++# conversao para sf. Mantido como funcao unica de proposito: sao justamente as
++# etapas em que os dois caminhos precisam produzir o mesmo objeto
++pos_processa_output <- function(output_df, h3_res, resultado_sf) {
++  # nocov start
++
++  data.table::setDT(output_df)
++
++  # add H3
++  if (!is.null(h3_res)) {
++    for (i in h3_res) {
++      colname <- paste0(
++        'h3_',
++        formatC(i, width = 2, flag = "0")
++      )
++
++      output_df[
++        !is.na(lat),
++        {{ colname }} := h3r::latLngToCell(lat = lat, lng = lon, resolution = i)
++      ]
++    }
++  }
++
++  # remove data.table class
++  data.table::setindex(output_df, NULL)
++  data.table::setDF(output_df)
++
++  # convert df to simple feature
++  if (isTRUE(resultado_sf)) {
++    output_sf <- sfheaders::sf_point(
++      obj = output_df,
++      x = 'lon',
++      y = 'lat',
++      keep = TRUE
++    )
++
++    sf::st_crs(output_sf) <- 4674
++
++    return(output_sf)
++  }
++
++  return(output_df[])
++} # nocov end
++
++
++# Restaura as classes das colunas de input perdidas no trajeto via parquet.
++# O `enderecos` original (que o processo pai ainda tem intacto em memoria) serve
++# de gabarito para saber QUAIS colunas tratar; o valor restaurado, porem, e o que
++# o caminho antigo (dbWriteTable -> dbGetQuery) produzia, nao necessariamente o
++# do input -- o objetivo aqui e nao mudar o output de geocode():
++#
++#   factor   o DuckDB mapeia factor para ENUM e de volta para factor, sempre NAO
++#            ordenado (um factor ordenado de input ja perdia o `ordered` no
++#            caminho antigo). Via parquet volta como character
++#   POSIXct  o DuckDB guarda TIMESTAMP sem fuso e o driver rotula o resultado
++#            como "UTC", qualquer que fosse o tzone do input. Via parquet o
++#            tzone volta vazio, com o mesmo valor numerico -- so falta o rotulo
++#   difftime chega aqui como o total em segundos (epoch(), ver
++#            merge_results_to_input()), que e o que o caminho antigo devolvia
++#
++# Demais tipos (character, integer, double, logical, Date, integer64) atravessam
++# o parquet sem alteracao e nao sao tocados aqui
++restaura_classes_input <- function(output_df, enderecos) {
++  # nocov start
++
++  cols_comuns <- intersect(names(enderecos), names(output_df))
++
++  for (cn in cols_comuns) {
++    orig <- enderecos[[cn]]
++
++    if (is.factor(orig)) {
++      output_df[[cn]] <- factor(
++        as.character(output_df[[cn]]),
++        levels = levels(orig)
++      )
++    } else if (inherits(orig, "difftime")) {
++      output_df[[cn]] <- as.difftime(
++        as.numeric(output_df[[cn]]),
++        units = "secs"
++      )
++    } else if (inherits(orig, "POSIXct")) {
++      attr(output_df[[cn]], "tzone") <- "UTC"
++    }
++  }
++
++  return(output_df)
++} # nocov end
++
+ #create_index <- function(con, tb, cols, operation, overwrite = TRUE) {
+ #  # nocov start
+ #
+@@ -398,6 +544,56 @@ exact_types_no_logradouro <- c(
+   "dm01"
+ )
+ 
++# Padroniza UM campo do endereco rodando `enderecobr::padronizar_enderecos()`
++# apenas sobre os valores distintos de `x`, e expande o resultado de volta para o
++# comprimento original via `chmatch()`.
++#
++# Duas economias em relacao a chamar `padronizar_enderecos()` uma vez sobre a
++# tabela inteira: o trabalho por campo passa a ser proporcional a cardinalidade
++# distinta da coluna (nas colunas de endereco, uma fracao pequena do total), e
++# nao se paga a copia integral do input que `padronizar_enderecos()` faz via
++# `as.data.table()`. As seis funcoes `padronizar_*` do enderecobr sao
++# element-wise puras (checkmate + um `.Call` em Rust), logo o resultado e
++# `identical()` ao da chamada sobre o vetor inteiro -- inclusive no tratamento de
++# NA, nos ramos numericos de `padronizar_numeros()` / `padronizar_ceps()` e em
++# input marcado como latin1.
++#
++# Por que chamar `padronizar_enderecos()` (e nao `padronizar_logradouros()` etc.
++# direto): os construtores de mensagem do enderecobr inspecionam a pilha de
++# chamadas por deslocamento fixo (`sys.call(-15)` em `warning_conversao_invalida()`,
++# `sys.call(-10)` nos `erro_cep_*`). Chamar as funcoes de campo diretamente muda a
++# profundidade da pilha e faz esses construtores falharem com
++# "cannot coerce type 'closure'" -- o que transforma um aviso benigno
++# (numero nao convertivel para integer) em erro fatal. Mantendo
++# `padronizar_enderecos()` na pilha, avisos e erros saem exatamente como hoje.
++padronizar_dedup <- function(x, campo, formato_estados = "sigla",
++                             formato_numeros = "integer") {
++  ux <- unique(x)
++  idx <- if (is.character(x)) data.table::chmatch(x, ux) else match(x, ux)
++
++  campos <- list()
++  campos[[campo]] <- "v"
++  campos <- do.call(enderecobr::correspondencia_campos, campos)
++  col_padr <- paste0(campo, "_padr")
++
++  padroniza <- function(v) {
++    enderecobr::padronizar_enderecos(
++      enderecos = data.table::data.table(v = v),
++      campos_do_endereco = campos,
++      formato_estados = formato_estados,
++      formato_numeros = formato_numeros
++    )[[col_padr]]
++  }
++
++  # se a padronizacao falhar (ex.: CEP com letra), reexecuta no vetor inteiro
++  # para que a mensagem de erro cite os indices originais, como hoje
++  y <- tryCatch(padroniza(ux), error = function(e) padroniza(x))
++
++  y[idx]
++}
++
++
++
+ 
+ assert_and_assign_address_fields <- function(address_fields, addresses_table) {
+   # nocov start
+@@ -672,3 +868,57 @@ check_clean_colnames <- function(df) {  # nocov start
+   }
+ 
+ } # nocov end
++
++
++# Tabelas temporarias (de referencia do CNEFE e de logradouros unicos) que as
++# etapas restantes do laco de matching ainda vao usar. Espelha o criterio de
++# tabelas_necessarias() para as etapas que faltam, mais as duas tabelas
++# unique_logr_* de register_unique_logradouros_table() (a base delas depende
++# so de o match_type ser *03 ou nao).
++tabelas_ainda_necessarias <- function(match_types_restantes, campos_nao_declarados) {
++  # nocov start
++  ativos <- Filter(
++    function(mt) !any(get_key_cols(mt) %in% campos_nao_declarados),
++    match_types_restantes
++  )
++
++  tabs <- unique(unname(reference_table_by_match_type[ativos]))
++
++  probabilisticos <- ativos[ativos %in% c(
++    probabilistic_exact_types,
++    probabilistic_interpolation_types,
++    probabilistic_types_no_number
++  )]
++
++  if (any(probabilisticos %in% c("pn03", "pa03", "pl03"))) {
++    tabs <- c(tabs, "unique_logr_municipio_logradouro_localidade")
++  }
++  if (any(!probabilisticos %in% c("pn03", "pa03", "pl03"))) {
++    tabs <- c(tabs, "unique_logr_municipio_logradouro_cep_localidade")
++  }
++
++  unique(tabs)
++} # nocov end
++
++
++# Apaga do banco as tabelas temporarias que nenhuma etapa restante do laco vai
++# usar. O DuckDB libera a memoria de uma TEMP TABLE no DROP; sem isso as duas
++# tabelas de referencia maiores (~10 GB cada em escala nacional) ficariam vivas
++# ate o fim de geocode(), embora so sejam lidas nas primeiras etapas.
++dropa_tabelas_obsoletas <- function(con, match_types_restantes, campos_nao_declarados) {
++  # nocov start
++  candidatas <- c(
++    unique(unname(reference_table_by_match_type)),
++    "unique_logr_municipio_logradouro_localidade",
++    "unique_logr_municipio_logradouro_cep_localidade"
++  )
++
++  necessarias <- tabelas_ainda_necessarias(match_types_restantes, campos_nao_declarados)
++  existentes <- DBI::dbListTables(con)
++
++  for (tb in setdiff(intersect(candidatas, existentes), necessarias)) {
++    DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {tb};"))
++  }
++
++  invisible(NULL)
++} # nocov end
+diff --git a/tests/testthat/test-match_weighted_cases.R b/tests/testthat/test-match_weighted_cases.R
+new file mode 100644
+index 0000000..00710ad
+--- /dev/null
++++ b/tests/testthat/test-match_weighted_cases.R
+@@ -0,0 +1,123 @@
++# Invariantes de dados que sustentam a otimizacao do GROUP BY das queries
++# ponderadas (match_weighted_cases() / match_weighted_cases_probabilistic()).
++#
++# Nessas queries o GROUP BY agrupa por (tempidgeocodebr, numero, <cols_livres>)
++# em vez de pela string `endereco_encontrado`. Isso so devolve o mesmo resultado
++# se, nas duas tabelas de referencia com `numero`:
++#
++#   (i)   o regex ', \d+ -' casa exatamente uma vez em cada `endereco_completo`
++#         (senao REGEXP_REPLACE trocaria outro trecho da string);
++#   (ii)  `endereco_completo` normalizado (com o numero mascarado) e constante
++#         dentro de cada grupo de colunas nao-numero -- ou seja, a string nao
++#         carrega nenhuma informacao extra alem dessas colunas;
++#   (iii) dentro das colunas fixadas pelo join, valores distintos das colunas
++#         livres (`cep`/`localidade`) geram strings distintas (bijecao) -- e o
++#         que garante que agrupar por elas nao junta enderecos diferentes.
++#
++# Os testes rodam so quando o cache do CNEFE esta presente (sao ~50M linhas por
++# tabela, lidas direto do parquet pelo DuckDB).
++
++pasta_cache_release <- function() {
++  fs::path(
++    geocodebr::listar_pasta_cache(),
++    paste0("geocodebr_data_release_", geocodebr:::data_release)
++  )
++}
++
++parquet_numero <- function() {
++  arquivos <- fs::path(
++    pasta_cache_release(),
++    paste0(
++      c(
++        "municipio_logradouro_numero_cep_localidade",
++        "municipio_logradouro_numero_localidade"
++      ),
++      ".parquet"
++    )
++  )
++  arquivos[fs::file_exists(arquivos)]
++}
++
++# colunas nao-numero de cada tabela (o grupo dentro do qual o endereco
++# normalizado precisa ser constante) e a coluna livre de cada match_type
++# ponderado que usa aquela tabela
++grupos_por_tabela <- list(
++  municipio_logradouro_numero_cep_localidade = list(
++    grupo = c("estado", "municipio", "logradouro", "cep", "localidade"),
++    # da02/pa02: join sem localidade -> localidade e a coluna livre
++    join_fixo = c("estado", "municipio", "logradouro", "cep"),
++    livre = "localidade"
++  ),
++  municipio_logradouro_numero_localidade = list(
++    grupo = c("estado", "municipio", "logradouro", "localidade"),
++    # da04: join sem localidade -> localidade e a coluna livre
++    join_fixo = c("estado", "municipio", "logradouro"),
++    livre = "localidade"
++  )
++)
++
++test_that("invariantes de dados do GROUP BY estreito das queries ponderadas", {
++  skip_on_cran()
++  skip_if_not_installed("duckdb")
++
++  arquivos <- parquet_numero()
++  skip_if_not(
++    length(arquivos) == 2,
++    "cache do CNEFE (tabelas com numero) ausente"
++  )
++
++  con <- DBI::dbConnect(duckdb::duckdb())
++  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
++
++  for (arquivo in arquivos) {
++    tabela <- fs::path_ext_remove(fs::path_file(arquivo))
++    spec <- grupos_por_tabela[[tabela]]
++    src <- glue::glue("read_parquet('{arquivo}')")
++    grupo <- paste(spec$grupo, collapse = ", ")
++    join_fixo <- paste(spec$join_fixo, collapse = ", ")
++    norm <- "REGEXP_REPLACE(endereco_completo, ', \\d+ -', '#')"
++
++    # (i) o regex casa exatamente uma vez por linha
++    n_regex_ruim <- DBI::dbGetQuery(
++      con,
++      glue::glue(
++        "SELECT COUNT(*) AS n FROM {src}
++         WHERE LEN(REGEXP_EXTRACT_ALL(endereco_completo, ', \\d+ -')) <> 1"
++      )
++    )$n
++    expect_identical(as.numeric(n_regex_ruim), 0, label = glue::glue("{tabela}: regex 1x"))
++
++    # (ii) endereco normalizado constante dentro do grupo de colunas nao-numero
++    n_grupo_ruim <- DBI::dbGetQuery(
++      con,
++      glue::glue(
++        "SELECT COUNT(*) AS n FROM (
++           SELECT {grupo} FROM {src}
++           GROUP BY {grupo}
++           HAVING COUNT(DISTINCT {norm}) > 1
++         )"
++      )
++    )$n
++    expect_identical(
++      as.numeric(n_grupo_ruim), 0,
++      label = glue::glue("{tabela}: endereco constante no grupo")
++    )
++
++    # (iii) dentro das colunas fixadas pelo join, bijecao entre os valores
++    # distintos da coluna livre e as strings normalizadas distintas
++    n_bijecao_ruim <- DBI::dbGetQuery(
++      con,
++      glue::glue(
++        "SELECT COUNT(*) AS n FROM (
++           SELECT {join_fixo} FROM {src}
++           GROUP BY {join_fixo}
++           HAVING COUNT(DISTINCT COALESCE({spec$livre}, '<NULO>')) <> COUNT(DISTINCT {norm})
++         )"
++      )
++    )$n
++    expect_identical(
++      as.numeric(n_bijecao_ruim), 0,
++      label = glue::glue("{tabela}: bijecao {spec$livre} <-> endereco")
++    )
++  }
++})

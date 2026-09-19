@@ -1,0 +1,64 @@
+diff --git a/R/string_dist.R b/C:/Users/r1701707/AppData/Local/Temp/3/claude/L--Proj-acess-oport-git-rafa-geocodebr/61ca0503-92cd-4af1-9e4a-9e71e4fbb810/scratchpad/pkg_cum2/R/string_dist.R
+index 58e5e20..c74d63b 100644
+--- a/R/string_dist.R
++++ b/C:/Users/r1701707/AppData/Local/Temp/3/claude/L--Proj-acess-oport-git-rafa-geocodebr/61ca0503-92cd-4af1-9e4a-9e71e4fbb810/scratchpad/pkg_cum2/R/string_dist.R
+@@ -58,6 +58,59 @@ calculate_string_dist <- function(con, match_type, unique_logradouros_tbl) {
+   )
+   key_cols_sql <- paste(key_cols_string_dist, collapse = ', ')
+ 
++  # Nas etapas cuja chave de lookup inclui cep E localidade (pn01/pl01) a
++  # combinacao (chave, logradouro) quase nao se repete no input e a tabela
++  # unique_logr_* ja e unica nessa chave: o caminho com dedup + join-back custa
++  # mais do que o Jaro linha a linha (medido em 43,9M: pn01 6 s -> 29 s). Nesses
++  # casos usa-se a forma direta, por tempidgeocodebr.
++  usa_dedup <- !all(c("cep", "localidade") %in% key_cols_string_dist)
++
++  if (!usa_dedup) {
++    join_condition_direto <- paste(
++      glue::glue(
++        "{unique_logradouros_tbl}.{key_cols_string_dist} = input_padrao_db.{key_cols_string_dist}"
++      ),
++      collapse = ' AND '
++    )
++
++    query_calc_dist <- glue::glue(
++      "
++      WITH to_compute AS (
++        SELECT
++            input_padrao_db.tempidgeocodebr,
++            input_padrao_db.logradouro AS logradouro_input,
++            {unique_logradouros_tbl}.logradouro AS logradouro_cnefe
++        FROM input_padrao_db
++        JOIN {unique_logradouros_tbl}
++          ON {join_condition_direto}
++        WHERE input_padrao_db.similaridade_logradouro IS NULL
++          AND input_padrao_db.log_causa_confusao = FALSE
++          AND {cols_not_null}
++          {filtro_sem_numero}
++          ),
++
++      computed AS (
++        SELECT
++            tempidgeocodebr,
++            logradouro_cnefe,
++            CAST(jaro_similarity(logradouro_input, logradouro_cnefe) AS NUMERIC(5,3)) AS similarity,
++            RANK() OVER (PARTITION BY tempidgeocodebr ORDER BY similarity DESC, logradouro_cnefe) AS rank
++        FROM to_compute
++        WHERE similarity > {min_cutoff}
++        )
++
++      UPDATE input_padrao_db
++        SET temp_lograd_determ = computed.logradouro_cnefe,
++            similaridade_logradouro = similarity
++        FROM computed
++        WHERE input_padrao_db.tempidgeocodebr = computed.tempidgeocodebr
++              AND computed.rank = 1;"
++    )
++
++    DBI::dbExecute(con, query_calc_dist)
++    return(invisible(NULL))
++  }
++
+   query_calc_dist <- glue::glue(
+     "
+     -- STEP 1: combinacoes distintas de chave + logradouro que ainda nao tem similaridade

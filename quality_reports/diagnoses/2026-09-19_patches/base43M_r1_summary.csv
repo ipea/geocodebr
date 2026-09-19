@@ -1,0 +1,2 @@
+"label","n_input","n_output","t_total_callr","t_child_core","t_child_startup","t_transport_overhead","child_peak_wset_mb","parent_peak_wset_mb","parent_wset_before_mb","parent_wset_after_mb","result_size_mb","duckdb","started"
+"base43M_r1",43882020,43882020,1111.76,861.72,3.74,246.26,82139.98046875,9310.8515625,4316.0859375,9310.8515625,6941.7989730835,"1.5.5","2026-09-18 23:55:18"

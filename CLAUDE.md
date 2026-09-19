@@ -5,9 +5,11 @@
 sem limite de consultas, a partir de dados abertos. **Monorepo**: o pacote R vive em `r-package/`; um
 porte para Python está planejado em `python-package/` (hoje só um placeholder). Toda a documentação
 abaixo, salvo indicação contrária, se refere ao pacote R.
-**Mantenedor:** Rafael H. M. Pereira (aut, cre — Ipea) · **Autores:** Daniel Herszenhut, Gabriel Garcia de Almeida
+**Mantenedor:** Rafael H. M. Pereira (aut, cre — Ipea) · **Autores:** Daniel Herszenhut, Gabriel Garcia
+de Almeida · **Contribuidores (ctb):** Arthur Bazolli, Pedro Milreu Cunha
 **Financiamento/copyright:** Ipea; ITpS — Instituto Todos pela Saúde
-**Repo:** https://github.com/ipeaGIT/geocodebr · **Branch:** main · **Versão:** 0.6.4 (dev 0.6.4.900)
+**Repo:** https://github.com/ipeaGIT/geocodebr — mas atenção: os campos `URL`/`BugReports` da
+DESCRIPTION apontam para `ipea/geocodebr` · **Branch:** main · **Versão:** 0.6.4.901 (dev)
 **Idioma:** `Language: pt` na DESCRIPTION — NEWS.md, blocos roxygen, mensagens de erro/aviso, vignettes e
 README são em **português**. Todo conteúdo voltado ao usuário deve seguir isso.
 
@@ -45,8 +47,13 @@ geocodebr/
 ├── README.md                     # Landing page curta do repo, aponta pra r-package/ e python-package/
 ├── LICENSE                       # Duplicado em r-package/LICENSE (CRAN exige relativo à raiz do pacote)
 ├── codecov.yml                   # Fica na raiz — é onde o backend do Codecov procura por padrão
+├── .pre-commit-config.yaml       # Um config por repo; os 3 hooks operam sobre arquivos de r-package/
 ├── .github/workflows/            # check, check_as_cran, pkgdown, readme_rmd, rhub, test-coverage
+├── .claude/skills/               # 9 skills locais de DuckDB/dados (ver "Skills vivas aqui")
+├── docs/                         # Saída do pkgdown — GITIGNORADA, não versionar
 ├── quality_reports/               # Planos, specs, logs de sessão, relatórios de merge, diagnoses
+│                                  #   único lugar certo; r-package/quality_reports/ é resíduo de uma
+│                                  #   sessão rodada com cwd em r-package/ (limpar)
 ├── templates/                    # Templates de log de sessão / spec / relatório de qualidade
 ├── python-package/                # Apenas placeholder.txt — porte para Python ainda não começou
 └── r-package/                     # O pacote R {geocodebr} — raiz de tudo que segue abaixo
@@ -58,13 +65,16 @@ geocodebr/
     ├── LICENSE                    # Cópia de LICENSE na raiz — exigido pelo CRAN dentro do pacote
     ├── README.Rmd / README.md     # README completo do pacote (badges, instalação, exemplos)
     ├── R/                         # Fonte do pacote (ver "Arquitetura interna")
-    ├── tests/testthat/            # testthat edition 3, incl. _snaps/ para texto de mensagens
+    ├── tests/
+    │   ├── testthat/              # testthat edition 3, incl. _snaps/ para texto de mensagens
+    │   └── tests_rafa/, tests_pedro/  # scripts de bancada/benchmark, fora do build (.Rbuildignore)
     ├── man/
     │   ├── *.Rd                   # GERADOS — editar o roxygen em R/
     │   └── roxygen/templates/     # @template compartilhados (cache, verboso, n_cores, h3_res, ...)
     ├── inst/
     │   ├── CITATION                # Como citar o pacote
-    │   └── extdata/                 # Amostras: small_sample.csv, large_sample.parquet, pontos.rds, bboxes
+    │   └── extdata/                 # Amostras: small_sample.csv, large_sample.parquet, pontos.rds,
+    │                                 #   munis_bbox_2022.parquet, states_bbox.rds
     ├── vignettes/                  # geocodebr.Rmd, geocode.Rmd, geocode_reverso.Rmd
     └── pkgdown/_pkgdown.yml        # Config do site pkgdown
 ```
@@ -147,7 +157,10 @@ antes do merge. Os Steps 1–7 (branch, stage, commit, PR, merge) seguem normalm
 ## Skills vivas aqui
 
 O índice completo (~52 skills) vive em `~/.claude/skills/`; a maior parte (paper, slides, aula, econometria,
-Stata) fica **dormente** neste repo. O que de fato opera:
+Stata) fica **dormente** neste repo. Além dessas, o repo tem `.claude/skills/` **local** com 9 skills de
+DuckDB/dados (`query`, `attach-db`, `read-file`, `convert-file`, `spatial`, `s3-explore`, `duckdb-docs`,
+`install-duckdb`, `read-memories` — ver `.claude/skills/README-duckdb-skills.md`), diretamente úteis aqui
+porque todo o motor do pacote é DuckDB + parquet. O que de fato opera:
 
 - **Desenvolvimento do pacote:** `/r-package-check` (o portão), `/code-review`, `/security-review`
 - **Workflow:** `/commit` (Steps 0/0b pulados — ver acima), `/diagnose`, `/checkpoint`, `/context-status`, `/deep-audit`
@@ -182,12 +195,15 @@ Coordenadas de entrada e saída usam **SIRGAS 2000, EPSG 4674**.
 - **Backend DuckDB + Arrow/Parquet** — `R/create_geocodebr_db.R` cria a conexão; `R/register_cnefe_tables.R`
   registra as tabelas do CNEFE. Extensão espacial via `duckspatial`.
 - **Matching em camadas** — determinístico em `R/match_cases.R`; probabilístico por similaridade de **Jaro**
-  em `R/match_cases_probabilistic.R` + `R/string_dist.R` (limiar 0.85 nos casos probabilísticos, 0.90 nos
-  demais); interpolação ponderada por `contagem_cnefe` em `R/match_weighted_cases.R` e
-  `R/match_weighted_cases_probabilistic.R`.
+  em `R/match_cases_probabilistic.R` + `R/string_dist.R` (limiar 0.85 na *primeira* etapa probabilística de
+  cada família — `pn01`/`pa01`/`pl01` — e 0.90 em todas as demais, ver `get_prob_match_cutoff()`);
+  interpolação ponderada por `contagem_cnefe` em `R/match_weighted_cases.R` e
+  `R/match_weighted_cases_probabilistic.R`. A montagem das colunas `*_encontrado` dos quatro é
+  compartilhada em `R/match_helpers.R` (`monta_colunas_encontradas()`).
 - **Desempates** — `R/trata_empates_geocode_duckdb.R`, acionado por `resolver_empates = TRUE`.
-- **Cache** — `R/cache.R`, versionado por *data release* dentro de `tools::R_user_dir()`. O pacote usa apenas
-  os dados do release corrente e ignora releases antigos na mesma pasta (corrigido na v0.6.2).
+- **Cache** — `R/cache.R`, versionado por *data release* dentro de `tools::R_user_dir()`. `data_release`
+  (`R/cache.R:1`) está hoje em **`v0.5.0`**. Releases antigos na mesma pasta são **apagados** por
+  `apaga_data_release_antigo()`, chamada dentro de `download_cnefe()`.
 - **Infra transversal** — `R/utils.R` (o maior arquivo), `R/error.R`, `R/message.R`, `R/progress_bar.R`.
 
 ### Fontes da verdade — não duplicar
@@ -230,16 +246,23 @@ já que o motor usa `data.table::setDT()` e `:=` que modificariam `enderecos` po
 `geocode_core()`, no mesmo arquivo.
 
 **Etapa 0 — validação e preparação do input.** `checkmate` valida os tipos; `check_clean_colnames()`
-rejeita nomes de coluna com qualquer caractere fora de `[A-Za-z0-9_]`. `assert_and_assign_address_fields()`
+(`R/utils.R`) faz duas rejeições: nomes de coluna com qualquer caractere fora de `[A-Za-z0-9_]`, **e**
+nomes reservados que o próprio `geocode()` cria no output (`lat`, `lon`, `precisao`, `tipo_resultado`,
+`empate`, `cod_setor`, `tempidgeocodebr`, todas as `*_encontrado`…) — se já existissem no input, o merge
+final devolveria colunas duplicadas e o pós-processamento (H3, `sf`) leria a errada em silêncio.
+`assert_and_assign_address_fields()`
 completa com `NULL` os campos não declarados. Para cada campo ausente, cria-se uma **coluna-fantasma**
 `<campo>tempgeocodebr` preenchida com `NA_character_` — isso mantém o SQL do matching uniforme, e as etapas
 que exigem aquele campo simplesmente não encontram nada (o filtro `IS NOT NULL` as descarta). Essas colunas
 são removidas do output no final.
 
-**Etapa 1 — dados de referência (download + cache).** `download_cnefe(tabela = 'todas')` baixa **as 8
-tabelas de uma vez**, em paralelo (`httr2::req_perform_parallel`), das *releases* do repositório
-`ipeaGIT/padronizacao_cnefe`. A tag baixada é a constante `data_release` em `R/cache.R:1` — **é essa
-constante que define a versão dos dados, e ela é hardcoded**. O cache fica em
+**Etapa 1 — dados de referência (download + cache).** `geocode_core()` **não** baixa mais todas as tabelas:
+chama `download_cnefe(tabela = tabelas_necessarias(campos_nao_declarados))`, e `tabelas_necessarias()`
+(`R/utils.R`) devolve só o subconjunto das 8 tabelas que as etapas ainda ativas do laço vão usar, dado
+quais campos o usuário declarou (no melhor caso — só CEP/bairro/município/UF — isso exclui as duas maiores
+tabelas). O download é paralelo (`httr2::req_perform_parallel`), das *releases* do repositório
+`ipeaGIT/padronizacao_cnefe`. A tag baixada é a constante `data_release` em `R/cache.R:1` (hoje `v0.5.0`)
+— **é essa constante que define a versão dos dados, e ela é hardcoded**. O cache fica em
 `{pasta_cache}/geocodebr_data_release_{data_release}/`, e `apaga_data_release_antigo()` remove releases
 anteriores. Só os arquivos ausentes são baixados (`setdiff`), então o custo é pago uma única vez.
 Com `cache = FALSE`, tudo vai para um `tempfile()` e é rebaixado a cada chamada.
@@ -253,8 +276,13 @@ as 6 colunas `*_padr` existem e aborta com `error_input_nao_padronizado()` se n�
 
 **Etapa 3 — banco DuckDB temporário.** `create_geocodebr_db()` abre um `.duckdb` em `tempfile()` — **em
 disco, não em memória**, para suportar volumes maiores que a RAM. Define `SET threads` (por padrão
-`min(availableCores(), freeConnections())`). O input padronizado é gravado como `input_padrao_db` e o
-`output_db` é criado vazio a partir de um schema Arrow explícito. `cria_col_logradouro_confusao()` marca em
+`min(availableCores(), freeConnections())`) e passa `shared_home = TRUE` no **construtor** `duckdb::duckdb()`
+(não no `dbConnect()`, onde seria engolido pelo `...` sem efeito). O input padronizado é gravado como
+`input_padrao_db` via `duckdb::dbWriteTable()` direto — sem converter para Arrow antes, porque a tabela
+precisa ser materializada e mutável de todo modo e a conversão dominava o custo da etapa. O `output_db` é
+criado vazio a partir de um schema Arrow explícito; note que a coluna `empate` **não** está nesse schema, de
+propósito (é criada adiante, e pré-declarar causava colisão silenciosa de nome — ver MEMORY.md).
+`cria_col_logradouro_confusao()` marca em
 `log_causa_confusao` os logradouros ambíguos (`RUA A`, `RUA 10`, `RUA UM`…), com exceção de datas
 (`RUA 15 DE NOVEMBRO`). Esse flag é usado duas vezes adiante: exclui a linha do match probabilístico e
 força o desempate pelo caminho "perdido".
@@ -266,11 +294,22 @@ força o desempate pelo caminho "perdido".
 > linhas já encontradas, uma tabela criada numa etapa tardia é filtrada por um conjunto de municípios
 > **menor** do que o original. Cada tabela é criada uma única vez (`dbExistsTable()` retorna cedo) e
 > reaproveitada por todas as etapas que a compartilham. Essas tabelas **não são indexadas** — o código de
-> índice existe (`create_index()` em `R/utils.R`) mas está desativado.
+> índice existe, mas comentado (`create_index()` em `R/utils.R:230`, e um bloco `CREATE INDEX` comentado
+> dentro de `register_cnefe_table()`).
+>
+> As etapas probabilísticas usam **um segundo registrador**, `register_unique_logradouros_table()` (mesmo
+> arquivo): uma tabela `unique_logr_<tabela>` só com os logradouros distintos, contra a qual o Jaro é
+> calculado. A tabela-base dela é sempre a "irmã sem número" do `match_type`
+> (`municipio_logradouro_localidade` para `pn03`/`pa03`/`pl03`, `municipio_logradouro_cep_localidade` nos
+> demais) — por design, porque a distância de Jaro deve comparar só o texto do logradouro, nunca o número.
+> Se a tabela-raiz já estiver materializada, ela é filtrada de lá; senão, lê o parquet.
 
-**Etapa 4 — o laço de matching.** `all_possible_match_types` (`R/utils.R`) define **25 etapas em ordem fixa,
-da mais precisa para a menos precisa**. A cada etapa: (a) `get_key_cols()` devolve as colunas-chave;
-(b) se alguma delas não existe no input, a etapa é **pulada**; (c) escolhe-se uma das 4 funções de match;
+**Etapa 4 — o laço de matching.** `all_possible_match_types` (`R/utils.R:292`) define **25 etapas em ordem
+fixa, da mais precisa para a menos precisa** (`pn04`, `pa04` e `pl04` existem no mapa de tabelas mas estão
+desativados na lista — "too costly"). A cada etapa: (a) `get_key_cols()` devolve as colunas-chave;
+(b) a etapa é **pulada** se alguma delas não existe no input **ou** se corresponde a um campo que o usuário
+não declarou (`campos_nao_declarados`) — o segundo teste é o que evita materializar tabela de referência
+para uma etapa que só encontraria `NULL`; (c) escolhe-se uma das 4 funções de match;
 (d) os encontrados são inseridos em `output_db`; (e) `update_input_db()` **apaga** de `input_padrao_db` os
 `tempidgeocodebr` já resolvidos. Se todos forem encontrados, o laço sai mais cedo.
 
@@ -279,12 +318,13 @@ da mais precisa para a menos precisa**. A cada etapa: (a) `get_key_cols()` devol
 | `dn01`–`dn04` | `match_cases()` | Join determinístico exato, número incluído |
 | `da01`–`da04` | `match_weighted_cases()` | Join sem o número; interpola por `1/ABS(numero - numero_cnefe)` |
 | `pn01`–`pn03` | `match_cases_probabilistic()` | Jaro no logradouro, depois join determinístico |
-| `pa01`–`pa03` | `match_weighted_cases_probabilistic()` | Jaro + interpolação por número |
+| `pa01`–`pa03` | `match_weighted_cases_probabilistic()` | Interpolação por número; **não** recalcula Jaro (ver abaixo) |
 | `dl01`–`dl04`, `pl01`–`pl03` | idem acima | Sem número (`S/N`) |
 | `dc01`, `dc02`, `db01`, `dm01` | `match_cases()` | CEP / localidade / município, sem logradouro |
 
-As 25 etapas consomem apenas **8 tabelas de referência** — `get_reference_table()` faz o mapeamento, com
-vários `match_type` compartilhando a mesma tabela.
+As 25 etapas consomem apenas **8 tabelas de referência** — `reference_table_by_match_type` /
+`get_reference_table()` fazem o mapeamento, com vários `match_type` compartilhando a mesma tabela. (O mapa
+tem 28 entradas, incluindo os três `*04` desativados.)
 
 O match probabilístico (`calculate_string_dist()`, `R/string_dist.R`) tem duas particularidades que valem
 mais que o resto: ele só considera linhas com `log_causa_confusao = FALSE`, e só recalcula a similaridade
@@ -294,20 +334,62 @@ referência diferentes. O corte é `> 0.85` para `pn01`/`pa01`/`pl01` e `> 0.90`
 (`get_prob_match_cutoff()`), e o desempate entre logradouros candidatos é `RANK()` por similaridade
 decrescente e depois ordem alfabética.
 
+Como corolário dessa memoização, `pa01`/`pa02`/`pa03` **pulam por completo** o Jaro e a criação da tabela
+`unique_logr_*`: a etapa `pn0k` imediatamente anterior tem o mesmo `key_cols`, a mesma tabela e o mesmo
+corte, então recalcular ali é um no-op comprovado (0 matches em 20.028 endereços). A lista está em
+`match_types_jaro_redundante` (`R/utils.R:374`) e a guarda em `match_weighted_cases_probabilistic.R`.
+`pa04` **não** entra nessa lista, porque `pn04` está desativado e não haveria etapa anterior para
+alimentar `similaridade_logradouro`.
+
 **Etapa 5 — empates.** `trata_empates_geocode_duckdb()` age quando um `tempidgeocodebr` tem mais de uma
-linha em `output_db`. Com `resolver_empates = FALSE`, apenas marca a coluna `empate` e emite um `cli_warn`.
-Com `TRUE`, aplica uma macro `haversine` e classifica em três grupos: sem empate; "perdidos" (resolvidos
-pelo maior `contagem_cnefe`); e "salváveis" (média das coordenadas ponderada por `contagem_cnefe`).
-Atenção a dois detalhes que **não estão na documentação do usuário**: existe um filtro anterior de **300 m**
-(candidatos a menos disso são descartados da disputa, restando o último da ordenação) além do limiar de
-1000 m; e a distância é calculada com `LEAD()`, isto é, entre **linhas consecutivas**, não entre todos os
-pares. O resultado vai para `output_db2`.
+linha em `output_db`. A primeira coisa que faz é materializar `ids_empatados` (só os ids com `COUNT(*) > 1`),
+e **todo o resto do trabalho é recortado por essa tabela** — os não-empatados passam direto por
+`NOT EXISTS`, sem tocar em window function.
+
+Três saídas:
+
+- **Zero empates:** `ALTER TABLE output_db ADD COLUMN IF NOT EXISTS empate BOOLEAN DEFAULT FALSE` e retorna.
+  Esse `ALTER` existe porque `merge_results_to_input()` sempre seleciona `empate` quando
+  `resultado_completo = TRUE`.
+- **`resolver_empates = FALSE`:** `ALTER ADD COLUMN` + `UPDATE ... IN (SELECT ... FROM ids_empatados)` +
+  `RENAME TO output_db2` (zero cópia), e emite um `cli_warn`. O output pode ter mais linhas que o input, e
+  a coluna `empate` entra no output **mesmo com `resultado_completo = FALSE`** (via `incluir_empate` em
+  `merge_results_to_input()`) — cardinalidade 1:N nesse ramo é decisão de design, não bug.
+- **`resolver_empates = TRUE` (default):** aplica uma macro `haversine`, materializa `empates_classif` e
+  classifica em três grupos: sem empate; "perdidos" (fica o candidato de maior `contagem_cnefe`); e
+  "salváveis" (média das coordenadas ponderada por `contagem_cnefe`). Resultado em `output_db2`.
+
+O colapso de 300 m **anterior** ao limiar de 1000 m *está* documentado para o usuário
+(`empates_section.R`, passo 1). O que **não** está:
+
+1. A distância desse colapso é medida com **`LAG()`** (não `LEAD()`) contra a linha **anterior** na
+   ordenação `contagem_cnefe DESC, desvio_metros, endereco_encontrado`, que por construção tem
+   `contagem_cnefe` maior ou igual — é isso que garante a semântica prometida na doc ("reter apenas o ponto
+   com maior `contagem_cnefe`"): **quem sai é sempre a linha de menor `contagem_cnefe`**, e a de maior
+   (id = 1, cujo `LAG` é `NULL`) é sempre preservada. Trocar por `LEAD()` inverte isso silenciosamente.
+2. A distância é entre **linhas consecutivas**, não entre todos os pares.
+3. As categorias sem logradouro (`dc01`, `dc02`, `db01`, `dm01`) são **explicitamente** excluídas do ramo
+   "perdidos" por `AND logradouro_encontrado IS NOT NULL`: ali o empate é entre endereços do mesmo
+   CEP/bairro/município, e a média ponderada é justamente o centroide que a `precisao` promete. (Antes isso
+   acontecia por acidente, via propagação de `NULL` no regex — foi tornado explícito.)
+4. A exceção de ruas-data (`RUA QUINZE DE NOVEMBRO`) fica **dentro** do braço do regex de números por
+   extenso, não como conjunto top-level: nomes-data seguem podendo ser "perdidos" por distância. O `\b` do
+   regex tem escape simples no fonte R (`'\\bDE (JANEIRO|…)\\b'`) — a versão com `\\\\b` era código morto.
+   Note que os dois regexes olham colunas diferentes: números por extenso em `endereco_encontrado`, a
+   exceção de datas em `logradouro_encontrado`.
+
+Ambos os `QUALIFY ROW_NUMBER()` (ramos "perdidos" e "salváveis") ordenam por
+`contagem_cnefe DESC, desvio_metros, endereco_encontrado` — os três critérios são necessários para
+determinismo, os dois primeiros sozinhos não fechavam.
 
 **Etapa 6 — output.** `add_precision_col()` deriva `precisao` de `tipo_resultado` via `CASE`. O input
 original volta como `input_db` e `merge_results_to_input()` faz o `LEFT JOIN` por `tempidgeocodebr`,
-preservando a ordem original. Depois: desconecta o DuckDB, adiciona colunas H3 se `h3_res` foi passado
-(`h3r::latLngToCell`, uma coluna `h3_NN` por resolução), remove as colunas-fantasma e o id temporário, e
-converte para `sf` (EPSG 4674) se `resultado_sf = TRUE`.
+preservando a ordem original. `tempidgeocodebr` **não** é removido no fim: ele já fica de fora do `SELECT`
+de `merge_results_to_input()` (embora siga valendo no `JOIN` e no `ORDER BY`), para não materializar uma
+coluna que seria descartada em seguida. Depois: desconecta o DuckDB, adiciona colunas H3 se `h3_res` foi
+passado (`h3r::latLngToCell`, uma coluna `h3_NN` por resolução), remove as colunas-fantasma, e converte para
+`sf` (EPSG 4674) se `resultado_sf = TRUE`. A conexão também tem um `on.exit(if (DBI::dbIsValid(con)) …)`
+como rede de segurança — o teste `dbIsValid()` é o que evita o aviso "Connection already closed".
 
 #### Invariantes que não podem ser quebradas
 
@@ -330,11 +412,15 @@ via `duckspatial`. Roda no processo do próprio usuário.
 **Etapa 1 — validação.** Exige `sf` com geometria **`POINT`** e **EPSG 4674** (aborta com outro CRS em vez
 de reprojetar). `dist_max` é limitado a `[500, 100000]` metros — **não é possível pedir raio menor que
 500 m**. Por fim, testa se a `st_bbox()` do conjunto cai dentro de um bounding box do Brasil hardcoded
-(`R/geocode_reverso.R:79-84`); como o teste é sobre a bbox **agregada**, um único ponto fora do país
+(`R/geocode_reverso.R:78-83`); como o teste é sobre a bbox **agregada**, um único ponto fora do país
 derruba a chamada inteira.
 
-**Etapa 2 — dados.** Baixa **uma única tabela**, `municipio_logradouro_numero_cep_localidade` (a mais
-detalhada), e abre o DuckDB com `load_spatial = TRUE`, que instala/carrega a extensão espacial.
+**Etapa 2 — dados.** Baixa **uma única tabela**, `municipio_logradouro_cep_localidade` — a **sem número**,
+a mesma usada por `busca_por_cep()`. Mudou na versão de desenvolvimento atual (antes era
+`municipio_logradouro_numero_cep_localidade`): a tabela sem número captura mais casos de logradouro sem
+numeração, e em troca o output do geocode reverso **não tem coluna de número**. As colunas trazidas são
+`estado`, `municipio`, `logradouro`, `cep`, `localidade`. Abre o DuckDB com `load_spatial = TRUE`, que
+instala/carrega a extensão espacial.
 
 **Etapa 3 — recorte geográfico, por geometria e não por coluna.** Esta é a diferença conceitual central em
 relação ao `geocode()`: aqui o usuário **não informa** município nem UF. O pacote descobre os municípios
@@ -390,10 +476,10 @@ usuário veja o que não foi achado. Se *nenhum* CEP for encontrado, a função 
 | | `geocode()` | `geocode_reverso()` | `busca_por_cep()` |
 |---|---|---|---|
 | Isolamento em `callr` | Sim | Não | Não |
-| Tabelas CNEFE baixadas | 8 (todas) | 1 | 1 |
+| Tabelas CNEFE baixadas | Só as necessárias, de 1 a 8 (`tabelas_necessarias()`) | 1 (`municipio_logradouro_cep_localidade`) | 1 (a mesma) |
 | Extensão espacial DuckDB | Não | **Sim** | Não |
 | Como limita municípios | Colunas UF+município do input (obrigatórias) | Join espacial com bboxes | Não limita |
 | Linhas do input preservadas | Sim (`LEFT JOIN`, `NA` se não achou) | **Não** (`INNER JOIN`, descarta) | Não (dedup + 1:N) |
-| Desconecta o DuckDB | Sim | Sim | **Não** (ver achados) |
+| Desconecta o DuckDB | Sim (+ `on.exit` guardado) | Sim (+ `on.exit` guardado) | Sim (só via `on.exit`) |
 
 

@@ -1,0 +1,16 @@
+diff --git a/R/geocode.R b/R/geocode.R
+index ccad269..b6e8b03 100644
+--- a/R/geocode.R
++++ b/R/geocode.R
+@@ -431,8 +431,9 @@ geocode_core <- function(
+       tipo_resultado = arrow::string(),
+       contagem_cnefe = arrow::int32(),
+       desvio_metros = arrow::int32(),
+-      log_causa_confusao = arrow::boolean(),
+-      similaridade_logradouro = arrow::float16()
++      log_causa_confusao = arrow::boolean()
++      # similaridade_logradouro so e gravada (e lida) com resultado_completo =
++      # TRUE; declara-la aqui alocava uma coluna DOUBLE inteira sempre NULL
+     )
+ 
+   } else {

@@ -1,0 +1,2 @@
+"label","mode","n_input","n_output","t_total_callr","t_child_core","t_child_startup","t_transport_overhead","child_peak_wset_mb","child_peak_wset_poll_mb","parent_peak_wset_mb","parent_wset_before_mb","parent_wset_after_mb","result_size_mb","duckdb","started","n_na_lat","sum_lat","sum_lon","sum_desvio","n_tipos","hash_end"
+"base43M_geo","geocode",43882020,43882020,879.9,NA,NA,NA,NA,82239.94921875,9311.61328125,4317.890625,9311.61328125,6941.7989730835,"1.5.5","2026-09-19 12:53:42",0,-649710680.318785,-1970455237.42254,155141349708,25,2514010173

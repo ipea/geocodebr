@@ -24,7 +24,7 @@ match_cases_probabilistic <- function(
   key_cols <- get_key_cols(match_type)
 
   # write cnefe table to db
-  register_cnefe_table(con, match_type, pasta_dados)
+  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
 
   # 1st step: create small table with unique logradouros -----------------------
   unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type, pasta_dados)
@@ -106,7 +106,8 @@ match_cases_probabilistic <- function(
   temp_n <- update_input_db(
     con,
     update_tb = x,
-    reference_tb = output_tb
+    reference_tb = output_tb,
+    match_type = match_type
   )
 
   return(temp_n)

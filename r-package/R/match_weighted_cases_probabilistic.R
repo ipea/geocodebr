@@ -21,7 +21,7 @@ match_weighted_cases_probabilistic <- function(
   key_cols <- get_key_cols(match_type)
 
   # write cnefe table to db
-  register_cnefe_table(con, match_type, pasta_dados)
+  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
 
 
   # 1st + 2nd steps: recalcula o logradouro provavel (Jaro)  eatualiza input_padrao_db   --------------------------------------------------------
@@ -66,6 +66,23 @@ match_weighted_cases_probabilistic <- function(
     '.temp_lograd_determ',
     cols_not_null
   )
+
+  # colunas de y que compoem endereco_completo e nao estao fixadas pelo join
+  # (key_cols aqui ja sem 'numero'); e por elas que os candidatos de um mesmo
+  # tempidgeocodebr se separam em enderecos distintos. Sao essas colunas que
+  # entram no GROUP BY da parte 2, em vez da string endereco_encontrado (~70
+  # bytes): a particao (tempidgeocodebr, endereco_encontrado) e identica a
+  # (tempidgeocodebr, cols_livres), porque endereco_completo e constante dentro
+  # de cada grupo (estado, municipio, logradouro, cep, localidade) do CNEFE e
+  # valores distintos de cep/localidade geram strings distintas. Assim o regex
+  # roda 1x por grupo, e nao 1x por candidato (~17-21 candidatos por endereco)
+  cols_livres <- setdiff(intersect(c("cep", "localidade"), strsplit(y, "_")[[1]]), key_cols)
+  sel_livres <- if (length(cols_livres)) {
+    paste0(glue::glue(", {y}.{cols_livres} AS {cols_livres}_cnefe"), collapse = "")
+  } else ""
+  grp_livres <- if (length(cols_livres)) {
+    paste0(glue::glue(", {cols_livres}_cnefe"), collapse = "")
+  } else ""
 
   # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
   # candidato mais proximo do numero buscado vence; empate exato de distancia
@@ -125,7 +142,7 @@ match_weighted_cases_probabilistic <- function(
              {x}.numero,
              {y}.numero AS numero_cnefe,
              {y}.lat, {y}.lon,
-             REGEXP_REPLACE( {y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
+             {y}.endereco_completo{sel_livres},
              {y}.desvio_metros,
              {x}.log_causa_confusao,
              {y}.n_casos AS contagem_cnefe {additional_cols_first}
@@ -142,13 +159,13 @@ match_weighted_cases_probabilistic <- function(
        SELECT tempidgeocodebr,
          SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
          SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
-         FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
+         REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
          '{match_type}' AS tipo_resultado,
          AVG(desvio_metros) AS desvio_metros,
          FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
          FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
       FROM temp_db
-      GROUP BY tempidgeocodebr, endereco_encontrado;"
+      GROUP BY tempidgeocodebr, numero {grp_livres};"
   )
 
   DBI::dbExecute(con, query_match)
@@ -160,7 +177,8 @@ match_weighted_cases_probabilistic <- function(
   temp_n <- update_input_db(
     con,
     update_tb = x,
-    reference_tb = output_tb
+    reference_tb = output_tb,
+    match_type = match_type
   )
 
   return(temp_n)

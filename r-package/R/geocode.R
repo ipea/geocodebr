@@ -96,7 +96,19 @@ geocode <- function(
   dev_path <- caminho_pacote_dev()
   versao_sessao <- as.character(getNamespaceVersion(asNamespace("geocodebr")))
 
-  callr::r(
+  # O resultado NAO volta do subprocesso como objeto R. O filho grava o output
+  # em parquet neste caminho e devolve so o caminho; o pai le com arrow. Trazer
+  # 43M de linhas como data.frame serializado pelo callr custava ~160s (RDS de
+  # ida e volta) mais uma copia de ~7GB dentro do filho. Barras normalizadas
+  # porque o caminho vai literal para dentro de um COPY ... TO '<path>' do DuckDB
+  arquivo_saida <- normalizePath(
+    tempfile(pattern = "geocodebr_output", fileext = ".parquet"),
+    winslash = "/",
+    mustWork = FALSE
+  )
+  on.exit(unlink(arquivo_saida), add = TRUE)
+
+  resumo_filho <- callr::r(
     func = function(
       dev_path,
       versao_sessao,
@@ -109,7 +121,8 @@ geocode <- function(
       padronizar_enderecos,
       verboso,
       cache,
-      n_cores
+      n_cores,
+      arquivo_saida
     ) {
       if (!is.null(dev_path)) {
         if (!requireNamespace("pkgload", quietly = TRUE)) {
@@ -137,6 +150,9 @@ geocode <- function(
       }
 
       # Run internal engine
+      # resultado_sf/h3_res seguem sendo passados mesmo que o pos-processamento
+      # (H3, sf) rode no processo pai: e o geocode_core() que valida os dois com
+      # checkmate, e essa validacao precisa continuar acontecendo aqui
       geocode_core <- get("geocode_core", envir = ns)
       geocode_core(
         enderecos = enderecos,
@@ -148,7 +164,8 @@ geocode <- function(
         padronizar_enderecos = padronizar_enderecos,
         verboso = verboso,
         cache = cache,
-        n_cores = n_cores
+        n_cores = n_cores,
+        arquivo_saida = arquivo_saida
       )
     },
     args = list(
@@ -163,10 +180,43 @@ geocode <- function(
       padronizar_enderecos = padronizar_enderecos,
       verboso = verboso,
       cache = cache,
-      n_cores = n_cores
+      n_cores = n_cores,
+      arquivo_saida = arquivo_saida
     ),
     show = TRUE,
     package = FALSE
+  )
+
+  # le o resultado gravado pelo filho ------------------------------------------
+  # altrep desligado de proposito: com altrep as colunas voltam lazy e o custo de
+  # materializacao apenas migra para a primeira vez que cada coluna e tocada
+  # (inclusive dentro do setDT/H3 abaixo), o que torna o ganho ilusorio
+  old_altrep <- getOption("arrow.use_altrep")
+  options(arrow.use_altrep = FALSE)
+  on.exit(options(arrow.use_altrep = old_altrep), add = TRUE)
+
+  output_df <- tryCatch(
+    as.data.frame(arrow::read_parquet(resumo_filho$arquivo)),
+    error = function(e) {
+      cli::cli_abort(
+        c(
+          "Nao foi possivel ler o resultado intermediario do geocode().",
+          "x" = "Falha ao ler {.file {resumo_filho$arquivo}}: {conditionMessage(e)}"
+        ),
+        call = NULL
+      )
+    }
+  )
+
+  # factor, tzone de POSIXct e difftime nao sobrevivem ao parquet -- reconstroi
+  # usando o input original, que continua intacto neste processo, como gabarito
+  output_df <- restaura_classes_input(output_df, enderecos)
+
+  # pos-processamento que antes rodava dentro do filho
+  pos_processa_output(
+    output_df = output_df,
+    h3_res = h3_res,
+    resultado_sf = resultado_sf
   )
 }
 
@@ -184,6 +234,14 @@ caminho_pacote_dev <- function() {
 
 
 #' @keywords internal
+#
+# arquivo_saida: string ou NULL. Caminho de um .parquet onde o resultado deve ser
+#   gravado em vez de devolvido como data.frame. Com NULL (padrao), a funcao
+#   devolve o resultado pos-processado, como sempre. Com um caminho, o resultado
+#   sai do DuckDB direto para disco e a funcao devolve, invisivelmente, apenas
+#   list(arquivo =, new_colnames =) -- o pos-processamento (colunas-fantasma, H3,
+#   sf) fica a cargo de quem chamou. Usado por geocode() para nao trazer o
+#   resultado inteiro de volta pelo callr.
 geocode_core <- function(
   enderecos,
   campos_endereco,
@@ -194,7 +252,8 @@ geocode_core <- function(
   padronizar_enderecos,
   verboso,
   cache,
-  n_cores
+  n_cores,
+  arquivo_saida = NULL
 ) {
   # ## ---- tiny timing toolkit (self-contained) ------------------------------
   # .make_timer <- function(verbose = TRUE) {
@@ -286,6 +345,10 @@ geocode_core <- function(
   # essas etapas sem materializar a tabela de referencia correspondente.
   campos_nao_declarados <- names(missing_cols)
 
+  # nomes das colunas-fantasma efetivamente criadas (vazio quando o usuario
+  # declarou todos os campos)
+  new_colnames <- character(0)
+
   if (length(missing_cols)>=1) {
 
     # add empty string to missing cols
@@ -307,53 +370,76 @@ geocode_core <- function(
       message_standardizing_addresses()
     }
 
-    input_padrao <- enderecobr::padronizar_enderecos(
-      enderecos = enderecos,
-      campos_do_endereco = enderecobr::correspondencia_campos(
-        logradouro = campos_endereco[["logradouro"]],
-        numero = campos_endereco[["numero"]],
-        cep = campos_endereco[["cep"]],
-        bairro = campos_endereco[["localidade"]],
-        municipio = campos_endereco[["municipio"]],
-        estado = campos_endereco[["estado"]]
+    # padroniza campo a campo em vez de uma chamada unica a
+    # enderecobr::padronizar_enderecos() sobre a tabela inteira: cada coluna passa
+    # por padronizar_dedup() (ver R/utils.R), que padroniza so os valores
+    # distintos daquele campo e expande de volta com chmatch(). O resultado e
+    # identical() ao da chamada antiga, incluindo a ORDEM das colunas
+    # (logradouro, numero, cep, localidade, municipio, estado), que precisa ser
+    # preservada porque define o schema da tabela gravada no DuckDB.
+    input_padrao <- data.table::data.table(
+      logradouro = padronizar_dedup(
+        enderecos[[campos_endereco[["logradouro"]]]],
+        "logradouro"
       ),
-      formato_estados = "sigla",
-      formato_numeros = 'integer'
+      numero = padronizar_dedup(
+        enderecos[[campos_endereco[["numero"]]]],
+        "numero"
+      ),
+      cep = padronizar_dedup(
+        enderecos[[campos_endereco[["cep"]]]],
+        "cep"
+      ),
+      localidade = padronizar_dedup(
+        enderecos[[campos_endereco[["localidade"]]]],
+        "bairro"
+      ),
+      municipio = padronizar_dedup(
+        enderecos[[campos_endereco[["municipio"]]]],
+        "municipio"
+      ),
+      estado = padronizar_dedup(
+        enderecos[[campos_endereco[["estado"]]]],
+        "estado"
+      )
     )
   }
 
   if (isFALSE(padronizar_enderecos)) {
     input_padrao <- data.table::copy(enderecos)
-  }
 
-  # checa se input foi mesmo padronizado
-  all_cols_padr <- c(
-    "estado_padr",
-    "municipio_padr",
-    "logradouro_padr",
-    "numero_padr",
-    "cep_padr",
-    "bairro_padr"
-  )
-  check_padr <- all(all_cols_padr %in% names(input_padrao))
-
-  if (isFALSE(check_padr)) {
-    error_input_nao_padronizado()
-  }
-
-  # keep and rename colunms of input_padrao to use the
-  # same column names used in cnefe data set
-  data.table::setDT(input_padrao)
-  cols_to_keep <- names(input_padrao)[names(input_padrao) %like% '_padr']
-  input_padrao <- input_padrao[, .SD, .SDcols = c(cols_to_keep)]
-  names(input_padrao) <- c(gsub("_padr", "", names(input_padrao)))
-
-  if ('bairro' %in% names(input_padrao)) {
-    data.table::setnames(
-      x = input_padrao,
-      old = 'bairro',
-      new = 'localidade'
+    # checa se input foi mesmo padronizado -- so faz sentido neste ramo, ja que
+    # no ramo TRUE as colunas padronizadas sao construidas aqui mesmo
+    all_cols_padr <- c(
+      "estado_padr",
+      "municipio_padr",
+      "logradouro_padr",
+      "numero_padr",
+      "cep_padr",
+      "bairro_padr"
     )
+    check_padr <- all(all_cols_padr %in% names(input_padrao))
+
+    if (isFALSE(check_padr)) {
+      error_input_nao_padronizado()
+    }
+
+    # keep and rename colunms of input_padrao to use the
+    # same column names used in cnefe data set
+    data.table::setDT(input_padrao)
+    cols_to_keep <- names(input_padrao)[names(input_padrao) %like% '_padr']
+    # remove as colunas extras por referencia em vez de copiar as 6 colunas
+    # padronizadas para uma tabela nova (.SD copia)
+    input_padrao[, setdiff(names(input_padrao), cols_to_keep) := NULL]
+    names(input_padrao) <- c(gsub("_padr", "", names(input_padrao)))
+
+    if ('bairro' %in% names(input_padrao)) {
+      data.table::setnames(
+        x = input_padrao,
+        old = 'bairro',
+        new = 'localidade'
+      )
+    }
   }
 
   # systime padronizacao 66666 ----------------
@@ -409,6 +495,13 @@ geocode_core <- function(
     temporary = TRUE
   )
 
+  # daqui em diante so o numero de linhas e os nomes das colunas sao usados:
+  # libera o data.table padronizado (uma copia integral do input) antes do
+  # laco de matching, que e a fase mais longa
+  n_rows <- nrow(input_padrao)
+  cols_input_padrao <- names(input_padrao)
+  rm(input_padrao)
+
   # systime register standardized 66666 ----------------
   # timer$mark("Register standardized input")
 
@@ -431,8 +524,9 @@ geocode_core <- function(
       tipo_resultado = arrow::string(),
       contagem_cnefe = arrow::int32(),
       desvio_metros = arrow::int32(),
-      log_causa_confusao = arrow::boolean(),
-      similaridade_logradouro = arrow::float16()
+      log_causa_confusao = arrow::boolean()
+      # similaridade_logradouro so e gravada (e lida) com resultado_completo =
+      # TRUE; declara-la aqui alocava uma coluna DOUBLE inteira sempre NULL
     )
 
   } else {
@@ -471,11 +565,10 @@ geocode_core <- function(
 
   # start progress bar
   if (verboso) {
-    prog <- create_progress_bar(input_padrao)
+    prog <- create_progress_bar(n_rows)
     message_looking_for_matches()
   }
 
-  n_rows <- nrow(input_padrao)
   matched_rows <- 0
 
   # start matching
@@ -490,7 +583,7 @@ geocode_core <- function(
     # somente busca essa categoria match_type se todas colunas estiverem na base
     # e nenhuma delas for um campo que o usuario nao declarou -- caso
     # contrario, passa para proxima categoria
-    if (all(key_cols %in% names(input_padrao)) && !any(key_cols %in% campos_nao_declarados)) {
+    if (all(key_cols %in% cols_input_padrao) && !any(key_cols %in% campos_nao_declarados)) {
       # select match function
       match_fun <- reference_match_fun_by_match_type(match_type)
 
@@ -504,6 +597,12 @@ geocode_core <- function(
 
       matched_rows <- matched_rows + n_rows_affected
 
+      # libera as tabelas de referencia que as etapas restantes nao usam mais
+      restantes <- all_possible_match_types[
+        seq_along(all_possible_match_types) > match(match_type, all_possible_match_types)
+      ]
+      dropa_tabelas_obsoletas(con, restantes, campos_nao_declarados)
+
       # leave the loop early if we find all addresses before covering all cases
       if (matched_rows == n_rows) break
     }
@@ -512,6 +611,12 @@ geocode_core <- function(
   if (verboso) {
     finish_progress_bar(matched_rows)
   }
+
+  # nada apos o laco le input_padrao_db nem as tabelas de referencia: so
+  # output_db (empates) e input_db (merge). Liberar aqui derruba o pico de
+  # memoria do DuckDB nas etapas finais.
+  dropa_tabelas_obsoletas(con, character(0), campos_nao_declarados)
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS input_padrao_db;")
 
   # systime matching 66666 ----------------
   # timer$mark("Matching")
@@ -535,16 +640,12 @@ geocode_core <- function(
   # bring original input back -----------------------------------------------
 
   # output with all original columns
-  duckdb::dbWriteTable(
-    con,
-    "input_db",
-    enderecos,
-    temporary = TRUE,
-    overwrite = TRUE
-  )
-  # enderecos_arrw <- arrow::as_arrow_table(enderecos)
-  # DBI::dbWriteTableArrow(con, name = "input_db", enderecos_arrw,
-  #                        overwrite = TRUE, temporary = TRUE)
+  # registra o data.frame como view (zero copia) em vez de gravar uma tabela:
+  # input_db so e lido uma vez, pelo LEFT JOIN de merge_results_to_input(),
+  # nunca alterado. dbWriteTable() e exatamente register + CREATE TABLE AS,
+  # entao os tipos das colunas sao os mesmos -- sem a copia integral do input
+  # dentro do DuckDB nem o tempo de escrita. A view some no dbDisconnect().
+  duckdb::duckdb_register(con, "input_db", enderecos)
 
   # systime write original input back 66666 ----------------
   # timer$mark("Write original input back")
@@ -560,7 +661,15 @@ geocode_core <- function(
   # systime add precision 66666 ----------------
   # timer$mark("Add precision")
 
+  # com arquivo_saida, as colunas-fantasma sao deixadas de fora ja no SELECT --
+  # assim nunca chegam ao parquet e nao precisam ser removidas depois. A ordem
+  # das colunas e a mesma dos dois jeitos, porque as fantasmas ficam sempre
+  # entre as colunas do usuario e as colunas do resultado
   x_columns <- names(enderecos)
+
+  if (!is.null(arquivo_saida)) {
+    x_columns <- setdiff(x_columns, new_colnames)
+  }
 
   output_df <- merge_results_to_input(
     con,
@@ -569,11 +678,21 @@ geocode_core <- function(
     key_column = 'tempidgeocodebr',
     select_columns = x_columns,
     resultado_completo = resultado_completo,
-    incluir_empate = isFALSE(resolver_empates)
+    incluir_empate = isFALSE(resolver_empates),
+    arquivo_saida = arquivo_saida
   )
 
   # Disconnect from DuckDB when done
   duckdb::dbDisconnect(con)
+
+  # o resultado ja esta em disco: devolve so o necessario para o processo pai
+  # fazer o pos-processamento (ver geocode())
+  if (!is.null(arquivo_saida)) {
+    return(invisible(list(
+      arquivo = arquivo_saida,
+      new_colnames = new_colnames
+    )))
+  }
 
   # systime merge results 66666 ----------------
   # timer$mark("Merge results")
@@ -599,49 +718,16 @@ geocode_core <- function(
   # )]
 
 
-  # add H3
-  if (!is.null(h3_res)) {
-    for (i in h3_res) {
-      colname <- paste0(
-        'h3_',
-        formatC(i, width = 2, flag = "0")
-      )
-
-      output_df[
-        !is.na(lat),
-        {{ colname }} := h3r::latLngToCell(lat = lat, lng = lon, resolution = i)
-      ]
-    }
-
-    # systime add h3 66666 ----------------
-    # timer$mark("Add H3")
-  }
-
   # drop eventual mock columns with empty strings
-  if (length(missing_cols)>=1) {
+  if (length(new_colnames) >= 1) {
     output_df[, (new_colnames) := NULL]
   }
 
-  # remove data.table class
-  data.table::setindex(output_df, NULL)
-  data.table::setDF(output_df)
-
-  # convert df to simple feature
-  if (isTRUE(resultado_sf)) {
-    output_sf <- sfheaders::sf_point(
-      obj = output_df,
-      x = 'lon',
-      y = 'lat',
-      keep = TRUE
-    )
-
-    sf::st_crs(output_sf) <- 4674
-
-    # systime convert to sf 66666 ----------------
-    # timer$mark("Convert to sf")
-
-    return(output_sf)
-  }
-
-  return(output_df[])
+  # H3, remocao da classe data.table e conversao para sf -- mesmas etapas que o
+  # processo pai aplica no caminho com arquivo_saida (ver R/utils.R)
+  pos_processa_output(
+    output_df = output_df,
+    h3_res = h3_res,
+    resultado_sf = resultado_sf
+  )
 }

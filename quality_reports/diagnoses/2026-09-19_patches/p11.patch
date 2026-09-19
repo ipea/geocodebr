@@ -1,0 +1,88 @@
+diff --git a/R/match_cases.R b/R/match_cases.R
+index de276fc..949aa62 100644
+--- a/R/match_cases.R
++++ b/R/match_cases.R
+@@ -16,7 +16,7 @@ match_cases <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+   # Create the JOIN condition by concatenating the key columns
+   join_condition <- paste(
+diff --git a/R/match_cases_probabilistic.R b/R/match_cases_probabilistic.R
+index bd8a506..59b721d 100644
+--- a/R/match_cases_probabilistic.R
++++ b/R/match_cases_probabilistic.R
+@@ -24,7 +24,7 @@ match_cases_probabilistic <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+   # 1st step: create small table with unique logradouros -----------------------
+   unique_logradouros_tbl <- register_unique_logradouros_table(con, match_type, pasta_dados)
+diff --git a/R/match_weighted_cases.R b/R/match_weighted_cases.R
+index 09d8359..8baf20d 100644
+--- a/R/match_weighted_cases.R
++++ b/R/match_weighted_cases.R
+@@ -17,7 +17,7 @@ match_weighted_cases <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+ 
+   # cols that cannot be null
+diff --git a/R/match_weighted_cases_probabilistic.R b/R/match_weighted_cases_probabilistic.R
+index 76d5e1f..bf82232 100644
+--- a/R/match_weighted_cases_probabilistic.R
++++ b/R/match_weighted_cases_probabilistic.R
+@@ -21,7 +21,7 @@ match_weighted_cases_probabilistic <- function(
+   key_cols <- get_key_cols(match_type)
+ 
+   # write cnefe table to db
+-  register_cnefe_table(con, match_type, pasta_dados)
++  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
+ 
+ 
+   # 1st + 2nd steps: recalcula o logradouro provavel (Jaro)  eatualiza input_padrao_db   --------------------------------------------------------
+diff --git a/R/register_cnefe_tables.R b/R/register_cnefe_tables.R
+index 1a3da23..66a2d31 100644
+--- a/R/register_cnefe_tables.R
++++ b/R/register_cnefe_tables.R
+@@ -1,4 +1,4 @@
+-register_cnefe_table <- function(con, match_type, pasta_dados) {
++register_cnefe_table <- function(con, match_type, pasta_dados, resultado_completo = TRUE) {
+   # nocov start
+ 
+   # message("register_cnefe_table")
+@@ -53,6 +53,16 @@ register_cnefe_table <- function(con, match_type, pasta_dados) {
+     return(TRUE)
+   }
+ 
++  # colunas do parquet que nenhuma query do pacote le: code_muni e n_setor nunca;
++  # cod_setor so entra no output com resultado_completo = TRUE (ver
++  # monta_colunas_encontradas). Deixa-las de fora da materializacao economiza
++  # ~10% da memoria de cada tabela de referencia.
++  cols_excluir <- c("code_muni", "n_setor")
++  if (isFALSE(resultado_completo)) {
++    cols_excluir <- c(cols_excluir, "cod_setor")
++  }
++  cols_excluir <- paste(cols_excluir, collapse = ", ")
++
+   query_filter_cnefe <- glue::glue(
+     "CREATE TEMP TABLE IF NOT EXISTS {cnefe_table_name} AS
+           WITH unique_munis AS (
+@@ -63,7 +73,7 @@ register_cnefe_table <- function(con, match_type, pasta_dados) {
+               SELECT DISTINCT estado
+               FROM input_padrao_db
+           )
+-          SELECT *
++          SELECT * EXCLUDE ({cols_excluir})
+           FROM read_parquet('{path_to_parquet}') m
+           WHERE m.estado IN (SELECT estado FROM unique_states)
+                AND m.municipio IN (SELECT municipio FROM unique_munis);"

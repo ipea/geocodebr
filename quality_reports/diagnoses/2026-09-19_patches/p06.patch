@@ -1,0 +1,235 @@
+diff --git a/R/match_weighted_cases.R b/R/match_weighted_cases.R
+index 09d8359..67b2e20 100644
+--- a/R/match_weighted_cases.R
++++ b/R/match_weighted_cases.R
+@@ -35,6 +35,23 @@ match_weighted_cases <- function(
+     collapse = ' AND '
+   )
+ 
++  # colunas de y que compoem endereco_completo e nao estao fixadas pelo join
++  # (key_cols aqui ja sem 'numero'); e por elas que os candidatos de um mesmo
++  # tempidgeocodebr se separam em enderecos distintos. Sao essas colunas que
++  # entram no GROUP BY da parte 2, em vez da string endereco_encontrado (~70
++  # bytes): a particao (tempidgeocodebr, endereco_encontrado) e identica a
++  # (tempidgeocodebr, cols_livres), porque endereco_completo e constante dentro
++  # de cada grupo (estado, municipio, logradouro, cep, localidade) do CNEFE e
++  # valores distintos de cep/localidade geram strings distintas. Assim o regex
++  # roda 1x por grupo, e nao 1x por candidato (~17-21 candidatos por endereco)
++  cols_livres <- setdiff(intersect(c("cep", "localidade"), strsplit(y, "_")[[1]]), key_cols)
++  sel_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {y}.{cols_livres} AS {cols_livres}_cnefe"), collapse = "")
++  } else ""
++  grp_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {cols_livres}_cnefe"), collapse = "")
++  } else ""
++
+   # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
+   # candidato mais proximo do numero buscado vence; empate exato de distancia
+   # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
+@@ -73,7 +90,7 @@ match_weighted_cases <- function(
+              {x}.numero,
+              {y}.numero AS numero_cnefe,
+              {y}.lat, {y}.lon,
+-             REGEXP_REPLACE( {y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
++             {y}.endereco_completo{sel_livres},
+              {y}.desvio_metros,
+              {x}.log_causa_confusao,
+              {y}.n_casos AS contagem_cnefe {additional_cols_first}
+@@ -88,13 +105,13 @@ match_weighted_cases <- function(
+       SELECT tempidgeocodebr,
+         SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
+         SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
+-        FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
++        REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
+         '{match_type}' AS tipo_resultado,
+         AVG(desvio_metros) as desvio_metros,
+         FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+         FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
+     FROM temp_db
+-    GROUP BY tempidgeocodebr, endereco_encontrado;"
++    GROUP BY tempidgeocodebr, numero {grp_livres};"
+   )
+ 
+   DBI::dbExecute(con, query_match)
+diff --git a/R/match_weighted_cases_probabilistic.R b/R/match_weighted_cases_probabilistic.R
+index 76d5e1f..a5f9685 100644
+--- a/R/match_weighted_cases_probabilistic.R
++++ b/R/match_weighted_cases_probabilistic.R
+@@ -67,6 +67,23 @@ match_weighted_cases_probabilistic <- function(
+     cols_not_null
+   )
+ 
++  # colunas de y que compoem endereco_completo e nao estao fixadas pelo join
++  # (key_cols aqui ja sem 'numero'); e por elas que os candidatos de um mesmo
++  # tempidgeocodebr se separam em enderecos distintos. Sao essas colunas que
++  # entram no GROUP BY da parte 2, em vez da string endereco_encontrado (~70
++  # bytes): a particao (tempidgeocodebr, endereco_encontrado) e identica a
++  # (tempidgeocodebr, cols_livres), porque endereco_completo e constante dentro
++  # de cada grupo (estado, municipio, logradouro, cep, localidade) do CNEFE e
++  # valores distintos de cep/localidade geram strings distintas. Assim o regex
++  # roda 1x por grupo, e nao 1x por candidato (~17-21 candidatos por endereco)
++  cols_livres <- setdiff(intersect(c("cep", "localidade"), strsplit(y, "_")[[1]]), key_cols)
++  sel_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {y}.{cols_livres} AS {cols_livres}_cnefe"), collapse = "")
++  } else ""
++  grp_livres <- if (length(cols_livres)) {
++    paste0(glue::glue(", {cols_livres}_cnefe"), collapse = "")
++  } else ""
++
+   # ordem canonica de desempate dentro do GROUP BY da parte 2 da query: o
+   # candidato mais proximo do numero buscado vence; empate exato de distancia
+   # (ex.: numero 50 entre candidatos 48 e 52) desempata por numero_cnefe,
+@@ -125,7 +142,7 @@ match_weighted_cases_probabilistic <- function(
+              {x}.numero,
+              {y}.numero AS numero_cnefe,
+              {y}.lat, {y}.lon,
+-             REGEXP_REPLACE( {y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
++             {y}.endereco_completo{sel_livres},
+              {y}.desvio_metros,
+              {x}.log_causa_confusao,
+              {y}.n_casos AS contagem_cnefe {additional_cols_first}
+@@ -142,13 +159,13 @@ match_weighted_cases_probabilistic <- function(
+        SELECT tempidgeocodebr,
+          SUM((1/ABS(numero - numero_cnefe) * lat)) / SUM(1/ABS(numero - numero_cnefe)) AS lat,
+          SUM((1/ABS(numero - numero_cnefe) * lon)) / SUM(1/ABS(numero - numero_cnefe)) AS lon,
+-         FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
++         REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
+          '{match_type}' AS tipo_resultado,
+          AVG(desvio_metros) AS desvio_metros,
+          FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
+          FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_cols_second}
+       FROM temp_db
+-      GROUP BY tempidgeocodebr, endereco_encontrado;"
++      GROUP BY tempidgeocodebr, numero {grp_livres};"
+   )
+ 
+   DBI::dbExecute(con, query_match)
+diff --git a/tests/testthat/test-match_weighted_cases.R b/tests/testthat/test-match_weighted_cases.R
+new file mode 100644
+index 0000000..00710ad
+--- /dev/null
++++ b/tests/testthat/test-match_weighted_cases.R
+@@ -0,0 +1,123 @@
++# Invariantes de dados que sustentam a otimizacao do GROUP BY das queries
++# ponderadas (match_weighted_cases() / match_weighted_cases_probabilistic()).
++#
++# Nessas queries o GROUP BY agrupa por (tempidgeocodebr, numero, <cols_livres>)
++# em vez de pela string `endereco_encontrado`. Isso so devolve o mesmo resultado
++# se, nas duas tabelas de referencia com `numero`:
++#
++#   (i)   o regex ', \d+ -' casa exatamente uma vez em cada `endereco_completo`
++#         (senao REGEXP_REPLACE trocaria outro trecho da string);
++#   (ii)  `endereco_completo` normalizado (com o numero mascarado) e constante
++#         dentro de cada grupo de colunas nao-numero -- ou seja, a string nao
++#         carrega nenhuma informacao extra alem dessas colunas;
++#   (iii) dentro das colunas fixadas pelo join, valores distintos das colunas
++#         livres (`cep`/`localidade`) geram strings distintas (bijecao) -- e o
++#         que garante que agrupar por elas nao junta enderecos diferentes.
++#
++# Os testes rodam so quando o cache do CNEFE esta presente (sao ~50M linhas por
++# tabela, lidas direto do parquet pelo DuckDB).
++
++pasta_cache_release <- function() {
++  fs::path(
++    geocodebr::listar_pasta_cache(),
++    paste0("geocodebr_data_release_", geocodebr:::data_release)
++  )
++}
++
++parquet_numero <- function() {
++  arquivos <- fs::path(
++    pasta_cache_release(),
++    paste0(
++      c(
++        "municipio_logradouro_numero_cep_localidade",
++        "municipio_logradouro_numero_localidade"
++      ),
++      ".parquet"
++    )
++  )
++  arquivos[fs::file_exists(arquivos)]
++}
++
++# colunas nao-numero de cada tabela (o grupo dentro do qual o endereco
++# normalizado precisa ser constante) e a coluna livre de cada match_type
++# ponderado que usa aquela tabela
++grupos_por_tabela <- list(
++  municipio_logradouro_numero_cep_localidade = list(
++    grupo = c("estado", "municipio", "logradouro", "cep", "localidade"),
++    # da02/pa02: join sem localidade -> localidade e a coluna livre
++    join_fixo = c("estado", "municipio", "logradouro", "cep"),
++    livre = "localidade"
++  ),
++  municipio_logradouro_numero_localidade = list(
++    grupo = c("estado", "municipio", "logradouro", "localidade"),
++    # da04: join sem localidade -> localidade e a coluna livre
++    join_fixo = c("estado", "municipio", "logradouro"),
++    livre = "localidade"
++  )
++)
++
++test_that("invariantes de dados do GROUP BY estreito das queries ponderadas", {
++  skip_on_cran()
++  skip_if_not_installed("duckdb")
++
++  arquivos <- parquet_numero()
++  skip_if_not(
++    length(arquivos) == 2,
++    "cache do CNEFE (tabelas com numero) ausente"
++  )
++
++  con <- DBI::dbConnect(duckdb::duckdb())
++  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
++
++  for (arquivo in arquivos) {
++    tabela <- fs::path_ext_remove(fs::path_file(arquivo))
++    spec <- grupos_por_tabela[[tabela]]
++    src <- glue::glue("read_parquet('{arquivo}')")
++    grupo <- paste(spec$grupo, collapse = ", ")
++    join_fixo <- paste(spec$join_fixo, collapse = ", ")
++    norm <- "REGEXP_REPLACE(endereco_completo, ', \\d+ -', '#')"
++
++    # (i) o regex casa exatamente uma vez por linha
++    n_regex_ruim <- DBI::dbGetQuery(
++      con,
++      glue::glue(
++        "SELECT COUNT(*) AS n FROM {src}
++         WHERE LEN(REGEXP_EXTRACT_ALL(endereco_completo, ', \\d+ -')) <> 1"
++      )
++    )$n
++    expect_identical(as.numeric(n_regex_ruim), 0, label = glue::glue("{tabela}: regex 1x"))
++
++    # (ii) endereco normalizado constante dentro do grupo de colunas nao-numero
++    n_grupo_ruim <- DBI::dbGetQuery(
++      con,
++      glue::glue(
++        "SELECT COUNT(*) AS n FROM (
++           SELECT {grupo} FROM {src}
++           GROUP BY {grupo}
++           HAVING COUNT(DISTINCT {norm}) > 1
++         )"
++      )
++    )$n
++    expect_identical(
++      as.numeric(n_grupo_ruim), 0,
++      label = glue::glue("{tabela}: endereco constante no grupo")
++    )
++
++    # (iii) dentro das colunas fixadas pelo join, bijecao entre os valores
++    # distintos da coluna livre e as strings normalizadas distintas
++    n_bijecao_ruim <- DBI::dbGetQuery(
++      con,
++      glue::glue(
++        "SELECT COUNT(*) AS n FROM (
++           SELECT {join_fixo} FROM {src}
++           GROUP BY {join_fixo}
++           HAVING COUNT(DISTINCT COALESCE({spec$livre}, '<NULO>')) <> COUNT(DISTINCT {norm})
++         )"
++      )
++    )$n
++    expect_identical(
++      as.numeric(n_bijecao_ruim), 0,
++      label = glue::glue("{tabela}: bijecao {spec$livre} <-> endereco")
++    )
++  }
++})

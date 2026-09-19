@@ -1,0 +1,118 @@
+diff --git a/R/geocode.R b/R/geocode.R
+index ccad269..de96b1c 100644
+--- a/R/geocode.R
++++ b/R/geocode.R
+@@ -504,6 +504,12 @@ geocode_core <- function(
+ 
+       matched_rows <- matched_rows + n_rows_affected
+ 
++      # libera as tabelas de referencia que as etapas restantes nao usam mais
++      restantes <- all_possible_match_types[
++        seq_along(all_possible_match_types) > match(match_type, all_possible_match_types)
++      ]
++      dropa_tabelas_obsoletas(con, restantes, campos_nao_declarados)
++
+       # leave the loop early if we find all addresses before covering all cases
+       if (matched_rows == n_rows) break
+     }
+@@ -513,6 +519,12 @@ geocode_core <- function(
+     finish_progress_bar(matched_rows)
+   }
+ 
++  # nada apos o laco le input_padrao_db nem as tabelas de referencia: so
++  # output_db (empates) e input_db (merge). Liberar aqui derruba o pico de
++  # memoria do DuckDB nas etapas finais.
++  dropa_tabelas_obsoletas(con, character(0), campos_nao_declarados)
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS input_padrao_db;")
++
+   # systime matching 66666 ----------------
+   # timer$mark("Matching")
+ 
+diff --git a/R/trata_empates_geocode_duckdb.R b/R/trata_empates_geocode_duckdb.R
+index 876a26d..7bb464d 100644
+--- a/R/trata_empates_geocode_duckdb.R
++++ b/R/trata_empates_geocode_duckdb.R
+@@ -65,6 +65,7 @@ trata_empates_geocode_duckdb <- function(
+       conn = con,
+       statement = "ALTER TABLE output_db RENAME TO output_db2;"
+     )
++    DBI::dbExecute(con, "DROP TABLE IF EXISTS ids_empatados;")
+ 
+     cli::cli_warn(
+       "Foram encontrados {n_casos_empate} casos de empate. Estes casos foram
+@@ -299,6 +300,13 @@ trata_empates_geocode_duckdb <- function(
+ 
+   DBI::dbExecute(con, sql_resolve)
+ 
++  # output_db2 e a unica saida deste ponto em diante (add_precision_col e
++  # merge_results_to_input usam output_table_to_use = output_db2): as tabelas
++  # de trabalho e a output_db original podem ser liberadas ja
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS output_db;")
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS empates_classif;")
++  DBI::dbExecute(con, "DROP TABLE IF EXISTS ids_empatados;")
++
+   if (verboso) {
+     plural <- ifelse(n_casos_empate == 1, 'caso', 'casos')
+     message(glue::glue(
+diff --git a/R/utils.R b/R/utils.R
+index 9abf7e1..127bb08 100644
+--- a/R/utils.R
++++ b/R/utils.R
+@@ -672,3 +672,57 @@ check_clean_colnames <- function(df) {  # nocov start
+   }
+ 
+ } # nocov end
++
++
++# Tabelas temporarias (de referencia do CNEFE e de logradouros unicos) que as
++# etapas restantes do laco de matching ainda vao usar. Espelha o criterio de
++# tabelas_necessarias() para as etapas que faltam, mais as duas tabelas
++# unique_logr_* de register_unique_logradouros_table() (a base delas depende
++# so de o match_type ser *03 ou nao).
++tabelas_ainda_necessarias <- function(match_types_restantes, campos_nao_declarados) {
++  # nocov start
++  ativos <- Filter(
++    function(mt) !any(get_key_cols(mt) %in% campos_nao_declarados),
++    match_types_restantes
++  )
++
++  tabs <- unique(unname(reference_table_by_match_type[ativos]))
++
++  probabilisticos <- ativos[ativos %in% c(
++    probabilistic_exact_types,
++    probabilistic_interpolation_types,
++    probabilistic_types_no_number
++  )]
++
++  if (any(probabilisticos %in% c("pn03", "pa03", "pl03"))) {
++    tabs <- c(tabs, "unique_logr_municipio_logradouro_localidade")
++  }
++  if (any(!probabilisticos %in% c("pn03", "pa03", "pl03"))) {
++    tabs <- c(tabs, "unique_logr_municipio_logradouro_cep_localidade")
++  }
++
++  unique(tabs)
++} # nocov end
++
++
++# Apaga do banco as tabelas temporarias que nenhuma etapa restante do laco vai
++# usar. O DuckDB libera a memoria de uma TEMP TABLE no DROP; sem isso as duas
++# tabelas de referencia maiores (~10 GB cada em escala nacional) ficariam vivas
++# ate o fim de geocode(), embora so sejam lidas nas primeiras etapas.
++dropa_tabelas_obsoletas <- function(con, match_types_restantes, campos_nao_declarados) {
++  # nocov start
++  candidatas <- c(
++    unique(unname(reference_table_by_match_type)),
++    "unique_logr_municipio_logradouro_localidade",
++    "unique_logr_municipio_logradouro_cep_localidade"
++  )
++
++  necessarias <- tabelas_ainda_necessarias(match_types_restantes, campos_nao_declarados)
++  existentes <- DBI::dbListTables(con)
++
++  for (tb in setdiff(intersect(candidatas, existentes), necessarias)) {
++    DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {tb};"))
++  }
++
++  invisible(NULL)
++} # nocov end

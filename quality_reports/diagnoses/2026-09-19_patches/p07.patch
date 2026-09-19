@@ -1,0 +1,438 @@
+diff --git a/R/create_geocodebr_db.R b/R/create_geocodebr_db.R
+index 8609c36..667655a 100644
+--- a/R/create_geocodebr_db.R
++++ b/R/create_geocodebr_db.R
+@@ -40,6 +40,12 @@ create_geocodebr_db <- function(
+   # Silence progress bar from duckdb
+   DBI::dbExecute(con, "SET enable_progress_bar = false")
+ 
++  # Garante que a ordem das linhas produzida por um ORDER BY sobreviva ate a
++  # escrita do resultado (o COPY ... TO parquet em merge_results_to_input()
++  # depende disso para devolver o output na ordem original do input). Este ja e
++  # o default do DuckDB -- declarado aqui de proposito, como trava
++  DBI::dbExecute(con, "SET preserve_insertion_order = true")
++
+   # load spatial extension
+   if (isTRUE(load_spatial)) {
+     duckspatial::ddbs_install(conn = con, upgrade = FALSE, quiet = TRUE)
+diff --git a/R/geocode.R b/R/geocode.R
+index ccad269..2f714ac 100644
+--- a/R/geocode.R
++++ b/R/geocode.R
+@@ -96,7 +96,19 @@ geocode <- function(
+   dev_path <- caminho_pacote_dev()
+   versao_sessao <- as.character(getNamespaceVersion(asNamespace("geocodebr")))
+ 
+-  callr::r(
++  # O resultado NAO volta do subprocesso como objeto R. O filho grava o output
++  # em parquet neste caminho e devolve so o caminho; o pai le com arrow. Trazer
++  # 43M de linhas como data.frame serializado pelo callr custava ~160s (RDS de
++  # ida e volta) mais uma copia de ~7GB dentro do filho. Barras normalizadas
++  # porque o caminho vai literal para dentro de um COPY ... TO '<path>' do DuckDB
++  arquivo_saida <- normalizePath(
++    tempfile(pattern = "geocodebr_output", fileext = ".parquet"),
++    winslash = "/",
++    mustWork = FALSE
++  )
++  on.exit(unlink(arquivo_saida), add = TRUE)
++
++  resumo_filho <- callr::r(
+     func = function(
+       dev_path,
+       versao_sessao,
+@@ -109,7 +121,8 @@ geocode <- function(
+       padronizar_enderecos,
+       verboso,
+       cache,
+-      n_cores
++      n_cores,
++      arquivo_saida
+     ) {
+       if (!is.null(dev_path)) {
+         if (!requireNamespace("pkgload", quietly = TRUE)) {
+@@ -137,6 +150,9 @@ geocode <- function(
+       }
+ 
+       # Run internal engine
++      # resultado_sf/h3_res seguem sendo passados mesmo que o pos-processamento
++      # (H3, sf) rode no processo pai: e o geocode_core() que valida os dois com
++      # checkmate, e essa validacao precisa continuar acontecendo aqui
+       geocode_core <- get("geocode_core", envir = ns)
+       geocode_core(
+         enderecos = enderecos,
+@@ -148,7 +164,8 @@ geocode <- function(
+         padronizar_enderecos = padronizar_enderecos,
+         verboso = verboso,
+         cache = cache,
+-        n_cores = n_cores
++        n_cores = n_cores,
++        arquivo_saida = arquivo_saida
+       )
+     },
+     args = list(
+@@ -163,11 +180,44 @@ geocode <- function(
+       padronizar_enderecos = padronizar_enderecos,
+       verboso = verboso,
+       cache = cache,
+-      n_cores = n_cores
++      n_cores = n_cores,
++      arquivo_saida = arquivo_saida
+     ),
+     show = TRUE,
+     package = FALSE
+   )
++
++  # le o resultado gravado pelo filho ------------------------------------------
++  # altrep desligado de proposito: com altrep as colunas voltam lazy e o custo de
++  # materializacao apenas migra para a primeira vez que cada coluna e tocada
++  # (inclusive dentro do setDT/H3 abaixo), o que torna o ganho ilusorio
++  old_altrep <- getOption("arrow.use_altrep")
++  options(arrow.use_altrep = FALSE)
++  on.exit(options(arrow.use_altrep = old_altrep), add = TRUE)
++
++  output_df <- tryCatch(
++    as.data.frame(arrow::read_parquet(resumo_filho$arquivo)),
++    error = function(e) {
++      cli::cli_abort(
++        c(
++          "Nao foi possivel ler o resultado intermediario do geocode().",
++          "x" = "Falha ao ler {.file {resumo_filho$arquivo}}: {conditionMessage(e)}"
++        ),
++        call = NULL
++      )
++    }
++  )
++
++  # factor, tzone de POSIXct e difftime nao sobrevivem ao parquet -- reconstroi
++  # usando o input original, que continua intacto neste processo, como gabarito
++  output_df <- restaura_classes_input(output_df, enderecos)
++
++  # pos-processamento que antes rodava dentro do filho
++  pos_processa_output(
++    output_df = output_df,
++    h3_res = h3_res,
++    resultado_sf = resultado_sf
++  )
+ }
+ 
+ 
+@@ -184,6 +234,14 @@ caminho_pacote_dev <- function() {
+ 
+ 
+ #' @keywords internal
++#
++# arquivo_saida: string ou NULL. Caminho de um .parquet onde o resultado deve ser
++#   gravado em vez de devolvido como data.frame. Com NULL (padrao), a funcao
++#   devolve o resultado pos-processado, como sempre. Com um caminho, o resultado
++#   sai do DuckDB direto para disco e a funcao devolve, invisivelmente, apenas
++#   list(arquivo =, new_colnames =) -- o pos-processamento (colunas-fantasma, H3,
++#   sf) fica a cargo de quem chamou. Usado por geocode() para nao trazer o
++#   resultado inteiro de volta pelo callr.
+ geocode_core <- function(
+   enderecos,
+   campos_endereco,
+@@ -194,7 +252,8 @@ geocode_core <- function(
+   padronizar_enderecos,
+   verboso,
+   cache,
+-  n_cores
++  n_cores,
++  arquivo_saida = NULL
+ ) {
+   # ## ---- tiny timing toolkit (self-contained) ------------------------------
+   # .make_timer <- function(verbose = TRUE) {
+@@ -286,6 +345,10 @@ geocode_core <- function(
+   # essas etapas sem materializar a tabela de referencia correspondente.
+   campos_nao_declarados <- names(missing_cols)
+ 
++  # nomes das colunas-fantasma efetivamente criadas (vazio quando o usuario
++  # declarou todos os campos)
++  new_colnames <- character(0)
++
+   if (length(missing_cols)>=1) {
+ 
+     # add empty string to missing cols
+@@ -560,8 +623,16 @@ geocode_core <- function(
+   # systime add precision 66666 ----------------
+   # timer$mark("Add precision")
+ 
++  # com arquivo_saida, as colunas-fantasma sao deixadas de fora ja no SELECT --
++  # assim nunca chegam ao parquet e nao precisam ser removidas depois. A ordem
++  # das colunas e a mesma dos dois jeitos, porque as fantasmas ficam sempre
++  # entre as colunas do usuario e as colunas do resultado
+   x_columns <- names(enderecos)
+ 
++  if (!is.null(arquivo_saida)) {
++    x_columns <- setdiff(x_columns, new_colnames)
++  }
++
+   output_df <- merge_results_to_input(
+     con,
+     x = 'input_db',
+@@ -569,12 +640,22 @@ geocode_core <- function(
+     key_column = 'tempidgeocodebr',
+     select_columns = x_columns,
+     resultado_completo = resultado_completo,
+-    incluir_empate = isFALSE(resolver_empates)
++    incluir_empate = isFALSE(resolver_empates),
++    arquivo_saida = arquivo_saida
+   )
+ 
+   # Disconnect from DuckDB when done
+   duckdb::dbDisconnect(con)
+ 
++  # o resultado ja esta em disco: devolve so o necessario para o processo pai
++  # fazer o pos-processamento (ver geocode())
++  if (!is.null(arquivo_saida)) {
++    return(invisible(list(
++      arquivo = arquivo_saida,
++      new_colnames = new_colnames
++    )))
++  }
++
+   # systime merge results 66666 ----------------
+   # timer$mark("Merge results")
+ 
+@@ -599,49 +680,16 @@ geocode_core <- function(
+   # )]
+ 
+ 
+-  # add H3
+-  if (!is.null(h3_res)) {
+-    for (i in h3_res) {
+-      colname <- paste0(
+-        'h3_',
+-        formatC(i, width = 2, flag = "0")
+-      )
+-
+-      output_df[
+-        !is.na(lat),
+-        {{ colname }} := h3r::latLngToCell(lat = lat, lng = lon, resolution = i)
+-      ]
+-    }
+-
+-    # systime add h3 66666 ----------------
+-    # timer$mark("Add H3")
+-  }
+-
+   # drop eventual mock columns with empty strings
+-  if (length(missing_cols)>=1) {
++  if (length(new_colnames) >= 1) {
+     output_df[, (new_colnames) := NULL]
+   }
+ 
+-  # remove data.table class
+-  data.table::setindex(output_df, NULL)
+-  data.table::setDF(output_df)
+-
+-  # convert df to simple feature
+-  if (isTRUE(resultado_sf)) {
+-    output_sf <- sfheaders::sf_point(
+-      obj = output_df,
+-      x = 'lon',
+-      y = 'lat',
+-      keep = TRUE
+-    )
+-
+-    sf::st_crs(output_sf) <- 4674
+-
+-    # systime convert to sf 66666 ----------------
+-    # timer$mark("Convert to sf")
+-
+-    return(output_sf)
+-  }
+-
+-  return(output_df[])
++  # H3, remocao da classe data.table e conversao para sf -- mesmas etapas que o
++  # processo pai aplica no caminho com arquivo_saida (ver R/utils.R)
++  pos_processa_output(
++    output_df = output_df,
++    h3_res = h3_res,
++    resultado_sf = resultado_sf
++  )
+ }
+diff --git a/R/utils.R b/R/utils.R
+index 9abf7e1..19076f4 100644
+--- a/R/utils.R
++++ b/R/utils.R
+@@ -141,7 +141,8 @@ merge_results_to_input <- function(
+   key_column,
+   select_columns,
+   resultado_completo,
+-  incluir_empate = FALSE
++  incluir_empate = FALSE,
++  arquivo_saida = NULL
+ ) {
+   # nocov start
+ 
+@@ -192,12 +193,28 @@ merge_results_to_input <- function(
+   # a chave temporaria e interna ao pacote e nao faz parte do output: fica de
+   # fora do SELECT (mas segue valida no JOIN e no ORDER BY abaixo), evitando
+   # materializar uma coluna inteira que seria descartada em seguida
+-  select_x <- paste0(
+-    x,
+-    '.',
+-    setdiff(select_columns, key_column),
+-    collapse = ', '
+-  )
++  cols_x <- setdiff(select_columns, key_column)
++  expr_x <- paste0(x, '.', cols_x)
++
++  # No caminho via parquet, colunas INTERVAL precisam de tratamento: o DuckDB
++  # grava difftime como INTERVAL, e INTERVAL vira um FIXED_SIZE_BINARY de 12
++  # bytes no parquet -- que o arrow le como blob, nao como difftime. epoch()
++  # devolve o total em segundos, que e exatamente o que o dbGetQuery entregava
++  # (difftime com units = "secs"). A classe e reposta em restaura_classes_input()
++  if (!is.null(arquivo_saida)) {
++    tipos_x <- DBI::dbGetQuery(con, glue::glue("DESCRIBE {x}"))
++    eh_interval <- cols_x %in% tipos_x$column_name[
++      tipos_x$column_type == "INTERVAL"
++    ]
++
++    if (any(eh_interval)) {
++      expr_x[eh_interval] <- glue::glue(
++        "epoch({expr_x[eh_interval]}) AS {cols_x[eh_interval]}"
++      )
++    }
++  }
++
++  select_x <- paste0(expr_x, collapse = ', ')
+ 
+   select_clause <- paste0(
+     select_x,
+@@ -211,22 +228,132 @@ merge_results_to_input <- function(
+     collapse = ' ON '
+   )
+ 
+-  # Create SQL query
++  # Create SQL query (sem ';' -- ele e adicionado abaixo, e a variante COPY
++  # precisa da query como subconsulta)
+   query <- glue::glue(
+     "SELECT {select_clause}
+         FROM {x}
+         LEFT JOIN {y}
+         ON {join_condition}
+       ORDER BY
+-        {x}.tempidgeocodebr;"
++        {x}.tempidgeocodebr"
+   )
+ 
++  # Com arquivo_saida, o resultado sai do DuckDB direto para parquet em disco,
++  # sem materializar no R. Quem chama (o processo filho de geocode()) devolve
++  # apenas o caminho, e o processo pai le com arrow::read_parquet(). Isso evita
++  # o dbGetQuery + o serialize/unserialize do callr sobre o resultado inteiro.
++  # A ordem das linhas e preservada pelo preserve_insertion_order do DuckDB
++  # (ver create_geocodebr_db())
++  if (!is.null(arquivo_saida)) {
++    # o caminho entra literal na string SQL: dobra eventual apostrofo
++    caminho_sql <- gsub("'", "''", arquivo_saida, fixed = TRUE)
++
++    DBI::dbExecute(
++      con,
++      glue::glue("COPY ({query}) TO '{caminho_sql}' (FORMAT PARQUET);")
++    )
++
++    return(invisible(arquivo_saida))
++  }
++
+   # Execute the query and fetch the merged data
+-  merged_data <- DBI::dbGetQuery(con, query)
++  merged_data <- DBI::dbGetQuery(con, paste0(query, ";"))
+ 
+   return(merged_data)
+ } # nocov end
+ 
++
++# Pos-processamento do output do geocode(): etapas finais comuns aos dois
++# caminhos de transporte do resultado (data.frame devolvido pelo callr, ou
++# parquet lido pelo processo pai) -- colunas H3, remocao da classe data.table e
++# conversao para sf. Mantido como funcao unica de proposito: sao justamente as
++# etapas em que os dois caminhos precisam produzir o mesmo objeto
++pos_processa_output <- function(output_df, h3_res, resultado_sf) {
++  # nocov start
++
++  data.table::setDT(output_df)
++
++  # add H3
++  if (!is.null(h3_res)) {
++    for (i in h3_res) {
++      colname <- paste0(
++        'h3_',
++        formatC(i, width = 2, flag = "0")
++      )
++
++      output_df[
++        !is.na(lat),
++        {{ colname }} := h3r::latLngToCell(lat = lat, lng = lon, resolution = i)
++      ]
++    }
++  }
++
++  # remove data.table class
++  data.table::setindex(output_df, NULL)
++  data.table::setDF(output_df)
++
++  # convert df to simple feature
++  if (isTRUE(resultado_sf)) {
++    output_sf <- sfheaders::sf_point(
++      obj = output_df,
++      x = 'lon',
++      y = 'lat',
++      keep = TRUE
++    )
++
++    sf::st_crs(output_sf) <- 4674
++
++    return(output_sf)
++  }
++
++  return(output_df[])
++} # nocov end
++
++
++# Restaura as classes das colunas de input perdidas no trajeto via parquet.
++# O `enderecos` original (que o processo pai ainda tem intacto em memoria) serve
++# de gabarito para saber QUAIS colunas tratar; o valor restaurado, porem, e o que
++# o caminho antigo (dbWriteTable -> dbGetQuery) produzia, nao necessariamente o
++# do input -- o objetivo aqui e nao mudar o output de geocode():
++#
++#   factor   o DuckDB mapeia factor para ENUM e de volta para factor, sempre NAO
++#            ordenado (um factor ordenado de input ja perdia o `ordered` no
++#            caminho antigo). Via parquet volta como character
++#   POSIXct  o DuckDB guarda TIMESTAMP sem fuso e o driver rotula o resultado
++#            como "UTC", qualquer que fosse o tzone do input. Via parquet o
++#            tzone volta vazio, com o mesmo valor numerico -- so falta o rotulo
++#   difftime chega aqui como o total em segundos (epoch(), ver
++#            merge_results_to_input()), que e o que o caminho antigo devolvia
++#
++# Demais tipos (character, integer, double, logical, Date, integer64) atravessam
++# o parquet sem alteracao e nao sao tocados aqui
++restaura_classes_input <- function(output_df, enderecos) {
++  # nocov start
++
++  cols_comuns <- intersect(names(enderecos), names(output_df))
++
++  for (cn in cols_comuns) {
++    orig <- enderecos[[cn]]
++
++    if (is.factor(orig)) {
++      output_df[[cn]] <- factor(
++        as.character(output_df[[cn]]),
++        levels = levels(orig)
++      )
++    } else if (inherits(orig, "difftime")) {
++      output_df[[cn]] <- as.difftime(
++        as.numeric(output_df[[cn]]),
++        units = "secs"
++      )
++    } else if (inherits(orig, "POSIXct")) {
++      attr(output_df[[cn]], "tzone") <- "UTC"
++    }
++  }
++
++  return(output_df)
++} # nocov end
++
+ #create_index <- function(con, tb, cols, operation, overwrite = TRUE) {
+ #  # nocov start
+ #
