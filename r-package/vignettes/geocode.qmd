@@ -41,11 +41,18 @@ As colunas indicando o `estado` e o `municipio` são obrigatórias. Os demais
 campos são opcionais.
 :::
 
+::::: {.column-screen-insert}
+::: {.column width="45%"}
 ```{r}
+print("R")
+
 library(geocodebr)
 
 # leitura de amostra de dados
-ends <- read.csv(system.file("extdata/small_sample.csv", package = "geocodebr"))
+ends <- read.csv(
+  system.file("extdata/small_sample.csv", 
+  package = "geocodebr")
+  )
 
 # definição dos campos de endereço
 campos <- definir_campos(
@@ -57,6 +64,27 @@ campos <- definir_campos(
   localidade = "Bairro"
 )
 ```
+:::
+
+::: {.column width="45%"}
+```python
+print("Python")
+campos = definir_campos(
+    logradouro="logradouro",
+    numero="numero",
+    cep="cep",
+    localidade="localidade",
+    municipio="municipio",
+    estado="estado",
+)
+```
+:::
+:::::
+
+teste
+
+
+
 
 2. O segundo passo é usar a função `geocode()` para encontrar as coordenadas
 geográficas dos dados de input.
@@ -70,6 +98,8 @@ no entanto, são salvos de forma  persistente, logo eles são baixados uma únic
 Mais informações sobre o cache de dados [aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
 :::
 
+::::: {.column-screen-insert}
+::: {.column width="45%"}
 ```{r}
 # geolicalização
 ends_geo <- geocode(
@@ -84,7 +114,23 @@ ends_geo <- geocode(
 
 head(ends_geo)
 ```
+:::
 
+::: {.column width="45%"}
+```python
+print("Python")
+resultado = geocode(
+    enderecos=enderecos,
+    campos_endereco=campos,
+    resultado_completo=False,
+    resolver_empates=True,
+    h3_res=[8, 10],
+    verboso=False,
+)
+print(resultado.to_pandas().head())
+```
+:::
+:::::
 
 Por padrão, a tabela de *output* é igual à tabela de input do usuário acrescida de colunas com a latitude e longitude encontradas, bem como de colunas indicando o nível de precisão dos resultados e o endereço encontrado. Quando `resultado_completo = TRUE`, o output é acrescido de algumas colunas extras discriminando separadamente cada componente do endereço que teria sido encontrado.
 
