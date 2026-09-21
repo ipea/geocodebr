@@ -5,10 +5,22 @@ Correções e fatos aprendidos que persistem entre sessões.
 Quando um erro é corrigido, ou quando uma abordagem não óbvia é confirmada, acrescente uma entrada
 `[LEARN:categoria]` abaixo, no formato `errado → certo`, com uma linha explicando **por quê**.
 
-Categorias em uso: `cnefe` (quirks da fonte de dados do IBGE), `duckdb`, `cran`, `testes`, `workflow`.
+Categorias em uso: `cnefe` (quirks da fonte de dados do IBGE), `duckdb`, `cran`, `testes`, `workflow`,
+`geocode`, `paridade` (divergências R ↔ Python encontradas e como foram resolvidas), `python` (quirks do
+porte Python que não têm equivalente no R).
 
 Não registre aqui o que o próprio repositório já documenta (estrutura do código, histórico do git,
 conteúdo do [CLAUDE.md](CLAUDE.md)) — registre o que não é derivável lendo o código.
+
+## Pacote Python e paridade R ↔ Python
+
+Desde setembro/2026 o repo tem dois pacotes: R em `r-package/` e Python em `python-package/` (versão de
+testes `0.1.0`). **Regra do projeto: mesma base de input ⇒ output idêntico nos dois pacotes.** Detalhes
+da regra, do teste (`python-package/tests/test_r_python_parity.py`) e do fluxo obrigatório ao mudar
+lógica de matching estão em [CLAUDE.md](CLAUDE.md), seções "Pacote Python" e "Paridade R ↔ Python".
+Consequência prática para a iniciativa de performance abaixo: **toda otimização do R que passe pelo
+critério `identical()` ainda precisa de contrapartida (ou confirmação de não-efeito) no Python** antes
+de ser considerada fechada.
 
 ## Revisão de código em andamento
 
@@ -254,3 +266,34 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   contagem de linhas. Atribuir os bytes coluna a coluna (`parquet_metadata()` do DuckDB, que lê só o footer)
   e usar `sum(n_casos)` + anti-join na chave natural como teste real de conteúdo. Ver
   `quality_reports/diagnoses/2026-09-15_cnefe-v041-vs-v050-auditoria.md` e os dois scripts ao lado.
+
+- `[LEARN:workflow]` O pacote Python **não está na `main`**: `python-package/` lá ainda é só
+  `placeholder.txt`. O código real (`geocodebr/`, `tests/`, `benchmarks/`, workflows `python-*.yaml`) vive
+  na branch remota `python_test`, bifurcada da `main` em 27/08/2026 (`f88f12d`). Ao trabalhar no porte,
+  `git fetch` + checar `origin/python_test` antes de concluir que "o Python ainda não começou".
+  **Por quê:** o placeholder na `main` induz exatamente essa conclusão errada.
+
+- `[LEARN:paridade]` `python_test` bifurcou **antes** da migração do CNEFE para `v0.5.0` (15/09): na
+  branch, `r-package/R/cache.R` e `python-package/geocodebr/constants.py` estão ambos em `v0.4.1`; na
+  `main`, o R já está em `v0.5.0`. O workflow `python-parity.yaml` compara as duas constantes e **falha
+  antes de qualquer teste** se divergirem, então o merge de `python_test` na `main` exige bump de
+  `DATA_RELEASE` no Python **e** nova rodada de paridade contra `v0.5.0` (`lat`/`lon` viram `float`,
+  `cod_setor` vira `int64`, chegam `code_muni`/`n_setor`). **Por quê:** o cast `double → float` do v0.5.0
+  muda a 6ª–7ª casa decimal, e o teste de paridade compara coordenadas com `abs_tol = 1e-6` — se um lado
+  ler `v0.4.1` e o outro `v0.5.0`, a divergência aparece como falha de paridade e não como release errado.
+
+- `[LEARN:paridade]` O critério de paridade R ↔ Python para coordenadas é `abs_tol = 1e-6` grau, **não**
+  `identical()` — pela mesma razão da entrada `[LEARN:testes]` sobre a média ponderada do desempate
+  acumular em ordem dependente do paralelismo (diferenças de ~1e-14). Colunas não numéricas, schema,
+  contagem de linhas e distribuição de `tipo_resultado` são comparadas de forma exata. Uma divergência
+  em `tipo_resultado` ou em célula de texto é sempre bug de paridade; uma divergência de coordenada só é
+  bug se passar de 1e-6. **Por quê:** evita perseguir ruído de ulp como se fosse regressão, e evita
+  aceitar como "arredondamento" uma diferença de candidato de rua (que é de metros, não de nanômetros).
+
+- `[LEARN:python]` No Windows, `python.exe` usa o heap NT legado, e o DuckDB multithread degrada nele:
+  `geocode()` fica mais lento **e piora a cada chamada na mesma sessão** (duckdb/duckdb#24027;
+  `quality_reports/diagnoses/2026-09-04_geocode-deterioracao-python-diagnostico.md`). Nenhuma configuração
+  do Windows (`__COMPAT_LAYER=SEGMENTHEAP`, registro) resolve, porque o heap do startup já foi criado; só o
+  interpretador com manifesto patcheado (`python -m geocodebr._heap_patch`) resolve. Sem ele, o pacote
+  limita a `min(4, núcleos)` threads. **Por quê:** ao comparar tempo R vs Python no Windows, um Python
+  "lento" ou "que piora" provavelmente é o heap, não o porte — controlar por isso antes de atribuir ao código.

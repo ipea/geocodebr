@@ -56,7 +56,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  dplyr::slice_sample(n = sample_size) |> # sample 20K
+#  dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -75,15 +75,15 @@ stop()
 
 gc(T,T,T)
 
-#bench::system_time(
-bench::mark(iterations = 1,
+bench::system_time(
+#bench::mark(iterations = 1,
   # cadgeo_novo <- geocodebr:::geocode_core(
   cadgeo_novo <- geocode(
     enderecos  = df,
     campos_endereco = campos,
     n_cores = 7, # 7
     verboso = T,
-    resultado_completo = F,
+    resultado_completo = T,
     resultado_sf = F,
     resolver_empates = T,
     padronizar_enderecos = T,
@@ -120,7 +120,7 @@ bench::mark(iterations = 1,
 # v0.4.0 CRAN       3.3h   3.3h 0.0000843    34.5GB  0.00244     1    29       3.3h <dt>   <Rprofmem> <bench_tm> <tibble>
 # v0.5.0 CRAN      24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
 # v0.6.4 CRAN      18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
-# devEndbr2        11.7m  11.7m   0.00142    4.38GB  0.00854     1     6      11.7m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2        15.55
 
 # encontra setor censitario para % do cad unico
 1- sum(is.na(cadgeo$cod_setor)) / nrow(cadgeo)
