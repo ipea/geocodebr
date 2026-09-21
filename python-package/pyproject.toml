@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "geocodebr"
+version = "0.1.0"
+description = "Geolocalização de endereços brasileiros com DuckDB"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [
+  { name = "Rafael H. M. Pereira", email = "rafa.pereira.br@gmail.com" },
+  { name = "Daniel Herszenhut", email = "dhersz@gmail.com" },
+  { name = "Gabriel Garcia de Almeida" },
+]
+maintainers = [
+  { name = "Camila Gonçalves de Brito" },
+  { name = "Jefferson Silva dos Anjos" }
+]
+keywords = ["geocoding", "geolocation", "enderecos", "brasil", "cnefe", "ibge", "duckdb"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: Portuguese (Brazilian)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+  "duckdb>=1.0.0",
+  "h3>=4.0.0",
+  "numpy>=1.26.0",
+  "platformdirs>=4.0.0",
+  "pyarrow>=15.0.0",
+  "requests>=2.31.0",
+  "tqdm>=4.66.0",
+  "enderecobr>=0.3.0",
+  "polars>=1.0",
+  "pandas>=2.0"
+]
+
+[project.optional-dependencies]
+geo = [
+  "geopandas>=0.14.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-cov>=6.0",
+]
+
+[project.urls]
+Repository = "https://github.com/ipea/geocodebr"
+Issues = "https://github.com/ipea/geocodebr/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["geocodebr"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+  "r_parity: compares Python outputs against the local R package outputs",
+]

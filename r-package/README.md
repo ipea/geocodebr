@@ -3,16 +3,6 @@
 
 # geocodebr: Geolocalização de Endereços Brasileiros <img align="right" src="man/figures/logo.svg" alt="" width="180">
 
-[![CRAN
-status](https://www.r-pkg.org/badges/version/geocodebr)](https://CRAN.R-project.org/package=geocodebr)
-[![CRAN/METACRAN Total
-downloads](https://cranlogs.r-pkg.org/badges/grand-total/geocodebr?color=blue)](https://CRAN.R-project.org/package=geocodebr)
-[![check](https://github.com/ipea/geocodebr/workflows/check/badge.svg)](https://github.com/ipea/geocodebr/actions)
-[![Codecov test
-coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/ipea/geocodebr?branch=main)
-[![Lifecycle:
-experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html)
-
 O **{geocodebr}** é um pacote computacional para geolicalização de
 endereços Brasileiros. O pacote oferece uma maneira simples e eficiente
 de geolocalizar dados sem limite de número de consultas. O pacote é
@@ -21,9 +11,15 @@ brasileiros, utilizando como fonte principal o Cadastro Nacional de
 Endereços para Fins Estatísticos (CNEFE). O CNEFE é
 [publicado](https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html)
 pelo Instituto Brasileiro de Geografia e Estatística (IBGE). Atualmente,
-o pacote está disponível apenas em R.
+o pacote está disponível em **R** e em **Python**.
+
+| R | Python | Repo |
+|----|----|----|
+| [![CRAN status](https://www.r-pkg.org/badges/version/geocodebr)](https://CRAN.R-project.org/package=geocodebr) <br /> [![CRAN/METACRAN Total downloads](https://cranlogs.r-pkg.org/badges/grand-total/geocodebr?color=blue)](https://CRAN.R-project.org/package=geocodebr) <br /> [![r-check](https://github.com/ipea/geocodebr/workflows/check/badge.svg)](https://github.com/ipea/geocodebr/actions) <br /> [![Codecov test coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/ipea/geocodebr?branch=main) <br /> [![Lifecycle: experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html) | [![PyPI](https://img.shields.io/badge/PyPI-em%20breve-9ca3af)]() <br /> [![Downloads](https://img.shields.io/badge/downloads-em%20breve-9ca3af)]() <br /> [![python-check](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml) [![python-r-parity](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml) <br /> [![Codecov test coverage](https://codecov.io/gh/ipea/geocodebr/branch/python_test/graph/badge.svg?flag=python)](https://app.codecov.io/gh/ipea/geocodebr/tree/python_test?flags%5B0%5D=python) <br /> [![Lifecycle: experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html) | <img alt="GitHub stars" src="https://img.shields.io/github/stars/ipea/geocodebr.svg?color=orange"> <br /> [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) |
 
 ## Instalação
+
+### R
 
 A última versão estável pode ser baixada do CRAN com o comando:
 
@@ -39,10 +35,24 @@ Caso prefira, a versão em desenvolvimento:
 remotes::install_github("ipea/geocodebr", subdir = "r-package")
 ```
 
-## Utilização
+### Python
+
+A versão Python do {geocodebr} usa o mesmo conjunto de dados e os mesmos
+nomes de funções do pacote R, com DuckDB como motor tabular principal.
+No momento, ainda está em desenvolvimento (a publicação no PyPI está
+planejada). Para instalar localmente:
+
+``` bash
+cd python-package
+python -m pip install -e .
+```
+
+## Utilização em R
 
 O {geocodebr} possui três funções principais para geolocalização de
-dados:
+dados. Os exemplos a seguir utilizam a versão em R do pacote; para a
+versão Python, consulte a seção [Utilização em
+Python](#utilização-em-python).
 
 1.  `geocode()`
 2.  `geocode_reverso()`
@@ -141,6 +151,62 @@ df_ceps <- geocodebr::busca_por_cep(
  )
 ```
 
+## Utilização em Python
+
+A versão Python do {geocodebr} segue a mesma dinâmica de uso do pacote
+R, com os mesmos nomes de funções em português. As funções retornam, por
+padrão, um `pyarrow.Table` (convertível para `pandas` com
+`.to_pandas()`), ou um `geopandas.GeoDataFrame` no CRS SIRGAS 2000 (EPSG
+4674) com `resultado_gpd = TRUE`:
+
+``` python
+import polars as pl
+from geocodebr import definir_campos, geocode
+
+enderecos = pl.DataFrame({
+    "logradouro": ["RUA PRESIDENTE VARGAS", "AVENIDA PAULISTA"],
+    "numero": [123, 1000],
+    "cep": ["20080-901", "01310-100"],
+    "localidade": ["Centro", "Bela Vista"],
+    "municipio": ["RIO DE JANEIRO", "SAO PAULO"],
+    "estado": ["RJ", "SP"],
+})
+
+campos = definir_campos(
+    logradouro="logradouro",
+    numero="numero",
+    cep="cep",
+    localidade="localidade",
+    municipio="municipio",
+    estado="estado",
+)
+
+resultado = geocode(
+    enderecos=enderecos,
+    campos_endereco=campos,
+    resultado_completo=False,
+    resolver_empates=True,
+    verboso=False,
+)
+```
+
+Mais detalhes e exemplos na documentação completa da versão
+[Python](../python-package/README.md).
+
+### Windows e performance
+
+No Windows, o `geocode()` da versão Python pode ser mais lento que em R
+e deteriorar a cada chamada na mesma sessão: o interpretador Python roda
+por padrão no heap NT legado, que degrada sob as alocações multithread
+do DuckDB. O pacote mitiga o problema de duas formas: limitando
+automaticamente as threads do DuckDB e oferecendo um comando
+(`python -m geocodebr._heap_patch`) que cria uma cópia do interpretador
+com o Segment Heap — em benchmarks internos com 10 milhões de endereços,
+o tempo total do `geocode()` caiu de 11:47 para 3:08 minutos. Mais
+detalhes na seção [Windows e
+performance](../python-package/README.md#windows-e-performance) do
+README da versão Python.
+
 ## Nota <a href="https://www.ipea.gov.br"><img src="man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>
 
 Os dados originais do CNEFE são coletados pelo Instituto Brasileiro de
@@ -161,15 +227,17 @@ planejamento e avaliação de políticas públicas. Entre elas:
 ## Projetos relacionados
 
 Existem diversos pacotes de geolocalização disponíveis, muitos dos quais
-podem ser utilizados em R (listados abaixo). A maioria dessas
-alternativas depende de softwares e conjuntos de dados comerciais,
-geralmente impondo limites de número de consultas gratuitas. Em
-contraste, as principais vantagens do **{geocodebr}** são que o pacote:
-(a) é completamente gratuito, permitindo consultas ilimitadas sem nenhum
-custo; (b) opera com alta velocidade e escalabilidade eficiente,
-permitindo geocodificar milhões de endereços em apenas alguns minutos,
-sem a necessidade de infraestrutura computacional avançada ou de alto
-desempenho.
+podem ser utilizados em R e em Python (listados abaixo). A maioria
+dessas alternativas depende de softwares e conjuntos de dados
+comerciais, geralmente impondo limites de número de consultas gratuitas.
+Em contraste, as principais vantagens do **{geocodebr}** são que o
+pacote: (a) é completamente gratuito, permitindo consultas ilimitadas
+sem nenhum custo; (b) opera com alta velocidade e escalabilidade
+eficiente, permitindo geocodificar milhões de endereços em apenas alguns
+minutos, sem a necessidade de infraestrutura computacional avançada ou
+de alto desempenho.
+
+Pacotes em R:
 
 - [{arcgisgeocode}](https://cran.r-project.org/package=arcgisgeocode)
   and [{arcgeocoder}](https://cran.r-project.org/package=arcgeocoder):
@@ -183,3 +251,15 @@ desempenho.
 - [{googleway}](https://cran.r-project.org/package=googleway) and
   [{mapsapi}](https://cran.r-project.org/package=mapsapi): interface
   para API do Google Maps
+
+Pacotes em Python:
+
+- [geopy](https://pypi.org/project/geopy/): cliente para diversos
+  serviços de geocodificação (Nominatim/OSM, Google, ArcGIS, Photon
+  etc.)
+- [googlemaps](https://pypi.org/project/googlemaps/): interface para a
+  API do Google Maps
+- [ArcGIS API for Python](https://pypi.org/project/arcgis/): utiliza o
+  serviço de geocodificação do ArcGIS
+- [opencage](https://pypi.org/project/opencage/): cliente do serviço
+  OpenCage

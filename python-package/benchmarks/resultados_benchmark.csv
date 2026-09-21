@@ -1,0 +1,4 @@
+label,data,sha,duckdb,resultado_completo,n_rows_input,n_encontrados,cnefe,padronizacao,matching,empates,precisao,merge,materializacao,fechamento_conexao,pos_finalizado,total
+baseline,2026-09-02 10:17,6c1a090+dirty,1.5.3,0,10000000,9999355,5,54,305,111,7,41,7,176,1,707
+patch_merge,2026-09-02 10:33,6c1a090+dirty,1.5.3,0,10000000,9999355,1,44,287,86,7,21,7,138,1,592
+patch_heap,2026-09-02 15:43,56254d4+dirty,1.5.3,0,10000000,9999355,1,54,113,5,0,4,5,5,1,188

@@ -1,0 +1,103 @@
+on:
+  push:
+    tags:
+      - "python-v*"
+
+name: Python-publish-PyPI
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Check out geocodebr
+        uses: actions/checkout@v4
+
+      - name: Verify version matches tag
+        shell: bash
+        working-directory: python-package
+        run: |
+          TOML_VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION="${GITHUB_REF_NAME#python-v}"
+          echo "pyproject.toml version: $TOML_VERSION"
+          echo "git tag version: $TAG_VERSION"
+          if [ "$TOML_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Version mismatch! pyproject.toml has '$TOML_VERSION' but tag expects '$TAG_VERSION'"
+            exit 1
+          fi
+          echo "Version matches: $TOML_VERSION"
+
+      # Extrai o data_release das duas fontes da verdade (r-package/R/cache.R
+      # e python-package/geocodebr/constants.py), falha se divergirem e
+      # disponibiliza o valor pro cache do CNEFE. Roda primeiro para falhar
+      # rapido, antes de qualquer setup caro.
+      - name: Verify data_release (R vs Python)
+        id: data_release
+        working-directory: .
+        run: |
+          py=$(sed -n 's/^DATA_RELEASE = "\(.*\)"$/\1/p' python-package/geocodebr/constants.py)
+          r=$(sed -n 's/^data_release <- "\(.*\)"$/\1/p' r-package/R/cache.R)
+          if [ -z "$py" ] || [ -z "$r" ]; then
+            echo "::error::Nao consegui extrair data_release (python='$py', r='$r')"
+            exit 1
+          fi
+          if [ "$py" != "$r" ]; then
+            echo "::error::data_release divergente: R (r-package/R/cache.R) = '$r', Python (constants.py) = '$py'. Sincronize as duas constantes."
+            exit 1
+          fi
+          echo "release=$py" >> "$GITHUB_OUTPUT"
+
+      # Os testes de paridade instalam o pacote R local via R CMD INSTALL, o
+      # que exige as dependencias (Imports) do pacote R ja resolvidas.
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: r-package
+          dependencies: '"hard"'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Os testes de paridade usam a pasta de cache padrao do pacote e podem
+      # baixar as tabelas nacionais do CNEFE (mais de 1 GB). O cache evita o
+      # re-download a cada run. A chave vem do passo "Verify data_release",
+      # entao acompanha o release automaticamente e muda de chave — forcando
+      # download novo — quando o release muda.
+      - name: Restore CNEFE cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/geocodebr
+          key: cnefe-${{ runner.os }}-${{ steps.data_release.outputs.release }}
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: python-package
+        run: uv sync --frozen --extra geo
+
+      - name: Run tests
+        shell: bash
+        working-directory: python-package
+        run: uv run pytest ./tests
+
+      - name: Build package
+        shell: bash
+        working-directory: python-package
+        run: uv build 
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python-package/dist
