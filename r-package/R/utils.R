@@ -70,21 +70,40 @@ cache_message <- function(local_file, cache) {
 #' @param con A db connection
 #' @param update_tb String. Name of a table to be updated in con
 #' @param reference_tb A table written in con used as reference
+#' @param match_type String. Se informado, apaga apenas os ids inseridos em
+#'   `reference_tb` com esse `tipo_resultado` (os da etapa corrente)
 #'
 #' @return Drops observations from input_padrao_db
 #'
 #' @keywords internal
-update_input_db <- function(con, update_tb = 'input_padrao_db', reference_tb) {
+update_input_db <- function(
+  con,
+  update_tb = 'input_padrao_db',
+  reference_tb,
+  match_type = NULL
+) {
   # nocov start
 
   # update_tb = 'input_padrao_db'
   # reference_tb = 'output_caso_1'
+
+  # so os ids inseridos NESTA etapa precisam sair de input_padrao_db: pelo
+  # invariante do laco (input e output nunca compartilham id apos o DELETE de
+  # cada etapa), os ids das etapas anteriores ja nao estao na tabela. Filtrar
+  # por tipo_resultado evita varrer a output_db inteira -- que cresce a cada
+  # etapa -- 25 vezes. A contagem de linhas apagadas e a mesma.
+  filtro_etapa <- if (is.null(match_type)) {
+    ""
+  } else {
+    glue::glue("WHERE tipo_resultado = '{match_type}'")
+  }
 
   query_remove_matched <- glue::glue(
     "DELETE FROM {update_tb}
      WHERE tempidgeocodebr IN (
       SELECT tempidgeocodebr
       FROM {reference_tb}
+      {filtro_etapa}
     );"
   )
 

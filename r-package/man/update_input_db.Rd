@@ -4,7 +4,12 @@
 \alias{update_input_db}
 \title{Update input_padrao_db to remove observations previously matched}
 \usage{
-update_input_db(con, update_tb = "input_padrao_db", reference_tb)
+update_input_db(
+  con,
+  update_tb = "input_padrao_db",
+  reference_tb,
+  match_type = NULL
+)
 }
 \arguments{
 \item{con}{A db connection}
@@ -12,6 +17,9 @@ update_input_db(con, update_tb = "input_padrao_db", reference_tb)
 \item{update_tb}{String. Name of a table to be updated in con}
 
 \item{reference_tb}{A table written in con used as reference}
+
+\item{match_type}{String. Se informado, apaga apenas os ids inseridos em
+\code{reference_tb} com esse \code{tipo_resultado} (os da etapa corrente)}
 }
 \value{
 Drops observations from input_padrao_db

@@ -107,7 +107,8 @@ match_weighted_cases <- function(
   temp_n <- update_input_db(
     con,
     update_tb = x,
-    reference_tb = output_tb
+    reference_tb = output_tb,
+    match_type = match_type
   )
 
   return(temp_n)
