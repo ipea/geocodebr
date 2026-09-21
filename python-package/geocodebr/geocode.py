@@ -247,7 +247,7 @@ def geocode(
         # Create temp `logradouro` columns to be used in probabilistic match
         df_padrao = df_padrao.with_columns(
             pl.lit("").alias("temp_lograd_determ"),
-            pl.lit(None).alias("similaridade_logradouro"),
+            pl.lit(None, dtype=pl.Float64).alias("similaridade_logradouro"),
         )
 
         con.register("input_db", df_input)
