@@ -76,7 +76,8 @@ gc(T,T,T)
 
 #bench::system_time(
 bench::mark(iterations = 1,
-  cadgeo_novo <- geocodebr:::geocode_core(
+  # cadgeo_novo <- geocodebr:::geocode_core(
+  cadgeo_novo <- geocode(
     enderecos  = df,
     campos_endereco = campos,
     n_cores = NULL, # 7

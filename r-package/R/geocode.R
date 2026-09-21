@@ -535,11 +535,10 @@ geocode_core <- function(
   # bring original input back -----------------------------------------------
 
   # output with all original columns
-  duckdb::dbWriteTable(
+  duckdb::duckdb_register(
     con,
     "input_db",
     enderecos,
-    temporary = TRUE,
     overwrite = TRUE
   )
   # enderecos_arrw <- arrow::as_arrow_table(enderecos)
