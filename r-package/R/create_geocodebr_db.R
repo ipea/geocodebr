@@ -40,6 +40,12 @@ create_geocodebr_db <- function(
   # Silence progress bar from duckdb
   DBI::dbExecute(con, "SET enable_progress_bar = false")
 
+  # Garante que a ordem das linhas produzida por um ORDER BY sobreviva ate a
+  # escrita do resultado (o COPY ... TO parquet em merge_results_to_input()
+  # depende disso para devolver o output na ordem original do input). Este ja e
+  # o default do DuckDB -- declarado aqui de proposito, como trava
+  DBI::dbExecute(con, "SET preserve_insertion_order = true")
+
   # load spatial extension
   if (isTRUE(load_spatial)) {
     duckspatial::ddbs_install(conn = con, upgrade = FALSE, quiet = TRUE)
