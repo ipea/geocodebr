@@ -1,4 +1,4 @@
-DATA_RELEASE = "v0.4.1"
+DATA_RELEASE = "v0.5.0"
 
 ALL_CNEFE_FILES = [
     "municipio_logradouro_numero_localidade.parquet",

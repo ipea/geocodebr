@@ -322,11 +322,11 @@ def _materialize_input(enderecos: Any) -> pl.DataFrame:
         if not path.is_file():
             raise FileNotFoundError(f"Arquivo não encontrado: {path}")
         suffix = path.suffix.lower()
-        path = path.as_posix()
+        path_str = path.as_posix()
         if suffix == ".parquet":
-            return pl.scan_parquet(path).collect()
+            return pl.scan_parquet(path_str).collect()
         elif suffix in {".csv", ".txt"}:
-            return pl.scan_csv(path).collect()
+            return pl.scan_csv(path_str).collect()
         else:
             raise ValueError("Arquivos suportados: .parquet, .csv, .txt.")
     elif isinstance(enderecos, pa.Table):
