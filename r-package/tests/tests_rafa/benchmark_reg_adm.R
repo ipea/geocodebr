@@ -1,4 +1,7 @@
+# possivel local de mlehora:
+# - a funcao register_cnefe_table ser seletiva nas colunas q registra a depender de resultatado_completo F 
 # devtools::load_all('.')
+# devtools::load_all("./r-package/")
 
 library(ipeadatalake)
 library(dplyr)
@@ -12,22 +15,11 @@ library(enderecobr)
 # mapview::mapviewOptions(platform = 'leafgl')
 set.seed(42)
 
-#' take-away
-#' 1) a performance do geocodebr fica muito proxima do arcgis
-#' 2) o que precisa fazer eh checar os casos em q a gente encontra com baixa
-#' precisao e arcgis com alta. O que a gente pode fazer para melhorar o match?
-#' Usar o LIKE logradouro na join ja melhorou muito, mas ainda daria pra melhorar?
-#'
-#' t <- subset(rais_like, match_type=='case_09' & Addr_type==	'PointAddress')
-
-2+2
-# stop()
-
 
 
 
 # cad unico --------------------------------------------------------------------
-sample_size <- 1000000
+sample_size <- 10000000
 
 cad_con <- ipeadatalake::ler_cadunico(
   data = 202312,
@@ -64,7 +56,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  # dplyr::slice_sample(n = sample_size) |> # sample 20K
+  dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -82,69 +74,88 @@ stop()
 
 
 gc(T,T,T)
-bench::system_time(
-#bench::mark(iterations = 1,
-  cadgeo <- geocodebr::geocode(
+
+#bench::system_time(
+bench::mark(iterations = 1,
+  # cadgeo_novo <- geocodebr:::geocode_core(
+  cadgeo_novo <- geocode(
     enderecos  = df,
     campos_endereco = campos,
-    # n_cores = 7, # 7
+    n_cores = NULL, # 7
     verboso = T,
     resultado_completo = F,
+    resultado_sf = F,
     resolver_empates = T,
-    padronizar_enderecos = T
+    padronizar_enderecos = T,
+    h3_res = NULL,
+    cache = T
     )
   )
 
-# 43 milhoes
-# process    real
-#    2.45m  16.43m
+# 43 milhoes, n_cores = NULL
+#                    process    real
+# v0.6.4 CRAN          3.17m  14.45m
+# v0.7.0 devendbr2      2.2m     15m
 
+
+2+2
 # 10 milhoes
 # args: n_cores = 7, resultado_completo = F resolver_empates = T
-# expression        min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
-# v0.3.0 CRAN     29.7m  29.7m  0.000562    18.3GB   0.0725     1   129      29.7m <NULL> <Rprofmem>
-# v0.4.0 CRAN     33.5m  33.5m  0.000497    8.06GB  0.00746     1    15      33.5m <NULL> <Rprofmem>
-# v0.5.0 CRAN     6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.6.4 CRAN     5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0  dev     4.36m  4.36m   0.00382    1016MB  0.00764     1     2      4.36m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 dev+ties 4.07m  4.07m   0.00410    1012MB  0.00820     1     2      4.07m <df>   <Rprofmem>
+# expression         min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
+# v0.3.0 CRAN      29.7m  29.7m  0.000562    18.3GB   0.0725     1   129      29.7m <NULL> <Rprofmem>
+# v0.4.0 CRAN      33.5m  33.5m  0.000497    8.06GB  0.00746     1    15      33.5m <NULL> <Rprofmem>
+# v0.5.0 CRAN      6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.6.4 CRAN      5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2        3.35m  3.35m   0.00498     992MB        0     1     0      3.35m <df>   <Rprofmem> <bench_tm> <tibble>
 
-
-# v0.5.0 CRAN     2.39m !!!! em paralelo
-# v0.6.0 dev      2.16m !!!! em paralelo
-
+#plus claude       2.33m  2.33m   0.00716    1.43GB  0.00716     1     1      2.33m <df>   <Rprofmem> <bench_tm> <tibble>
+#plus claude-core 21.90m  21.9m  0.000761    4.95GB  0.00457     1     6      21.9m <df>   <Rprofmem> <bench_tm> <tibble>
 
 
 # 43 milhoes
 # args: n_cores = 7, resultado_completo = F resolver_empates = T
-# expression        min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
-# v0.3.0 CRAN        2h     2h  0.000139    79.3GB   0.0176     1   127         2h <dt>
-# v0.4.0 CRAN      3.3h   3.3h 0.0000843    34.5GB  0.00244     1    29       3.3h <dt>   <Rprofmem> <bench_tm> <tibble>
-# v0.5.0 CRAN     24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
-# v0.6.4 CRAN     18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0  dev     17.0m    17m  0.000979    4.12GB 0.000979     1     1        17m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 dev      16.7m  16.7m  0.000997    4.12GB 0.000997     1     1      16.7m <df>   <Rprofmem>
+# expression         min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory
+# v0.3.0 CRAN         2h     2h  0.000139    79.3GB   0.0176     1   127         2h <dt>
+# v0.4.0 CRAN       3.3h   3.3h 0.0000843    34.5GB  0.00244     1    29       3.3h <dt>   <Rprofmem> <bench_tm> <tibble>
+# v0.5.0 CRAN      24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
+# v0.6.4 CRAN      18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
+# v0.7.0 dev       16.7m  16.7m  0.000997    4.12GB 0.000997     1     1      16.7m <df>   <Rprofmem>
+# v0.7.0 devendbr2 16.0m    16m   0.00104    5.52GB  0.00208     1     2        16m <df>   <Rprofmem> <bench_tm> <tibble>
 
- # v0.5.0  8.99m  !!!! em paralelo por uf
- # v0.6.0  7.24m  !!!! em paralelo por uf
 
 # encontra setor censitario para % do cad unico
 1- sum(is.na(cadgeo$cod_setor)) / nrow(cadgeo)
 # v0.6.0: 0.6438606
 
 
-# # v0.7.0 dev+ties /= merge results + register
-#                             step_sec total_sec step_relative
-#                       Start     0.01      0.01           0.0
-#                Padronizacao   100.25    100.26          15.4
-#              Download cnefe     4.96    105.22           0.8
-#           Criacao do duckdb     0.28    105.50           0.0
-# Register standardized input    17.25    122.75           2.7
-#                    Matching   396.11    518.86          60.9
-#             Resolve empates    12.86    531.72           2.0
-#   Write original input back    22.67    554.39           3.5
-#               Add precision     2.44    556.83           0.4
-#               Merge results    93.51    650.34          14.4
+# 43 milhoes
+# # v0.7.0 enderebr2  
+#                              step_sec total_sec step_relative
+#                 Padronizacao   117.33    117.33          17.5
+#               Download cnefe     5.67    123.00           0.8
+#            Criacao do duckdb     2.75    125.75           0.4
+#  Register standardized input    19.75    145.50           3.0
+#                     Matching   380.58    526.08          56.9
+#              Resolve empates    14.25    540.33           2.1
+#    Write original input back    26.89    567.22           4.0
+#                Add precision     1.67    568.89           0.2
+#                Merge results   100.13    669.02          15.0
+
+# 10 milhoes
+# # v0.7.0 enderebr2  
+#                              step_sec total_sec step_relative
+#                        Start     0.00      0.00           0.0
+#                 Padronizacao    30.78     30.78          13.6
+#               Download cnefe     1.54     32.32           0.7
+#            Criacao do duckdb     0.18     32.50           0.1
+#  Register standardized input     4.51     37.01           2.0
+#                     Matching   150.41    187.42          66.4
+#              Resolve empates     3.94    191.36           1.7
+#    Write original input back     4.62    195.98           2.0
+#                Add precision     0.36    196.34           0.2
+#                Merge results    30.28    226.62          13.4
+
+
 
 ## cadunico cada passo ----------------
 

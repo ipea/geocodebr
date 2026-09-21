@@ -86,8 +86,32 @@ geocode <- function(
   cache = TRUE,
   n_cores = NULL
 ) {
-  callr::r(
+  # O corpo roda em um subprocesso via callr. Atencao: o subprocesso NAO herda o
+  # namespace desta sessao - ele carrega o geocodebr que estiver instalado na
+  # biblioteca (.libPaths()). Se os dois divergirem - tipico ao desenvolver com
+  # devtools::load_all(), ou com uma instalacao antiga na biblioteca - as funcoes
+  # internas simplesmente somem la dentro ("could not find function geocode_core").
+  # Por isso: em modo dev, mandamos o subprocesso carregar o mesmo codigo-fonte;
+  # fora dele, conferimos que as versoes batem antes de rodar.
+  dev_path <- caminho_pacote_dev()
+  versao_sessao <- as.character(getNamespaceVersion(asNamespace("geocodebr")))
+
+  # O resultado NAO volta do subprocesso como objeto R. O filho grava o output
+  # em parquet neste caminho e devolve so o caminho; o pai le com arrow. Trazer
+  # 43M de linhas como data.frame serializado pelo callr custava ~160s (RDS de
+  # ida e volta) mais uma copia de ~7GB dentro do filho. Barras normalizadas
+  # porque o caminho vai literal para dentro de um COPY ... TO '<path>' do DuckDB
+  arquivo_saida <- normalizePath(
+    tempfile(pattern = "geocodebr_output", fileext = ".parquet"),
+    winslash = "/",
+    mustWork = FALSE
+  )
+  on.exit(unlink(arquivo_saida), add = TRUE)
+
+  resumo_filho <- callr::r(
     func = function(
+      dev_path,
+      versao_sessao,
       enderecos,
       campos_endereco,
       resultado_completo,
@@ -97,9 +121,39 @@ geocode <- function(
       padronizar_enderecos,
       verboso,
       cache,
-      n_cores
+      n_cores,
+      arquivo_saida
     ) {
+      if (!is.null(dev_path)) {
+        if (!requireNamespace("pkgload", quietly = TRUE)) {
+          stop(
+            "O geocodebr foi carregado em modo de desenvolvimento ",
+            "(devtools::load_all()), e o pacote 'pkgload' e necessario para ",
+            "reproduzir esse carregamento no subprocesso usado por geocode(). ",
+            "Instale o pkgload ou instale o geocodebr normalmente.",
+            call. = FALSE
+          )
+        }
+        pkgload::load_all(dev_path, quiet = TRUE)
+      }
+
+      ns <- asNamespace("geocodebr")
+      versao_subprocesso <- as.character(getNamespaceVersion(ns))
+      if (!identical(versao_subprocesso, versao_sessao)) {
+        stop(
+          "Divergencia de versao do geocodebr: a sessao usa a ", versao_sessao,
+          " e o subprocesso interno carregou a ", versao_subprocesso,
+          " de ", dirname(getNamespaceInfo(ns, "path")), ". ",
+          "Reinstale o geocodebr para que as duas coincidam.",
+          call. = FALSE
+        )
+      }
+
       # Run internal engine
+      # resultado_sf/h3_res seguem sendo passados mesmo que o pos-processamento
+      # (H3, sf) rode no processo pai: e o geocode_core() que valida os dois com
+      # checkmate, e essa validacao precisa continuar acontecendo aqui
+      geocode_core <- get("geocode_core", envir = ns)
       geocode_core(
         enderecos = enderecos,
         campos_endereco = campos_endereco,
@@ -110,10 +164,13 @@ geocode <- function(
         padronizar_enderecos = padronizar_enderecos,
         verboso = verboso,
         cache = cache,
-        n_cores = n_cores
+        n_cores = n_cores,
+        arquivo_saida = arquivo_saida
       )
     },
     args = list(
+      dev_path = dev_path,
+      versao_sessao = versao_sessao,
       enderecos = enderecos,
       campos_endereco = campos_endereco,
       resultado_completo = resultado_completo,
@@ -123,15 +180,68 @@ geocode <- function(
       padronizar_enderecos = padronizar_enderecos,
       verboso = verboso,
       cache = cache,
-      n_cores = n_cores
+      n_cores = n_cores,
+      arquivo_saida = arquivo_saida
     ),
     show = TRUE,
-    package = TRUE
+    package = FALSE
+  )
+
+  # le o resultado gravado pelo filho ------------------------------------------
+  # altrep desligado de proposito: com altrep as colunas voltam lazy e o custo de
+  # materializacao apenas migra para a primeira vez que cada coluna e tocada
+  # (inclusive dentro do setDT/H3 abaixo), o que torna o ganho ilusorio
+  old_altrep <- getOption("arrow.use_altrep")
+  options(arrow.use_altrep = FALSE)
+  on.exit(options(arrow.use_altrep = old_altrep), add = TRUE)
+
+  output_df <- tryCatch(
+    as.data.frame(arrow::read_parquet(resumo_filho$arquivo)),
+    error = function(e) {
+      cli::cli_abort(
+        c(
+          "Nao foi possivel ler o resultado intermediario do geocode().",
+          "x" = "Falha ao ler {.file {resumo_filho$arquivo}}: {conditionMessage(e)}"
+        ),
+        call = NULL
+      )
+    }
+  )
+
+  # factor, tzone de POSIXct e difftime nao sobrevivem ao parquet -- reconstroi
+  # usando o input original, que continua intacto neste processo, como gabarito
+  output_df <- restaura_classes_input(output_df, enderecos)
+
+  # pos-processamento que antes rodava dentro do filho
+  pos_processa_output(
+    output_df = output_df,
+    h3_res = h3_res,
+    resultado_sf = resultado_sf
   )
 }
 
 
+# Caminho do codigo-fonte quando o pacote foi carregado com devtools::load_all().
+# Retorna NULL quando estamos rodando a versao instalada normalmente.
+caminho_pacote_dev <- function() {
+  ns <- asNamespace("geocodebr")
+  if (exists(".__DEVTOOLS__", envir = ns, inherits = FALSE)) {
+    getNamespaceInfo(ns, "path")
+  } else {
+    NULL
+  }
+}
+
+
 #' @keywords internal
+#
+# arquivo_saida: string ou NULL. Caminho de um .parquet onde o resultado deve ser
+#   gravado em vez de devolvido como data.frame. Com NULL (padrao), a funcao
+#   devolve o resultado pos-processado, como sempre. Com um caminho, o resultado
+#   sai do DuckDB direto para disco e a funcao devolve, invisivelmente, apenas
+#   list(arquivo =, new_colnames =) -- o pos-processamento (colunas-fantasma, H3,
+#   sf) fica a cargo de quem chamou. Usado por geocode() para nao trazer o
+#   resultado inteiro de volta pelo callr.
 geocode_core <- function(
   enderecos,
   campos_endereco,
@@ -142,16 +252,17 @@ geocode_core <- function(
   padronizar_enderecos,
   verboso,
   cache,
-  n_cores
+  n_cores,
+  arquivo_saida = NULL
 ) {
   # ## ---- tiny timing toolkit (self-contained) ------------------------------
   # .make_timer <- function(verbose = TRUE) {
   #   .marks <- list()
   #   .t0_rt  <- proc.time()[["elapsed"]]     # monotonic wall clock
   #   .t_prev <- .t0_rt
-  #
+  
   #   fmt <- function(secs) sprintf("%.3f s", secs)
-  #
+  
   #   mark <- function(label) {
   #     now <- proc.time()[["elapsed"]]
   #     step  <- now - .t_prev
@@ -161,7 +272,7 @@ geocode_core <- function(
   #     if (verbose) message(sprintf("[%s] +%s (total %s)", label, fmt(step), fmt(total)))
   #     invisible(now)
   #   }
-  #
+  
   #   summary <- function(print_summary = verbose) {
   #     if (length(.marks) == 0) return(invisible(data.frame()))
   #     df <- data.frame(
@@ -171,21 +282,21 @@ geocode_core <- function(
   #       stringsAsFactors = FALSE
   #     )
   #     df$step_relative <- round(df$step_sec / max(df$total_sec) * 100, 1)
-  #
+  
   #     if (print_summary) {
   #       message("-- Timing summary --")
   #       print(df, row.names = FALSE)
   #     }
   #     df
   #   }
-  #
+  
   #   time_it <- function(label, expr) {
   #     force(label)
   #     res <- eval.parent(substitute(expr))
   #     mark(label)
   #     invisible(res)
   #   }
-  #
+  
   #   list(mark = mark, summary = summary, time_it = time_it)
   # }
   # timer <- .make_timer(verbose = isTRUE(verboso))
@@ -233,6 +344,10 @@ geocode_core <- function(
   # match sempre vai zerar). Usado no laco de matching mais abaixo para pular
   # essas etapas sem materializar a tabela de referencia correspondente.
   campos_nao_declarados <- names(missing_cols)
+
+  # nomes das colunas-fantasma efetivamente criadas (vazio quando o usuario
+  # declarou todos os campos)
+  new_colnames <- character(0)
 
   if (length(missing_cols)>=1) {
 
@@ -483,11 +598,10 @@ geocode_core <- function(
   # bring original input back -----------------------------------------------
 
   # output with all original columns
-  duckdb::dbWriteTable(
+  duckdb::duckdb_register(
     con,
     "input_db",
     enderecos,
-    temporary = TRUE,
     overwrite = TRUE
   )
   # enderecos_arrw <- arrow::as_arrow_table(enderecos)
@@ -508,7 +622,15 @@ geocode_core <- function(
   # systime add precision 66666 ----------------
   # timer$mark("Add precision")
 
+  # com arquivo_saida, as colunas-fantasma sao deixadas de fora ja no SELECT --
+  # assim nunca chegam ao parquet e nao precisam ser removidas depois. A ordem
+  # das colunas e a mesma dos dois jeitos, porque as fantasmas ficam sempre
+  # entre as colunas do usuario e as colunas do resultado
   x_columns <- names(enderecos)
+
+  if (!is.null(arquivo_saida)) {
+    x_columns <- setdiff(x_columns, new_colnames)
+  }
 
   output_df <- merge_results_to_input(
     con,
@@ -517,11 +639,21 @@ geocode_core <- function(
     key_column = 'tempidgeocodebr',
     select_columns = x_columns,
     resultado_completo = resultado_completo,
-    incluir_empate = isFALSE(resolver_empates)
+    incluir_empate = isFALSE(resolver_empates),
+    arquivo_saida = arquivo_saida
   )
 
   # Disconnect from DuckDB when done
   duckdb::dbDisconnect(con)
+
+  # o resultado ja esta em disco: devolve so o necessario para o processo pai
+  # fazer o pos-processamento (ver geocode())
+  if (!is.null(arquivo_saida)) {
+    return(invisible(list(
+      arquivo = arquivo_saida,
+      new_colnames = new_colnames
+    )))
+  }
 
   # systime merge results 66666 ----------------
   # timer$mark("Merge results")
@@ -547,49 +679,16 @@ geocode_core <- function(
   # )]
 
 
-  # add H3
-  if (!is.null(h3_res)) {
-    for (i in h3_res) {
-      colname <- paste0(
-        'h3_',
-        formatC(i, width = 2, flag = "0")
-      )
-
-      output_df[
-        !is.na(lat),
-        {{ colname }} := h3r::latLngToCell(lat = lat, lng = lon, resolution = i)
-      ]
-    }
-
-    # systime add h3 66666 ----------------
-    # timer$mark("Add H3")
-  }
-
   # drop eventual mock columns with empty strings
-  if (length(missing_cols)>=1) {
+  if (length(new_colnames) >= 1) {
     output_df[, (new_colnames) := NULL]
   }
 
-  # remove data.table class
-  data.table::setindex(output_df, NULL)
-  data.table::setDF(output_df)
-
-  # convert df to simple feature
-  if (isTRUE(resultado_sf)) {
-    output_sf <- sfheaders::sf_point(
-      obj = output_df,
-      x = 'lon',
-      y = 'lat',
-      keep = TRUE
-    )
-
-    sf::st_crs(output_sf) <- 4674
-
-    # systime convert to sf 66666 ----------------
-    # timer$mark("Convert to sf")
-
-    return(output_sf)
-  }
-
-  return(output_df[])
+  # H3, remocao da classe data.table e conversao para sf -- mesmas etapas que o
+  # processo pai aplica no caminho com arquivo_saida (ver R/utils.R)
+  pos_processa_output(
+    output_df = output_df,
+    h3_res = h3_res,
+    resultado_sf = resultado_sf
+  )
 }

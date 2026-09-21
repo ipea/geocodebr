@@ -1,7 +1,7 @@
 Type: Package
 Package: geocodebr
 Title: Geolocalização De Endereços Brasileiros (Geocoding Brazilian Addresses)
-Version: 0.6.4.900
+Version: 0.6.4.901
 Authors@R: c(
     person("Rafael H. M.", "Pereira", , "rafa.pereira.br@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2125-7465")),
@@ -39,8 +39,8 @@ Imports:
     DBI,
     dplyr,
     duckdb (>= 1.5.5),
-    duckspatial (>= 1.0.0),
-    enderecobr (>= 0.5.0),
+    duckspatial (>= 1.2.1),
+    enderecobr (>= 0.6.1),
     fs,
     glue,
     h3r,
@@ -58,6 +58,7 @@ Suggests:
     geobr,
     ggplot2 (>= 3.3.1),
     knitr,
+    pkgload,
     rmarkdown,
     scales,
     testthat (>= 3.0.0)

@@ -61,13 +61,25 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   corrigido em cada um numa versão diferente. **Por quê:** ao corrigir algo nesse bloco, checar o outro
   arquivo. Um helper interno único eliminaria a classe do problema.
 
-- `[LEARN:testes]` `devtools::test()` sozinho **nao testa** mudancas em nada que passe por `geocode()`.
-  O corpo roda em `callr::r(..., package = TRUE)`, que faz o subprocesso carregar a versao **instalada**
-  do geocodebr (aqui, a 0.6.4 do CRAN), ignorando o `pkgload::load_all()` do devtools. Para validar de
-  verdade: ou chamar `geocode_core()` direto (em processo, com todos os argumentos explicitos), ou
-  instalar o dev numa biblioteca temporaria e apontar `R_LIBS` para ela antes de rodar os testes.
+- `[LEARN:testes]` Ate a 0.6.4.901, `devtools::test()` (e qualquer `geocode()` rodado sob
+  `load_all()`) **nao testava** o codigo da sessao: `callr::r(..., package = TRUE)` fazia o subprocesso
+  carregar a versao **instalada** do geocodebr, ignorando o `pkgload::load_all()`. Sintoma tipico:
+  `could not find function "geocode_core"` ao rodar o reprex do README com uma versao instalada antiga.
+  **Corrigido**: `geocode()` agora passa `package = FALSE`, detecta modo dev via `.__DEVTOOLS__` no
+  namespace (`caminho_pacote_dev()`) e manda o subprocesso rodar `pkgload::load_all()` no mesmo
+  codigo-fonte; se as versoes divergirem, aborta com mensagem explicita em vez de erro criptico.
   **Por que:** uma rodada de teste passou verde depois de um patch que o subprocesso nunca chegou a
-  executar; sem isso, a suite valida o codigo errado.
+  executar; sem isso, a suite valida o codigo errado. Regressao coberta em
+  `tests/testthat/test-geocode.R` ("subprocesso do callr enxerga as funcoes internas do pacote").
+
+- `[LEARN:workflow]` O `pkgload::load_all()` que o subprocesso de `geocode()` roda em modo dev custa
+  **+9,5 s por chamada** (1,22 s → 10,72 s, medido). Nao adianta tentar baratear com
+  `load_all(export_all = FALSE, helpers = FALSE, attach_testthat = FALSE)` — testado, fica igual
+  (8,66 s vs 7,94 s); o custo e o parse do `R/` inteiro. Decisao de 2026-09-15: **fica assim**, sem
+  flag de escape (`geocodebr_DEV_SUBPROCESS` foi oferecida e recusada). **Por que:** o barato de
+  antes era executar o codigo errado. Se o custo voltar a incomodar, as duas saidas ja mapeadas sao
+  a variavel de ambiente ou chamar `geocode_core()` direto em processo — nao precisa re-medir.
+  Detalhes e numeros de performance em `quality_reports/session_logs/2026-09-15_callr-namespace-fix.md`.
 
 - `[LEARN:testes]` Rodar `devtools::test()` mexe em `tests/testthat/_snaps/` (reescreve com CRLF e apaga
   snapshots nao exercitados, p.ex. `download_cnefe.md`). Conferir `git status` e restaurar com
@@ -318,3 +330,19 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   de `tem_segment_heap`). Quando o objetivo do teste é o parser de bytes e não a guarda, forçar a
   plataforma no teste em vez de acondicionar o comportamento ao SO do dev. **Por quê:** só apareceu
   com a CI multi-SO; localmente era verde o tempo todo.
+- `[LEARN:cnefe]` Entre os releases `v0.4.1` e `v0.5.0` do CNEFE pré-processado, o tamanho em disco cai
+  27,8% (2.758 → 1.992 MB). **100% disso vem de `lat`/`lon` mudarem de `double` para `float`** — as duas
+  colunas somam −766,1 MB de um encolhimento líquido de −765,7 MB; todo o resto se cancela. O v0.5.0 também
+  troca `cod_setor` de `string` para `int64` (lossless: sempre 15 dígitos, nunca com zero à esquerda) e
+  acrescenta `code_muni` (`int32`) e `n_setor` (`int32`) nas 12 tabelas. As 57.156 linhas a menos (−0,027%)
+  **não são perda de dados**: a soma de `n_casos` cai só 0,006%, e o anti-join mostra rotatividade de chaves
+  (95.049 saem / 88.756 entram em `municipio_logradouro`) causada por uma padronização mais nova do
+  `{enderecobr}` — `SP 270`→`SP-270`, `KUBISCHECK`→`KUBITSCHEK`, `RUA ESTRADA VELHA`→`ESTRADA VELHA`.
+  O cast corta as casas decimais armazenadas de ~13 para ~6, mas custa no máximo **40 cm** de posição
+  (erro médio medido: 4,4 cm em `lat`, 10,1 cm em `lon`), contra um `desvio_metros` médio de 607 m — as
+  casas extras do `double` eram resíduo aritmético da média, não informação. Ponto em aberto: 16,95% das
+  coordenadas se moveram mais do que o cast explica (teto combinado medido: 45 cm), causa não confirmada.
+  **Por quê:** ao comparar releases, nunca inferir perda de dados a partir do tamanho do arquivo ou da
+  contagem de linhas. Atribuir os bytes coluna a coluna (`parquet_metadata()` do DuckDB, que lê só o footer)
+  e usar `sum(n_casos)` + anti-join na chave natural como teste real de conteúdo. Ver
+  `quality_reports/diagnoses/2026-09-15_cnefe-v041-vs-v050-auditoria.md` e os dois scripts ao lado.

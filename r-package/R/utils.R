@@ -70,21 +70,40 @@ cache_message <- function(local_file, cache) {
 #' @param con A db connection
 #' @param update_tb String. Name of a table to be updated in con
 #' @param reference_tb A table written in con used as reference
+#' @param match_type String. Se informado, apaga apenas os ids inseridos em
+#'   `reference_tb` com esse `tipo_resultado` (os da etapa corrente)
 #'
 #' @return Drops observations from input_padrao_db
 #'
 #' @keywords internal
-update_input_db <- function(con, update_tb = 'input_padrao_db', reference_tb) {
+update_input_db <- function(
+  con,
+  update_tb = 'input_padrao_db',
+  reference_tb,
+  match_type = NULL
+) {
   # nocov start
 
   # update_tb = 'input_padrao_db'
   # reference_tb = 'output_caso_1'
+
+  # so os ids inseridos NESTA etapa precisam sair de input_padrao_db: pelo
+  # invariante do laco (input e output nunca compartilham id apos o DELETE de
+  # cada etapa), os ids das etapas anteriores ja nao estao na tabela. Filtrar
+  # por tipo_resultado evita varrer a output_db inteira -- que cresce a cada
+  # etapa -- 25 vezes. A contagem de linhas apagadas e a mesma.
+  filtro_etapa <- if (is.null(match_type)) {
+    ""
+  } else {
+    glue::glue("WHERE tipo_resultado = '{match_type}'")
+  }
 
   query_remove_matched <- glue::glue(
     "DELETE FROM {update_tb}
      WHERE tempidgeocodebr IN (
       SELECT tempidgeocodebr
       FROM {reference_tb}
+      {filtro_etapa}
     );"
   )
 
@@ -141,7 +160,8 @@ merge_results_to_input <- function(
   key_column,
   select_columns,
   resultado_completo,
-  incluir_empate = FALSE
+  incluir_empate = FALSE,
+  arquivo_saida = NULL
 ) {
   # nocov start
 
@@ -192,12 +212,28 @@ merge_results_to_input <- function(
   # a chave temporaria e interna ao pacote e nao faz parte do output: fica de
   # fora do SELECT (mas segue valida no JOIN e no ORDER BY abaixo), evitando
   # materializar uma coluna inteira que seria descartada em seguida
-  select_x <- paste0(
-    x,
-    '.',
-    setdiff(select_columns, key_column),
-    collapse = ', '
-  )
+  cols_x <- setdiff(select_columns, key_column)
+  expr_x <- paste0(x, '.', cols_x)
+
+  # No caminho via parquet, colunas INTERVAL precisam de tratamento: o DuckDB
+  # grava difftime como INTERVAL, e INTERVAL vira um FIXED_SIZE_BINARY de 12
+  # bytes no parquet -- que o arrow le como blob, nao como difftime. epoch()
+  # devolve o total em segundos, que e exatamente o que o dbGetQuery entregava
+  # (difftime com units = "secs"). A classe e reposta em restaura_classes_input()
+  if (!is.null(arquivo_saida)) {
+    tipos_x <- DBI::dbGetQuery(con, glue::glue("DESCRIBE {x}"))
+    eh_interval <- cols_x %in% tipos_x$column_name[
+      tipos_x$column_type == "INTERVAL"
+    ]
+
+    if (any(eh_interval)) {
+      expr_x[eh_interval] <- glue::glue(
+        "epoch({expr_x[eh_interval]}) AS {cols_x[eh_interval]}"
+      )
+    }
+  }
+
+  select_x <- paste0(expr_x, collapse = ', ')
 
   select_clause <- paste0(
     select_x,
@@ -211,20 +247,130 @@ merge_results_to_input <- function(
     collapse = ' ON '
   )
 
-  # Create SQL query
+  # Create SQL query (sem ';' -- ele e adicionado abaixo, e a variante COPY
+  # precisa da query como subconsulta)
   query <- glue::glue(
     "SELECT {select_clause}
         FROM {x}
         LEFT JOIN {y}
         ON {join_condition}
       ORDER BY
-        {x}.tempidgeocodebr;"
+        {x}.tempidgeocodebr"
   )
 
+  # Com arquivo_saida, o resultado sai do DuckDB direto para parquet em disco,
+  # sem materializar no R. Quem chama (o processo filho de geocode()) devolve
+  # apenas o caminho, e o processo pai le com arrow::read_parquet(). Isso evita
+  # o dbGetQuery + o serialize/unserialize do callr sobre o resultado inteiro.
+  # A ordem das linhas e preservada pelo preserve_insertion_order do DuckDB
+  # (ver create_geocodebr_db())
+  if (!is.null(arquivo_saida)) {
+    # o caminho entra literal na string SQL: dobra eventual apostrofo
+    caminho_sql <- gsub("'", "''", arquivo_saida, fixed = TRUE)
+
+    DBI::dbExecute(
+      con,
+      glue::glue("COPY ({query}) TO '{caminho_sql}' (FORMAT PARQUET);")
+    )
+
+    return(invisible(arquivo_saida))
+  }
+
   # Execute the query and fetch the merged data
-  merged_data <- DBI::dbGetQuery(con, query)
+  merged_data <- DBI::dbGetQuery(con, paste0(query, ";"))
 
   return(merged_data)
+} # nocov end
+
+
+# Pos-processamento do output do geocode(): etapas finais comuns aos dois
+# caminhos de transporte do resultado (data.frame devolvido pelo callr, ou
+# parquet lido pelo processo pai) -- colunas H3, remocao da classe data.table e
+# conversao para sf. Mantido como funcao unica de proposito: sao justamente as
+# etapas em que os dois caminhos precisam produzir o mesmo objeto
+pos_processa_output <- function(output_df, h3_res, resultado_sf) {
+  # nocov start
+
+  data.table::setDT(output_df)
+
+  # add H3
+  if (!is.null(h3_res)) {
+    for (i in h3_res) {
+      colname <- paste0(
+        'h3_',
+        formatC(i, width = 2, flag = "0")
+      )
+
+      output_df[
+        !is.na(lat),
+        {{ colname }} := h3r::latLngToCell(lat = lat, lng = lon, resolution = i)
+      ]
+    }
+  }
+
+  # remove data.table class
+  data.table::setindex(output_df, NULL)
+  data.table::setDF(output_df)
+
+  # convert df to simple feature
+  if (isTRUE(resultado_sf)) {
+    output_sf <- sfheaders::sf_point(
+      obj = output_df,
+      x = 'lon',
+      y = 'lat',
+      keep = TRUE
+    )
+
+    sf::st_crs(output_sf) <- 4674
+
+    return(output_sf)
+  }
+
+  return(output_df[])
+} # nocov end
+
+
+# Restaura as classes das colunas de input perdidas no trajeto via parquet.
+# O `enderecos` original (que o processo pai ainda tem intacto em memoria) serve
+# de gabarito para saber QUAIS colunas tratar; o valor restaurado, porem, e o que
+# o caminho antigo (dbWriteTable -> dbGetQuery) produzia, nao necessariamente o
+# do input -- o objetivo aqui e nao mudar o output de geocode():
+#
+#   factor   o DuckDB mapeia factor para ENUM e de volta para factor, sempre NAO
+#            ordenado (um factor ordenado de input ja perdia o `ordered` no
+#            caminho antigo). Via parquet volta como character
+#   POSIXct  o DuckDB guarda TIMESTAMP sem fuso e o driver rotula o resultado
+#            como "UTC", qualquer que fosse o tzone do input. Via parquet o
+#            tzone volta vazio, com o mesmo valor numerico -- so falta o rotulo
+#   difftime chega aqui como o total em segundos (epoch(), ver
+#            merge_results_to_input()), que e o que o caminho antigo devolvia
+#
+# Demais tipos (character, integer, double, logical, Date, integer64) atravessam
+# o parquet sem alteracao e nao sao tocados aqui
+restaura_classes_input <- function(output_df, enderecos) {
+  # nocov start
+
+  cols_comuns <- intersect(names(enderecos), names(output_df))
+
+  for (cn in cols_comuns) {
+    orig <- enderecos[[cn]]
+
+    if (is.factor(orig)) {
+      output_df[[cn]] <- factor(
+        as.character(output_df[[cn]]),
+        levels = levels(orig)
+      )
+    } else if (inherits(orig, "difftime")) {
+      output_df[[cn]] <- as.difftime(
+        as.numeric(output_df[[cn]]),
+        units = "secs"
+      )
+    } else if (inherits(orig, "POSIXct")) {
+      attr(output_df[[cn]], "tzone") <- "UTC"
+    }
+  }
+
+  return(output_df)
 } # nocov end
 
 #create_index <- function(con, tb, cols, operation, overwrite = TRUE) {

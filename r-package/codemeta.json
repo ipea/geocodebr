@@ -2,20 +2,33 @@
   "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
   "@type": "SoftwareSourceCode",
   "identifier": "geocodebr",
-  "description": "Enables one to geocode Brazilian addresses and to reverse geocode spatial coordinates using the National Registry of Addresses for Statistical Purposes (english for Cadastro Nacional de Endereços para Fins Estatísticos, - CNEFE). CNEFE is published by the Brazilian official statistics and geography office, IBGE (<https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html>).",
-  "name": "geocodebr: Geocode Brazilian Addresses with CNEFE",
-  "relatedLink": "https://ipeagit.github.io/geocodebr/",
-  "codeRepository": "https://github.com/ipeaGIT/geocodebr",
-  "issueTracker": "https://github.com/ipeaGIT/geocodebr/issues",
+  "description": "Método simples e eficiente de geolocalizar dados no Brasil. O pacote é baseado em conjuntos de dados espaciais abertos de endereços brasileiros, utilizando como fonte principal o Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE). O CNEFE é publicado pelo Instituto Brasileiro de Geografia e Estatística (IBGE), órgão oficial de estatísticas e geografia do Brasil. (A simple and efficient method for geolocating data in Brazil. The package is based on open spatial datasets of Brazilian addresses, primarily using the Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), published by the Instituto Brasileiro de Geografia e Estatística (IBGE), Brazil's official statistics and geography agency.)",
+  "name": "geocodebr: Geolocalização De Endereços Brasileiros (Geocoding Brazilian Addresses)",
+  "relatedLink": ["https://ipea.github.io/geocodebr/", "https://CRAN.R-project.org/package=geocodebr"],
+  "codeRepository": "https://github.com/ipea/geocodebr",
+  "issueTracker": "https://github.com/ipea/geocodebr/issues",
   "license": "https://spdx.org/licenses/MIT",
-  "version": "0.0.0.9000",
+  "version": "0.6.4.901",
   "programmingLanguage": {
     "@type": "ComputerLanguage",
     "name": "R",
     "url": "https://r-project.org"
   },
-  "runtimePlatform": "R version 4.4.2 (2024-10-31 ucrt)",
+  "runtimePlatform": "R version 4.6.1 (2026-06-24 ucrt)",
+  "provider": {
+    "@id": "https://cran.r-project.org",
+    "@type": "Organization",
+    "name": "Comprehensive R Archive Network (CRAN)",
+    "url": "https://cran.r-project.org"
+  },
   "author": [
+    {
+      "@type": "Person",
+      "givenName": "Rafael H. M.",
+      "familyName": "Pereira",
+      "email": "rafa.pereira.br@gmail.com",
+      "@id": "https://orcid.org/0000-0003-2125-7465"
+    },
     {
       "@type": "Person",
       "givenName": "Daniel",
@@ -25,30 +38,48 @@
     },
     {
       "@type": "Person",
-      "givenName": "Rafael H. M.",
-      "familyName": "Pereira",
-      "@id": "https://orcid.org/0000-0003-2125-7465"
+      "givenName": "Gabriel",
+      "familyName": "Garcia de Almeida",
+      "@id": "https://orcid.org/0009-0003-3557-7328"
+    }
+  ],
+  "contributor": [
+    {
+      "@type": "Person",
+      "givenName": "Arthur",
+      "familyName": "Bazolli",
+      "email": "baz.arthur@gmail.com"
+    },
+    {
+      "@type": "Person",
+      "givenName": "Pedro",
+      "familyName": "Milreu Cunha",
+      "email": "pedro.cunha@ipea.gov.br"
     }
   ],
   "copyrightHolder": [
     {
       "@type": "Organization",
-      "name": "Ipea - Institute for Applied Economic Research"
+      "name": "Ipea - Instituto de Pesquisa Econômica Aplicada"
     }
   ],
   "funder": [
     {
       "@type": "Organization",
-      "name": "Ipea - Institute for Applied Economic Research"
+      "name": "ITpS - Instituto Todos pela Saúde"
+    },
+    {
+      "@type": "Organization",
+      "name": "Ipea - Instituto de Pesquisa Econômica Aplicada"
     }
   ],
   "maintainer": [
     {
       "@type": "Person",
-      "givenName": "Daniel",
-      "familyName": "Herszenhut",
-      "email": "dhersz@gmail.com",
-      "@id": "https://orcid.org/0000-0001-8066-1105"
+      "givenName": "Rafael H. M.",
+      "familyName": "Pereira",
+      "email": "rafa.pereira.br@gmail.com",
+      "@id": "https://orcid.org/0000-0003-2125-7465"
     }
   ],
   "softwareSuggestions": [
@@ -66,18 +97,6 @@
     },
     {
       "@type": "SoftwareApplication",
-      "identifier": "DBI",
-      "name": "DBI",
-      "provider": {
-        "@id": "https://cran.r-project.org",
-        "@type": "Organization",
-        "name": "Comprehensive R Archive Network (CRAN)",
-        "url": "https://cran.r-project.org"
-      },
-      "sameAs": "https://CRAN.R-project.org/package=DBI"
-    },
-    {
-      "@type": "SoftwareApplication",
       "identifier": "dbplyr",
       "name": "dbplyr",
       "provider": {
@@ -87,18 +106,6 @@
         "url": "https://cran.r-project.org"
       },
       "sameAs": "https://CRAN.R-project.org/package=dbplyr"
-    },
-    {
-      "@type": "SoftwareApplication",
-      "identifier": "duckdb",
-      "name": "duckdb",
-      "provider": {
-        "@id": "https://cran.r-project.org",
-        "@type": "Organization",
-        "name": "Comprehensive R Archive Network (CRAN)",
-        "url": "https://cran.r-project.org"
-      },
-      "sameAs": "https://CRAN.R-project.org/package=duckdb"
     },
     {
       "@type": "SoftwareApplication",
@@ -136,6 +143,18 @@
         "url": "https://cran.r-project.org"
       },
       "sameAs": "https://CRAN.R-project.org/package=knitr"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "identifier": "pkgload",
+      "name": "pkgload",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=pkgload"
     },
     {
       "@type": "SoftwareApplication",
@@ -209,6 +228,18 @@
     },
     "4": {
       "@type": "SoftwareApplication",
+      "identifier": "callr",
+      "name": "callr",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=callr"
+    },
+    "5": {
+      "@type": "SoftwareApplication",
       "identifier": "cli",
       "name": "cli",
       "provider": {
@@ -219,7 +250,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=cli"
     },
-    "5": {
+    "6": {
       "@type": "SoftwareApplication",
       "identifier": "data.table",
       "name": "data.table",
@@ -231,7 +262,19 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=data.table"
     },
-    "6": {
+    "7": {
+      "@type": "SoftwareApplication",
+      "identifier": "DBI",
+      "name": "DBI",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=DBI"
+    },
+    "8": {
       "@type": "SoftwareApplication",
       "identifier": "dplyr",
       "name": "dplyr",
@@ -243,10 +286,37 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=dplyr"
     },
-    "7": {
+    "9": {
+      "@type": "SoftwareApplication",
+      "identifier": "duckdb",
+      "name": "duckdb",
+      "version": ">= 1.5.5",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=duckdb"
+    },
+    "10": {
+      "@type": "SoftwareApplication",
+      "identifier": "duckspatial",
+      "name": "duckspatial",
+      "version": ">= 1.0.0",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=duckspatial"
+    },
+    "11": {
       "@type": "SoftwareApplication",
       "identifier": "enderecobr",
       "name": "enderecobr",
+      "version": ">= 0.5.0",
       "provider": {
         "@id": "https://cran.r-project.org",
         "@type": "Organization",
@@ -255,7 +325,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=enderecobr"
     },
-    "8": {
+    "12": {
       "@type": "SoftwareApplication",
       "identifier": "fs",
       "name": "fs",
@@ -267,7 +337,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=fs"
     },
-    "9": {
+    "13": {
       "@type": "SoftwareApplication",
       "identifier": "glue",
       "name": "glue",
@@ -279,10 +349,23 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=glue"
     },
-    "10": {
+    "14": {
+      "@type": "SoftwareApplication",
+      "identifier": "h3r",
+      "name": "h3r",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=h3r"
+    },
+    "15": {
       "@type": "SoftwareApplication",
       "identifier": "httr2",
       "name": "httr2",
+      "version": ">= 1.0.0",
       "provider": {
         "@id": "https://cran.r-project.org",
         "@type": "Organization",
@@ -291,24 +374,32 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=httr2"
     },
-    "11": {
+    "16": {
       "@type": "SoftwareApplication",
-      "identifier": "parallel",
-      "name": "parallel"
-    },
-    "12": {
-      "@type": "SoftwareApplication",
-      "identifier": "pbapply",
-      "name": "pbapply",
+      "identifier": "nanoarrow",
+      "name": "nanoarrow",
+      "version": ">= 0.3.0.1",
       "provider": {
         "@id": "https://cran.r-project.org",
         "@type": "Organization",
         "name": "Comprehensive R Archive Network (CRAN)",
         "url": "https://cran.r-project.org"
       },
-      "sameAs": "https://CRAN.R-project.org/package=pbapply"
+      "sameAs": "https://CRAN.R-project.org/package=nanoarrow"
     },
-    "13": {
+    "17": {
+      "@type": "SoftwareApplication",
+      "identifier": "parallelly",
+      "name": "parallelly",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=parallelly"
+    },
+    "18": {
       "@type": "SoftwareApplication",
       "identifier": "purrr",
       "name": "purrr",
@@ -320,7 +411,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=purrr"
     },
-    "14": {
+    "19": {
       "@type": "SoftwareApplication",
       "identifier": "rlang",
       "name": "rlang",
@@ -332,59 +423,58 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=rlang"
     },
-    "15": {
+    "20": {
       "@type": "SoftwareApplication",
-      "identifier": "tibble",
-      "name": "tibble",
+      "identifier": "sf",
+      "name": "sf",
       "provider": {
         "@id": "https://cran.r-project.org",
         "@type": "Organization",
         "name": "Comprehensive R Archive Network (CRAN)",
         "url": "https://cran.r-project.org"
       },
-      "sameAs": "https://CRAN.R-project.org/package=tibble"
+      "sameAs": "https://CRAN.R-project.org/package=sf"
     },
-    "16": {
+    "21": {
+      "@type": "SoftwareApplication",
+      "identifier": "sfheaders",
+      "name": "sfheaders",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=sfheaders"
+    },
+    "22": {
       "@type": "SoftwareApplication",
       "identifier": "tools",
       "name": "tools"
     },
-    "17": {
-      "@type": "SoftwareApplication",
-      "identifier": "utils",
-      "name": "utils"
-    },
-    "18": {
-      "@type": "SoftwareApplication",
-      "identifier": "zip",
-      "name": "zip",
-      "provider": {
-        "@id": "https://cran.r-project.org",
-        "@type": "Organization",
-        "name": "Comprehensive R Archive Network (CRAN)",
-        "url": "https://cran.r-project.org"
-      },
-      "sameAs": "https://CRAN.R-project.org/package=zip"
-    },
     "SystemRequirements": null
   },
-  "fileSize": "213.314KB",
+  "fileSize": "2798.045KB",
   "citation": [
     {
       "@type": "SoftwareSourceCode",
-      "datePublished": "2024",
+      "datePublished": "2025",
       "author": [
         {
-          "@type": "Person",
-          "givenName": ["Rafael", "H.", "M."],
-          "familyName": "Pereira"
+          "@type": "Organization",
+          "name": "Rafael H. M. Pereira"
+        },
+        {
+          "@type": "Organization",
+          "name": "Daniel Herszenhut"
         }
       ],
-      "name": "geocodebr: Download Data from Brazil's Population Census"
+      "name": "geocodebr: Geolocalização de Endereços Brasileiros"
     }
   ],
-  "releaseNotes": "https://github.com/ipeaGIT/geocodebr/blob/master/NEWS.md",
-  "readme": "https://github.com/ipeaGIT/geocodebr/blob/main/README.md",
-  "contIntegration": ["https://github.com/ipeaGIT/geocodebr/actions", "https://app.codecov.io/gh/ipeaGIT/geocodebr?branch=main"],
-  "developmentStatus": "https://lifecycle.r-lib.org/articles/stages.html"
+  "releaseNotes": "https://github.com/ipea/geocodebr/blob/main/NEWS.md",
+  "readme": "https://github.com/ipea/geocodebr/blob/main/README.md",
+  "contIntegration": ["https://github.com/ipea/geocodebr/actions", "https://app.codecov.io/gh/ipea/geocodebr?branch=main"],
+  "developmentStatus": "https://lifecycle.r-lib.org/articles/stages.html",
+  "keywords": ["brazil", "cnefe", "geocoding", "r"]
 }
