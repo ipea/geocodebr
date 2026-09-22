@@ -346,3 +346,18 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   contagem de linhas. Atribuir os bytes coluna a coluna (`parquet_metadata()` do DuckDB, que lê só o footer)
   e usar `sum(n_casos)` + anti-join na chave natural como teste real de conteúdo. Ver
   `quality_reports/diagnoses/2026-09-15_cnefe-v041-vs-v050-auditoria.md` e os dois scripts ao lado.
+
+- `[LEARN:python-port]` `pl.lit(None)` (dtype `Null`) registrado no DuckDB e materializado com
+  `CREATE TEMP TABLE AS SELECT *` vira **`INTEGER`**, não `DOUBLE`. Numa coluna de trabalho como
+  `similaridade_logradouro`, todo Jaro 0,85-0,99 era truncado para `1`. **Certo:**
+  `pl.lit(None, dtype=pl.Float64)`. **Por quê:** o dtype de uma literal nula polars não sobrevive ao
+  round-trip Arrow → DuckDB; sempre explicitar o tipo na criação da coluna de trabalho. O teste unitário
+  só pega isso se exercitar `geocode()` de ponta a ponta — o fixture `match_env` do
+  `test_matching.py` já declara a coluna como `pa.float64()` e mascara o bug.
+
+- `[LEARN:python-port]` `map_elements(..., return_dtype=pl.Int32)` **levanta `SchemaError`** quando a UDF
+  devolve um inteiro acima de `Int32` (ex.: `padronizar_numeros_para_int("0000003000524637")` →
+  `3000524637`), em vez de converter para nulo. **Certo:** mapear com `return_dtype=pl.Int64` e
+  `.cast(pl.Int32, strict=False)` — o cast estrito relaxado é quem produz o `null` que emula o `NA` do
+  `as.integer()` do R (report de paridade 2026-09-21, §3.2). **Por quê:** `cast(strict=False)` é a única
+  forma de obter *overflow → null*; `return_dtype` valida e aborta.
