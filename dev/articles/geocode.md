@@ -67,6 +67,10 @@ ends_geo <- geocode(
   resultado_sf = FALSE,
   verboso = FALSE
   )
+#> Warning message:
+#> In (function (numeros, formato = "character")  :
+#>   NAs introduced by coercion to integer range
+#> 
 
 head(ends_geo)
 #>   id            nm_logradouro Numero       Cep               Bairro

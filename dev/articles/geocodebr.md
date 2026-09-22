@@ -84,8 +84,10 @@ df <- geocodebr::geocode(
   cache = TRUE,
   n_cores = 1
 )
-#> Warning message:
-#> Foram encontrados 3 casos de empate. Estes casos foram marcados com valor
+#> Warning messages:
+#> 1: In (function (numeros, formato = "character")  :
+#>   NAs introduced by coercion to integer range
+#> 2: Foram encontrados 3 casos de empate. Estes casos foram marcados com valor
 #> `TRUE` na coluna 'empate', e podem ser inspecionados na coluna
 #> 'endereco_encontrado'. Alternativamente, use `resolver_empates = TRUE` para que
 #> o pacote lide com os empates automaticamente. Ver documentação da função. 

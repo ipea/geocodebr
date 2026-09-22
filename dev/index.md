@@ -196,7 +196,7 @@ resultado = geocode(
 ```
 
 Mais detalhes e exemplos na documentação completa da versão
-[Python](https://ipeagit.github.io/geocodebr/python-package/README.md).
+[Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
 
 ### Windows e performance
 
@@ -211,7 +211,7 @@ que cria uma cópia do interpretador com o Segment Heap — em benchmarks
 internos com 10 milhões de endereços, o tempo total do
 [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
 caiu de 11:47 para 3:08 minutos. Mais detalhes na seção [Windows e
-performance](https://ipeagit.github.io/geocodebr/python-package/README.html#windows-e-performance)
+performance](https://github.com/ipea/geocodebr/blob/main/python-package/README.md#windows-e-performance)
 do README da versão Python.
 
 ## Nota [![IPEA](reference/figures/ipea_logo.png)](https://www.ipea.gov.br)

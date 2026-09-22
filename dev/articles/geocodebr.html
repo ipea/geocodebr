@@ -68,7 +68,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Introdução ao geocodebr</h1>
             
-            <h4 data-toc-skip class="date">2026-09-21</h4>
+            <h4 data-toc-skip class="date">2026-09-22</h4>
       
       <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocodebr.Rmd" class="external-link"><code>vignettes/geocodebr.Rmd</code></a></small>
       <div class="d-none name"><code>geocodebr.Rmd</code></div>
@@ -151,8 +151,10 @@ encontrar as coordenadas geográficas dos endereços de input.</li>
 <span>  cache <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #BB0000;">Warning message:</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; Foram encontrados 3 casos de empate. Estes casos foram marcados com valor</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BB0000;">Warning messages:</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; 1: In (function (numeros, formato = "character")  :</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt;   NAs introduced by coercion to integer range</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; 2: Foram encontrados 3 casos de empate. Estes casos foram marcados com valor</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; `TRUE` na coluna 'empate', e podem ser inspecionados na coluna</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; 'endereco_encontrado'. Alternativamente, use `resolver_empates = TRUE` para que</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; o pacote lide com os empates automaticamente. Ver documentação da função. </span></span></span>
