@@ -40,6 +40,8 @@ Authors:
 
 Other contributors:
 
+- Camila G. de Brito <camila.brito@ipea.gov.br> \[contributor\]
+
 - Arthur Bazolli <baz.arthur@gmail.com> \[contributor\]
 
 - Pedro Milreu Cunha <pedro.cunha@ipea.gov.br> \[contributor\]

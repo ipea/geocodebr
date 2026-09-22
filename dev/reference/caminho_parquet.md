@@ -21,7 +21,7 @@ caminho_parquet(nome_tabela, pasta_dados = listar_pasta_cache())
 
   Uma string. A pasta onde os dados do CNEFE foram baixados, tal como
   devolvida por
-  [`download_cnefe()`](https://ipeagit.github.io/geocodebr/dev/reference/download_cnefe.md).
+  [`download_cnefe()`](https://ipea.github.io/geocodebr/dev/reference/download_cnefe.md).
   Com `cache = FALSE` essa pasta é um diretório temporário, e não a
   pasta de cache — por isso ela precisa ser informada, e não
   redescoberta aqui.

@@ -51,9 +51,9 @@ dados. Os exemplos a seguir utilizam a versão em R do pacote; para a
 versão Python, consulte a seção [Utilização em
 Python](#utiliza%C3%A7%C3%A3o-em-python).
 
-1.  [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
-2.  [`geocode_reverso()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode_reverso.md)
-3.  [`busca_por_cep()`](https://ipeagit.github.io/geocodebr/dev/reference/busca_por_cep.md)
+1.  [`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
+2.  [`geocode_reverso()`](https://ipea.github.io/geocodebr/dev/reference/geocode_reverso.md)
+3.  [`busca_por_cep()`](https://ipea.github.io/geocodebr/dev/reference/busca_por_cep.md)
 
 ### 1. Geolocalização: de endereços para coordenadas espaciais
 
@@ -62,12 +62,12 @@ no Brasil, a geolocalização desses dados pode ser feita em apenas dois
 passos:
 
 1.  O primeiro passo é usar a função
-    [`definir_campos()`](https://ipeagit.github.io/geocodebr/dev/reference/definir_campos.md)
+    [`definir_campos()`](https://ipea.github.io/geocodebr/dev/reference/definir_campos.md)
     para indicar os nomes das colunas no seu `data.frame` que
     correspondem a cada campo dos endereços.
 
 2.  O segundo passo é usar a função
-    [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+    [`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
     para encontrar as coordenadas geográficas dos endereços de input.
 
 ``` r
@@ -110,7 +110,7 @@ função ou a [**vignette
 ### 2. Geolocalização reversa: de coordenadas espaciais para endereços
 
 A função
-[`geocode_reverso()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode_reverso.md),
+[`geocode_reverso()`](https://ipea.github.io/geocodebr/dev/reference/geocode_reverso.md),
 por sua vez, permite a geolocalização reversa, ou seja, a busca de
 endereços próximos a um conjunto de coordenadas geográficas. A função
 pode ser útil, por exemplo, para identificar endereços próximos a pontos
@@ -140,7 +140,7 @@ reverso”**](https://ipea.github.io/geocodebr/articles/geocode_reverso.html).
 ### 3. Busca por CEPs
 
 Por fim, a função
-[`busca_por_cep()`](https://ipeagit.github.io/geocodebr/dev/reference/busca_por_cep.md)
+[`busca_por_cep()`](https://ipea.github.io/geocodebr/dev/reference/busca_por_cep.md)
 permite fazer consultas de CEPs para encontrar endereços associados a
 cada CEP e suas coordenadas espaciais.
 
@@ -201,7 +201,7 @@ Mais detalhes e exemplos na documentação completa da versão
 ### Windows e performance
 
 No Windows, o
-[`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
 da versão Python pode ser mais lento que em R e deteriorar a cada
 chamada na mesma sessão: o interpretador Python roda por padrão no heap
 NT legado, que degrada sob as alocações multithread do DuckDB. O pacote
@@ -209,7 +209,7 @@ mitiga o problema de duas formas: limitando automaticamente as threads
 do DuckDB e oferecendo um comando (`python -m geocodebr._heap_patch`)
 que cria uma cópia do interpretador com o Segment Heap — em benchmarks
 internos com 10 milhões de endereços, o tempo total do
-[`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
 caiu de 11:47 para 3:08 minutos. Mais detalhes na seção [Windows e
 performance](https://github.com/ipea/geocodebr/blob/main/python-package/README.md#windows-e-performance)
 do README da versão Python.

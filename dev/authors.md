@@ -11,6 +11,8 @@
 - **Gabriel Garcia de Almeida**. Autor.
   [](https://orcid.org/0009-0003-3557-7328)
 
+- **Camila G. de Brito**. Contribuinte.
+
 - **Arthur Bazolli**. Contribuinte.
 
 - **Pedro Milreu Cunha**. Contribuinte.

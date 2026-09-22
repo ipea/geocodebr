@@ -36,7 +36,7 @@ geocode(
 
   Um vetor de caracteres. A correspondência entre cada campo de endereço
   e o nome da coluna que o descreve na tabela `enderecos`. A função
-  [`definir_campos()`](https://ipeagit.github.io/geocodebr/dev/reference/definir_campos.md)
+  [`definir_campos()`](https://ipea.github.io/geocodebr/dev/reference/definir_campos.md)
   auxilia na criação deste vetor e realiza algumas verificações nos
   dados de entrada. Campos de endereço passados como `NULL` serão
   ignorados, e a função deve receber pelo menos um campo não nulo, além

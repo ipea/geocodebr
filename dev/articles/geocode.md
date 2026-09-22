@@ -3,7 +3,7 @@
 ## Geolocalização: de endereços para coordenadas espaciais
 
 A principal função do pacote {geocodebr} é a
-[`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md),
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md),
 que recebe uma tabela (`data.frame`) de endereços como entrada e retorna
 a mesma tabela geolocalizada como saída. Para demonstrar essa função,
 utilizamos no exemplo abaixo pequeno conjunto de dados que contém
@@ -14,7 +14,7 @@ A geolocalização desses dados com **{geocodebr}** pode ser feita em
 apenas dois passos:
 
 1.  O primeiro passo é usar a função
-    [`definir_campos()`](https://ipeagit.github.io/geocodebr/dev/reference/definir_campos.md)
+    [`definir_campos()`](https://ipea.github.io/geocodebr/dev/reference/definir_campos.md)
     para indicar os nomes das colunas no seu `data.frame` que
     correspondem a cada campo dos endereços. No exemplo abaixo, nós
     indicamos que coluna que contém a informação de logradouro se chama
@@ -42,11 +42,11 @@ campos <- definir_campos(
 ```
 
 2.  O segundo passo é usar a função
-    [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+    [`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
     para encontrar as coordenadas geográficas dos dados de input.
 
 **Nota:** A função
-[`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
 requer que os dados do CNEFE estejam armazenados localmente. A primeita
 vez que a função é executada, ela baixa os dados do CNEFE e salva em um
 cache local na sua máquina. No total, esses dados somam cerca de 1.2 GB,
@@ -118,7 +118,7 @@ algumas colunas extras discriminando separadamente cada componente do
 endereço que teria sido encontrado.
 
 Cabe também destacar aqui outros três argumentos da função
-[`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md):
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md):
 
 - `h3_res` : que permite o usuário inserir uma coluna no output
   indicando o id da célula H3 na resolução espacial desejada. Detalhes
@@ -141,7 +141,7 @@ SIRGAS2000 (EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.
 ## Processo de matching de endereços
 
 As coordenadas incluídas no resultado da
-[`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
 são calculadas a partir da média das coordenadas dos endereços do CNEFE
 que correspondem a cada um dos endereços de *input*. Esse cálculo é
 feito em duas etapas, e retorna o ponto médio dos 95% pontos mais
@@ -175,7 +175,7 @@ abaixo.
 
 A coluna `precisao` se refere ao nível de agregação das coordenadas do
 CNEFE utilizadas no processo de geolicalização. A função
-[`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
 sempre retorna o resultado de maior precisão possível - ou seja, ela só
 vai procurar endereços com precisão `"numero_aproximado"` (ver a seguir)
 caso não tenha encontrado correspondência de precisão `"numero"`. As
@@ -281,7 +281,7 @@ tende a ser bem pequeno.
 
 - Quando o usuário passa o argumento `resultado_completo = TRUE`, a
   função
-  [`geocode()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode.md)
+  [`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
   também retorna a coluna `cod_setor` com o código do setor censitário
   do endereço encontrado. Atualmente, a função somente retorna o código
   do setor dos casos em que todos os pontos do CNEFE correspondentes

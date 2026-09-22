@@ -3,7 +3,7 @@
 ## Geolocalização reversa: de coordenadas espaciais para endereços
 
 A função
-[`geocode_reverso()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode_reverso.md)
+[`geocode_reverso()`](https://ipea.github.io/geocodebr/dev/reference/geocode_reverso.md)
 permite fazer geolocalização reversa, isto é, a partir de um conjunto de
 coordenadas geográficas, encontrar os endereços correspondentes ou
 próximos. Essa funcionalidade pode ser útil, por exemplo, para
@@ -62,7 +62,7 @@ metros) de busca. Se um ponto de *input* não tiver nenhum endereço
 próximo dentro do raio de busca, o ponto não é incluído no *output*.
 
 **Nota:** A função
-[`geocode_reverso()`](https://ipeagit.github.io/geocodebr/dev/reference/geocode_reverso.md)
+[`geocode_reverso()`](https://ipea.github.io/geocodebr/dev/reference/geocode_reverso.md)
 requer que os dados do CNEFE estejam armazenados localmente. A primeita
 vez que a função é executada, ela baixa os dados do CNEFE e salva em um
 cache local na sua máquina. No total, esses dados somam cerca de 3 GB, o
