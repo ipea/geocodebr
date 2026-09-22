@@ -97,6 +97,7 @@ df <- geocodebr::geocode(
   resultado_sf = TRUE,
   verboso = FALSE
   )
+#> The tzdb package is not installed. Timezones will not be available to Arrow compute functions. If you get errors when using Arrow on datetimes, try running `install.packages('tzdb')` and trying again.
 ```
 
 Os resultados do **{geocodebr}** são classificados em seis categorias

@@ -13,3 +13,10 @@
 ^pkgdown$
 ^README\.Rmd$
 ^codemeta\.json$
+^quality_reports$
+^\.claude$
+^CLAUDE\.md$
+^MEMORY\.md$
+^templates$
+^\.pre-commit-config\.yaml$
+^\.idea$

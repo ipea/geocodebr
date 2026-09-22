@@ -1,14 +1,15 @@
 Type: Package
 Package: geocodebr
 Title: Geolocalização De Endereços Brasileiros (Geocoding Brazilian Addresses)
-Version: 0.6.4.901
+Version: 0.6.9.999
 Authors@R: c(
     person("Rafael H. M.", "Pereira", , "rafa.pereira.br@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2125-7465")),
     person("Daniel", "Herszenhut", , "dhersz@gmail.com", role = "aut",
            comment = c(ORCID = "0000-0001-8066-1105")),
-    person("Gabriel", "Garcia de Almeida", role = "aut",
+    person("Gabriel Garcia de", "Almeida", role = "aut",
            comment = c(ORCID = "0009-0003-3557-7328")),
+    person("Camila G. de", "Brito", , "camila.brito@ipea.gov.br", role = "ctb"),
     person("Arthur", "Bazolli", , "baz.arthur@gmail.com", role = "ctb"),
     person("Pedro", "Milreu Cunha", , "pedro.cunha@ipea.gov.br", role = "ctb"),
     person("ITpS - Instituto Todos pela Saúde", role = "fnd"),
@@ -25,8 +26,7 @@ Description: Método simples e eficiente de geolocalizar dados no Brasil. O
     published by the Instituto Brasileiro de Geografia e Estatística (IBGE), 
     Brazil's official statistics and geography agency.)
 License: MIT + file LICENSE
-URL: https://github.com/ipea/geocodebr,
-    https://ipea.github.io/geocodebr/
+URL: https://github.com/ipea/geocodebr, https://ipea.github.io/geocodebr/
 BugReports: https://github.com/ipea/geocodebr/issues
 Depends: 
     R (>= 4.1.0)

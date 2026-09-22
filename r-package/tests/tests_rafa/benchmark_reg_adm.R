@@ -56,7 +56,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  # dplyr::slice_sample(n = sample_size) |> # sample 20K
+  dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -81,7 +81,7 @@ bench::mark(iterations = 1,
   cadgeo_novo <- geocode(
     enderecos  = df,
     campos_endereco = campos,
-    n_cores = NULL, # 7
+    n_cores = 7, # 7
     verboso = T,
     resultado_completo = T,
     resultado_sf = F,
