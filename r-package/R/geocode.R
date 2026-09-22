@@ -408,7 +408,9 @@ geocode_core <- function(
   # same column names used in cnefe data set
   data.table::setDT(input_padrao)
   cols_to_keep <- names(input_padrao)[names(input_padrao) %like% '_padr']
-  input_padrao <- input_padrao[, .SD, .SDcols = c(cols_to_keep)]
+  # remove as colunas extras por referencia em vez de copiar as 6 colunas
+  # padronizadas para uma tabela nova (.SD copia)
+  input_padrao[, setdiff(names(input_padrao), cols_to_keep) := NULL]
   names(input_padrao) <- c(gsub("_padr", "", names(input_padrao)))
 
   if ('bairro' %in% names(input_padrao)) {
@@ -472,6 +474,13 @@ geocode_core <- function(
     temporary = TRUE
   )
 
+  # daqui em diante so o numero de linhas e os nomes das colunas sao usados:
+  # libera o data.table padronizado (uma copia integral do input) antes do
+  # laco de matching, que e a fase mais longa
+  n_rows <- nrow(input_padrao)
+  cols_input_padrao <- names(input_padrao)
+  rm(input_padrao)
+
   # systime register standardized 66666 ----------------
   # timer$mark("Register standardized input")
 
@@ -494,8 +503,9 @@ geocode_core <- function(
       tipo_resultado = arrow::string(),
       contagem_cnefe = arrow::int32(),
       desvio_metros = arrow::int32(),
-      log_causa_confusao = arrow::boolean(),
-      similaridade_logradouro = arrow::float16()
+      log_causa_confusao = arrow::boolean()
+      # similaridade_logradouro so e gravada (e lida) com resultado_completo =
+      # TRUE; declara-la aqui alocava uma coluna DOUBLE inteira sempre NULL
     )
 
   } else {
@@ -534,11 +544,10 @@ geocode_core <- function(
 
   # start progress bar
   if (verboso) {
-    prog <- create_progress_bar(input_padrao)
+    prog <- create_progress_bar(n_rows)
     message_looking_for_matches()
   }
 
-  n_rows <- nrow(input_padrao)
   matched_rows <- 0
 
   # start matching
@@ -553,7 +562,7 @@ geocode_core <- function(
     # somente busca essa categoria match_type se todas colunas estiverem na base
     # e nenhuma delas for um campo que o usuario nao declarou -- caso
     # contrario, passa para proxima categoria
-    if (all(key_cols %in% names(input_padrao)) && !any(key_cols %in% campos_nao_declarados)) {
+    if (all(key_cols %in% cols_input_padrao) && !any(key_cols %in% campos_nao_declarados)) {
       # select match function
       match_fun <- reference_match_fun_by_match_type(match_type)
 
@@ -567,6 +576,12 @@ geocode_core <- function(
 
       matched_rows <- matched_rows + n_rows_affected
 
+      # libera as tabelas de referencia que as etapas restantes nao usam mais
+      restantes <- all_possible_match_types[
+        seq_along(all_possible_match_types) > match(match_type, all_possible_match_types)
+      ]
+      dropa_tabelas_obsoletas(con, restantes, campos_nao_declarados)
+
       # leave the loop early if we find all addresses before covering all cases
       if (matched_rows == n_rows) break
     }
@@ -575,6 +590,12 @@ geocode_core <- function(
   if (verboso) {
     finish_progress_bar(matched_rows)
   }
+
+  # nada apos o laco le input_padrao_db nem as tabelas de referencia: so
+  # output_db (empates) e input_db (merge). Liberar aqui derruba o pico de
+  # memoria do DuckDB nas etapas finais.
+  dropa_tabelas_obsoletas(con, character(0), campos_nao_declarados)
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS input_padrao_db;")
 
   # systime matching 66666 ----------------
   # timer$mark("Matching")

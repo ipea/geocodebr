@@ -1,6 +1,6 @@
-create_progress_bar <- function(standard_locations, .envir = parent.frame()) {
+create_progress_bar <- function(n_total, .envir = parent.frame()) {
   cli::cli_progress_bar(
-    total = nrow(standard_locations),
+    total = n_total,
     format = " Casos processados: {formatC(cli::pb_current, big.mark = ',', format = 'd')}/{formatC(cli::pb_total, big.mark = ',', format = 'd')} {cli::pb_bar} {cli::pb_percent} - {cli::pb_status}",
     clear = FALSE,
     .envir = .envir

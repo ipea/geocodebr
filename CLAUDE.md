@@ -11,8 +11,7 @@ Salvo indicação contrária, a documentação abaixo se refere ao pacote R; a s
 · **Mantenedores do porte Python:** Camila Gonçalves de Brito, Jefferson Silva dos Anjos
 **Financiamento/copyright:** Ipea; ITpS — Instituto Todos pela Saúde
 **Repo:** https://github.com/ipeaGIT/geocodebr · **Branch:** main · **Versão R:** 0.6.4 (dev 0.6.4.900) ·
-**Versão Python:** 0.1.0 (alpha; o código vive na branch `python_test` até o merge na `main` — na `main`,
-`python-package/` ainda contém só `placeholder.txt`)
+**Versão Python:** 0.1.0 (alpha; mesclado na `main` em 21/09/2026 via PR #109, `416f006`)
 **Idioma:** `Language: pt` na DESCRIPTION — NEWS.md, blocos roxygen, mensagens de erro/aviso, vignettes e
 README são em **português**. Todo conteúdo voltado ao usuário deve seguir isso — nos dois pacotes
 (docstrings, mensagens `cli`/`warnings` e README do Python também em pt-BR).
@@ -452,9 +451,9 @@ Porte do pacote R para Python, em `python-package/`, **DuckDB-first**: o input �
 todo o matching roda em SQL e o resultado só é materializado no final como `pyarrow.Table`
 (`.to_pandas()` fica a cargo do usuário). A única etapa fora do DuckDB é a padronização, feita em
 `polars` como ponte para os bindings Python do `enderecobr` — `pandas` não entra no pipeline interno.
-Estado atual: `0.1.0`, `Development Status :: 3 - Alpha`, PyPI planejado. **O código vive na branch
-`python_test`** (bifurcada da `main` em 27/08/2026, `f88f12d`); na `main`, `python-package/` ainda só tem
-`placeholder.txt`. Revisão estrutural mais recente: `quality_reports/diagnoses/2026-09-17_revisao-port-python.md`.
+Estado atual: `0.1.0`, `Development Status :: 3 - Alpha`, PyPI planejado. Desenvolvido na branch
+`python_test` e mesclado na `main` em 21/09/2026 (PR #109, `416f006`); o merge não alterou `r-package/R/`.
+Revisão estrutural mais recente: `quality_reports/diagnoses/2026-09-17_revisao-port-python.md`.
 
 ### API pública
 
@@ -539,10 +538,15 @@ divergirem**; o valor também é a chave do cache do CNEFE no CI (mudou o releas
 
 **Pendências conhecidas (setembro/2026):**
 
-- A branch `python_test` bifurcou antes da migração para o CNEFE `v0.5.0` (15/09): lá, R e Python estão
-  em `v0.4.1`; na `main`, o R já está em `v0.5.0` (`lat`/`lon` em `float`, `cod_setor` em `int64`, colunas
-  novas `code_muni`/`n_setor`). O merge exige bump de `DATA_RELEASE` no Python e nova rodada de paridade
-  contra os dados `v0.5.0`.
+- Diagnóstico de 21/09 sobre 43,9 M de endereços do CadÚnico
+  (`quality_reports/diagnoses/2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M.md`): motor em
+  paridade, mas dois bugs abertos — Python grava `similaridade_logradouro = 1` em todo match
+  probabilístico (dtype `Null` → `INTEGER`; fix em `geocode.py:250`), e `numero > 2^31−1` vira `NA` no R
+  mas sobrevive como `Int64` no Python. O teste de paridade não compara colunas numéricas além de
+  `lat`/`lon`/`distancia_metros`, por isso não pegou nenhum dos dois.
+- `DATA_RELEASE` do Python foi alinhado a `v0.5.0` no merge (PR #109); R e Python leem o mesmo release.
+  Falta confirmar que `python-parity.yaml` rodou verde na `main` contra os dados `v0.5.0` (`lat`/`lon` em
+  `float`, `cod_setor` em `int64`) — a última rodada confirmada à mão pela equipe (17/09) foi com `v0.4.1`.
 - As otimizações de `geocode()` já na `main` (P1, P3, P4, P6, P7 — ver `MEMORY.md`) foram feitas só no R;
   precisam de contrapartida no Python ou de confirmação de que o resultado não mudou (a paridade só cobre
   resultado, não tempo).

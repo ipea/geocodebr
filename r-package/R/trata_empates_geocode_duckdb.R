@@ -65,6 +65,7 @@ trata_empates_geocode_duckdb <- function(
       conn = con,
       statement = "ALTER TABLE output_db RENAME TO output_db2;"
     )
+    DBI::dbExecute(con, "DROP TABLE IF EXISTS ids_empatados;")
 
     cli::cli_warn(
       "Foram encontrados {n_casos_empate} casos de empate. Estes casos foram
@@ -298,6 +299,13 @@ trata_empates_geocode_duckdb <- function(
   )
 
   DBI::dbExecute(con, sql_resolve)
+
+  # output_db2 e a unica saida deste ponto em diante (add_precision_col e
+  # merge_results_to_input usam output_table_to_use = output_db2): as tabelas
+  # de trabalho e a output_db original podem ser liberadas ja
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS output_db;")
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS empates_classif;")
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS ids_empatados;")
 
   if (verboso) {
     plural <- ifelse(n_casos_empate == 1, 'caso', 'casos')

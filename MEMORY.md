@@ -359,20 +359,20 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   e usar `sum(n_casos)` + anti-join na chave natural como teste real de conteúdo. Ver
   `quality_reports/diagnoses/2026-09-15_cnefe-v041-vs-v050-auditoria.md` e os dois scripts ao lado.
 
-- `[LEARN:workflow]` O pacote Python **não está na `main`**: `python-package/` lá ainda é só
-  `placeholder.txt`. O código real (`geocodebr/`, `tests/`, `benchmarks/`, workflows `python-*.yaml`) vive
-  na branch remota `python_test`, bifurcada da `main` em 27/08/2026 (`f88f12d`). Ao trabalhar no porte,
-  `git fetch` + checar `origin/python_test` antes de concluir que "o Python ainda não começou".
-  **Por quê:** o placeholder na `main` induz exatamente essa conclusão errada.
+- `[LEARN:workflow]` O porte Python foi desenvolvido na branch `python_test` (bifurcada da `main` em
+  27/08/2026, `f88f12d`) e mesclado na `main` em 21/09/2026 (PR #109, `416f006`); o merge trouxe só
+  `python-package/`, os workflows `python-*.yaml` e o README, sem tocar `r-package/R/`. Em branches
+  anteriores a esse merge, `python-package/` aparece só com `placeholder.txt` — não é sinal de que o
+  porte sumiu. **Por quê:** o placeholder induz a conclusão errada de que "o Python ainda não começou".
 
-- `[LEARN:paridade]` `python_test` bifurcou **antes** da migração do CNEFE para `v0.5.0` (15/09): na
-  branch, `r-package/R/cache.R` e `python-package/geocodebr/constants.py` estão ambos em `v0.4.1`; na
-  `main`, o R já está em `v0.5.0`. O workflow `python-parity.yaml` compara as duas constantes e **falha
-  antes de qualquer teste** se divergirem, então o merge de `python_test` na `main` exige bump de
-  `DATA_RELEASE` no Python **e** nova rodada de paridade contra `v0.5.0` (`lat`/`lon` viram `float`,
-  `cod_setor` vira `int64`, chegam `code_muni`/`n_setor`). **Por quê:** o cast `double → float` do v0.5.0
-  muda a 6ª–7ª casa decimal, e o teste de paridade compara coordenadas com `abs_tol = 1e-6` — se um lado
-  ler `v0.4.1` e o outro `v0.5.0`, a divergência aparece como falha de paridade e não como release errado.
+- `[LEARN:paridade]` A `python_test` bifurcou **antes** da migração do CNEFE para `v0.5.0` (15/09) e
+  ficou semanas com R e Python em `v0.4.1` enquanto a `main` já estava em `v0.5.0`; o `DATA_RELEASE` do
+  Python só foi alinhado no merge. As rodadas de paridade confirmadas à mão antes do merge (17/09) foram
+  contra `v0.4.1` — a paridade contra `v0.5.0` (`lat`/`lon` em `float`, `cod_setor` em `int64`) ainda
+  depende do `python-parity.yaml` verde na `main`. **Por quê:** o cast `double → float` do v0.5.0 muda a
+  6ª–7ª casa decimal e o teste compara coordenadas com `abs_tol = 1e-6`; se um lado ler um release e o
+  outro ler outro, a divergência aparece como falha de paridade e não como release errado. O workflow
+  compara as duas constantes antes de rodar justamente por isso — ao mudar `data_release`, mudar nos dois.
 
 - `[LEARN:paridade]` O critério de paridade R ↔ Python para coordenadas é `abs_tol = 1e-6` grau, **não**
   `identical()` — pela mesma razão da entrada `[LEARN:testes]` sobre a média ponderada do desempate
@@ -389,3 +389,31 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   interpretador com manifesto patcheado (`python -m geocodebr._heap_patch`) resolve. Sem ele, o pacote
   limita a `min(4, núcleos)` threads. **Por quê:** ao comparar tempo R vs Python no Windows, um Python
   "lento" ou "que piora" provavelmente é o heap, não o porte — controlar por isso antes de atribuir ao código.
+
+- `[LEARN:paridade]` Primeira comparação de output `geocode()` R vs Python em escala (CadÚnico, 43,9 M
+  de linhas, 21/09): motor em paridade — `tipo_resultado`, `endereco_encontrado`, `cod_setor`,
+  `desvio_metros`, `contagem_cnefe`, `empate` e coordenadas (≤ 1,4e-13 grau) iguais em tudo menos 80
+  linhas. As duas causas reais: (1) **Python grava `similaridade_logradouro = 1` em todo match
+  probabilístico** — `pl.lit(None)` em `geocode.py` tem dtype `Null`, que o DuckDB materializa como
+  `INTEGER`, e o `UPDATE` com o Jaro (0,85–0,99) arredonda para 1; fix é `pl.lit(None, dtype=pl.Float64)`.
+  (2) **`numero` acima de 2^31−1**: R vira `NA` (`as.integer` no enderecobr) e cai em `dl`/`pl`; Python
+  mantém `Int64` e interpola um número absurdo com `desvio_metros = 6`. 3.294 linhas assim no CadÚnico,
+  78 divergem. Relatório: `quality_reports/diagnoses/2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M.md`.
+  **Por quê:** o teste de paridade (`test_r_python_parity.py`) não compara colunas numéricas fora de
+  `lat`/`lon`/`distancia_metros`, então (1) passa despercebido; e nenhum fixture tem número > int32,
+  então (2) também. Ao comparar outputs, sempre incluir as colunas numéricas de saída e um caso de
+  overflow.
+
+- `[LEARN:python]` Coluna criada com `pl.lit(None)` (sem `dtype`) e registrada no DuckDB vira `INTEGER`
+  após `CREATE TABLE AS SELECT *` — qualquer `UPDATE` posterior com `DOUBLE`/`NUMERIC` é arredondado em
+  silêncio. Reproduzido com Arrow `null` → DuckDB: `DESCRIBE` mostra `INTEGER`, `UPDATE ... = 0.956` lê
+  `1`. Toda coluna de trabalho que nasce nula no polars precisa de `dtype` explícito
+  (`pl.lit(None, dtype=pl.Float64)`), espelhando o `NA_real_` do R. **Por quê:** o SQL é idêntico ao do
+  R e o bug só aparece no tipo da coluna, então uma revisão de código linha a linha não pega.
+
+- `[LEARN:testes]` Ao comparar dois outputs de `geocode()` por posição de linha, confirmar antes que os
+  inputs estavam na mesma ordem: os dois pacotes preservam a ordem do input, então dois outputs com
+  ordem diferente denunciam inputs diferentes (aqui: 43 linhas com `numero` distinto e uma coluna `id`
+  só de um lado). Parear por chave natural única (`co_familiar_fam`) e checar igualdade das colunas de
+  input coluna a coluna antes de atribuir qualquer diferença ao pacote. **Por quê:** o pareamento
+  posicional deu 43,87 M de "divergências" de input que eram só ordem.

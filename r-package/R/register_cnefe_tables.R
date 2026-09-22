@@ -1,4 +1,4 @@
-register_cnefe_table <- function(con, match_type, pasta_dados) {
+register_cnefe_table <- function(con, match_type, pasta_dados, resultado_completo = TRUE) {
   # nocov start
 
   # message("register_cnefe_table")
@@ -53,6 +53,16 @@ register_cnefe_table <- function(con, match_type, pasta_dados) {
     return(TRUE)
   }
 
+  # colunas do parquet que nenhuma query do pacote le: code_muni e n_setor nunca;
+  # cod_setor so entra no output com resultado_completo = TRUE (ver
+  # monta_colunas_encontradas). Deixa-las de fora da materializacao economiza
+  # ~10% da memoria de cada tabela de referencia.
+  cols_excluir <- c("code_muni", "n_setor")
+  if (isFALSE(resultado_completo)) {
+    cols_excluir <- c(cols_excluir, "cod_setor")
+  }
+  cols_excluir <- paste(cols_excluir, collapse = ", ")
+
   query_filter_cnefe <- glue::glue(
     "CREATE TEMP TABLE IF NOT EXISTS {cnefe_table_name} AS
           WITH unique_munis AS (
@@ -63,7 +73,7 @@ register_cnefe_table <- function(con, match_type, pasta_dados) {
               SELECT DISTINCT estado
               FROM input_padrao_db
           )
-          SELECT *
+          SELECT * EXCLUDE ({cols_excluir})
           FROM read_parquet('{path_to_parquet}') m
           WHERE m.estado IN (SELECT estado FROM unique_states)
                AND m.municipio IN (SELECT municipio FROM unique_munis);"

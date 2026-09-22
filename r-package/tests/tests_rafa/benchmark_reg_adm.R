@@ -56,7 +56,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-#  dplyr::slice_sample(n = sample_size) |> # sample 20K
+  dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -75,15 +75,15 @@ stop()
 
 gc(T,T,T)
 
-bench::system_time(
-#bench::mark(iterations = 1,
+#bench::system_time(
+bench::mark(iterations = 5,
   # cadgeo_novo <- geocodebr:::geocode_core(
   cadgeo_novo <- geocode(
     enderecos  = df,
     campos_endereco = campos,
     n_cores = 7, # 7
     verboso = T,
-    resultado_completo = T,
+    resultado_completo = F,
     resultado_sf = F,
     resolver_empates = T,
     padronizar_enderecos = T,
@@ -107,6 +107,7 @@ bench::system_time(
 # v0.5.0 CRAN      6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.6.4 CRAN      5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # devEndbr2        4.61m  4.61m   0.00362     992MB  0.00362     1     1      4.61m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2 claude 3.66m  3.99m   0.00417     992MB        0     5     0        20m <df>   <Rprofmem> <bench_tm> <tibble>
 
 
 #plus claude       2.33m  2.33m   0.00716    1.43GB  0.00716     1     1      2.33m <df>   <Rprofmem> <bench_tm> <tibble>

@@ -270,7 +270,7 @@ geocode <- function(enderecos,
 
   # start progress bar
   if (verboso) {
-    prog <- create_progress_bar(input_padrao)
+    prog <- create_progress_bar(nrow(input_padrao))
     message_looking_for_matches()
   }
 

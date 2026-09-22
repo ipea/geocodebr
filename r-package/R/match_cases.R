@@ -16,7 +16,7 @@ match_cases <- function(
   key_cols <- get_key_cols(match_type)
 
   # write cnefe table to db
-  register_cnefe_table(con, match_type, pasta_dados)
+  register_cnefe_table(con, match_type, pasta_dados, resultado_completo)
 
   # Create the JOIN condition by concatenating the key columns
   join_condition <- paste(

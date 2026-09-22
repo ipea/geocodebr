@@ -818,3 +818,57 @@ check_clean_colnames <- function(df) {  # nocov start
   }
 
 } # nocov end
+
+
+# Tabelas temporarias (de referencia do CNEFE e de logradouros unicos) que as
+# etapas restantes do laco de matching ainda vao usar. Espelha o criterio de
+# tabelas_necessarias() para as etapas que faltam, mais as duas tabelas
+# unique_logr_* de register_unique_logradouros_table() (a base delas depende
+# so de o match_type ser *03 ou nao).
+tabelas_ainda_necessarias <- function(match_types_restantes, campos_nao_declarados) {
+  # nocov start
+  ativos <- Filter(
+    function(mt) !any(get_key_cols(mt) %in% campos_nao_declarados),
+    match_types_restantes
+  )
+
+  tabs <- unique(unname(reference_table_by_match_type[ativos]))
+
+  probabilisticos <- ativos[ativos %in% c(
+    probabilistic_exact_types,
+    probabilistic_interpolation_types,
+    probabilistic_types_no_number
+  )]
+
+  if (any(probabilisticos %in% c("pn03", "pa03", "pl03"))) {
+    tabs <- c(tabs, "unique_logr_municipio_logradouro_localidade")
+  }
+  if (any(!probabilisticos %in% c("pn03", "pa03", "pl03"))) {
+    tabs <- c(tabs, "unique_logr_municipio_logradouro_cep_localidade")
+  }
+
+  unique(tabs)
+} # nocov end
+
+
+# Apaga do banco as tabelas temporarias que nenhuma etapa restante do laco vai
+# usar. O DuckDB libera a memoria de uma TEMP TABLE no DROP; sem isso as duas
+# tabelas de referencia maiores (~10 GB cada em escala nacional) ficariam vivas
+# ate o fim de geocode(), embora so sejam lidas nas primeiras etapas.
+dropa_tabelas_obsoletas <- function(con, match_types_restantes, campos_nao_declarados) {
+  # nocov start
+  candidatas <- c(
+    unique(unname(reference_table_by_match_type)),
+    "unique_logr_municipio_logradouro_localidade",
+    "unique_logr_municipio_logradouro_cep_localidade"
+  )
+
+  necessarias <- tabelas_ainda_necessarias(match_types_restantes, campos_nao_declarados)
+  existentes <- DBI::dbListTables(con)
+
+  for (tb in setdiff(intersect(candidatas, existentes), necessarias)) {
+    DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {tb};"))
+  }
+
+  invisible(NULL)
+} # nocov end
