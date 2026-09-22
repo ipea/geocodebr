@@ -399,10 +399,16 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   (2) **`numero` acima de 2^31−1**: R vira `NA` (`as.integer` no enderecobr) e cai em `dl`/`pl`; Python
   mantém `Int64` e interpola um número absurdo com `desvio_metros = 6`. 3.294 linhas assim no CadÚnico,
   78 divergem. Relatório: `quality_reports/diagnoses/2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M.md`.
+  **Resolvido em 22/09 (rodada 2, §6 do relatório):** com o Python corrigido e o mesmo input nos dois
+  lados, as 43.882.020 linhas são idênticas em todas as colunas — `tipo_resultado`, `similaridade_logradouro`
+  (Jaro igual valor a valor), `empate`, tudo — e a única diferença restante são 25.753 coordenadas em
+  `da*`/`pa*` com desvio ≤ 1,8e-13 grau (ordem de acumulação da média ponderada, não lógica). Esse é o
+  **baseline de paridade em escala**: qualquer mudança futura em um dos pacotes pode ser validada
+  refazendo essa comparação e exigindo 0 divergências fora do ruído de 1e-13.
   **Por quê:** o teste de paridade (`test_r_python_parity.py`) não compara colunas numéricas fora de
-  `lat`/`lon`/`distancia_metros`, então (1) passa despercebido; e nenhum fixture tem número > int32,
+  `lat`/`lon`/`distancia_metros`, então (1) passou despercebido; e nenhum fixture tem número > int32,
   então (2) também. Ao comparar outputs, sempre incluir as colunas numéricas de saída e um caso de
-  overflow.
+  overflow — as duas lacunas do teste continuam abertas mesmo com os bugs corrigidos.
 
 - `[LEARN:python]` Coluna criada com `pl.lit(None)` (sem `dtype`) e registrada no DuckDB vira `INTEGER`
   após `CREATE TABLE AS SELECT *` — qualquer `UPDATE` posterior com `DOUBLE`/`NUMERIC` é arredondado em

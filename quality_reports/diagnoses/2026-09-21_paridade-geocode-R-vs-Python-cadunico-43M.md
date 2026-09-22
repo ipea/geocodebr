@@ -1,9 +1,12 @@
 # Diagnóstico — paridade do `geocode()` R vs Python sobre o CadÚnico (43,9 M de endereços)
 
-**Data:** 2026-09-21
-**Arquivos comparados:**
-- R: `sample_data/cadunico_43M_202312_R.parquet` (2,46 GB)
-- Python: `sample_data/cad_unico_pyhton.parquet` (2,22 GB)
+**Data:** 2026-09-21 (rodada 1) · **2026-09-22 (rodada 2, após correção do Python — ver §6)**
+**Status: PARIDADE CONFIRMADA na rodada 2.** As seções 1–5 abaixo descrevem a rodada 1 e ficam como
+registro das causas encontradas; o resultado vigente é o da §6.
+
+**Arquivos comparados (rodada 1):**
+- R: `sample_data/cadunico_43M_202312_R.parquet` (2,46 GB, 21/09 14:29)
+- Python: `sample_data/cad_unico_pyhton.parquet` (2,22 GB, 21/09 14:24)
 
 **Escopo:** só o output. Comparação de código R ↔ Python fica para uma rodada futura.
 **Ferramenta:** DuckDB via R, sem materializar nada na memória; tabela comparativa em
@@ -212,3 +215,56 @@ Python; `merge_results_to_input()` no R), então a diferença vem dos inputs, co
 
 Fora isso, **o motor de matching está em paridade**: mesmas categorias, mesmos endereços, mesmos
 setores, mesmas coordenadas, mesmos desempates, em 43,9 milhões de linhas.
+
+---
+
+## 6. Rodada 2 (2026-09-22) — após correção do pacote Python
+
+**Arquivo novo do Python:** `sample_data/cad_unico_pyhton.parquet` regenerado em 22/09 09:55 (2,45 GB).
+O arquivo do R é o mesmo da rodada 1. Mesmo método (§2), mesmos scripts, tabela `cmp` reconstruída.
+
+### 6.1 Resultado
+
+| Dimensão | Rodada 1 | Rodada 2 |
+|---|---|---|
+| Linhas / `NA` em `lat`/`lon` | 43.882.020 / 0 | 43.882.020 / 0 |
+| Schema | `id` só no R | **Idêntico** (`id` nos dois) |
+| Colunas de input iguais | 43 linhas com `numero` diferente; ordem diferente | **100 % iguais, mesma ordem** (pareamento posicional e por chave coincidem) |
+| `tipo_resultado` / `precisao` | 80 linhas divergem | **0 divergências**; 25 categorias com contagens idênticas |
+| `endereco_encontrado`, `*_encontrado`, `cod_setor`, `desvio_metros`, `contagem_cnefe`, `empate` | iguais fora das 80 | **100 % iguais** |
+| `similaridade_logradouro` | Python = 1,0 em 4.987.296 linhas | **100 % igual**, distribuição do Jaro (0,851–0,99) idêntica valor a valor |
+| Coordenadas bit-a-bit iguais | 43.854.179 | 43.856.267 |
+| Coordenadas com diferença não nula | 27.763 + 78 acima de 1e-6 | 25.753, **todas ≤ 1,8e-13 grau** |
+| Coordenadas acima de 1e-6 grau | 78 | **0** |
+| `empate` divergente | 5 | **0** |
+
+### 6.2 O que a correção resolveu
+
+- **§3.3 (`similaridade_logradouro`)**: resolvido. A coluna do Python agora reproduz exatamente a do R —
+  `py_eq_1 = 0`, `py_lt_1 = 4.987.296`, mínimo 0,851 nos dois lados, e cada faixa de 0,01 tem a mesma
+  contagem (ex.: 0,98 → 578.933 nos dois).
+- **§3.2 (`numero` > 2^31−1)**: as 78 divergências desapareceram. Os dois lados agora classificam esses
+  3.294 endereços da mesma forma. Não foi verificado neste relatório *como* o Python passou a tratar o
+  overflow (se emulando o `NA` do R ou de outra forma); só que o output coincide.
+- **§3.1 (inputs diferentes)**: não se aplica — desta vez os dois outputs vieram do mesmo input, o que
+  eliminou as 2 divergências restantes, a coluna `id` faltante e a diferença de ordem.
+
+### 6.3 O que resta
+
+Somente as 25.753 linhas com diferença de coordenada na ordem de 1e-13 grau (< 0,02 mm), todas em
+`da*`/`pa*`, distribuídas como em §3.4: `da01` 8.056, `da02` 9.950, `da03` 1.507, `da04` 2.932,
+`pa01` 1.117, `pa02` 1.737, `pa03` 454. É a ordem de acumulação da média ponderada no DuckDB, não lógica.
+Está quatro ordens de grandeza abaixo do `atol = 1e-6` do teste de paridade.
+
+### 6.4 Recomendações que continuam válidas
+
+Das cinco de §5, as três de teste permanecem, porque o teste automatizado ainda não teria pego a rodada 1:
+
+- Estender `run_all_comparisons()` para comparar `similaridade_logradouro`, `desvio_metros`,
+  `contagem_cnefe` e `numero_encontrado` (§5, item 2).
+- Adicionar um caso com `numero > 2^31−1` a um fixture de paridade (§5, item 3).
+- Registrar no NEWS/docstring do Python que `similaridade_logradouro` era inválida na `0.1.0` (§5, item 5).
+
+**Conclusão: com o input idêntico, `geocode()` em R e em Python produzem o mesmo resultado em
+43.882.020 endereços do CadÚnico, em todas as colunas, com diferença máxima de 1,8e-13 grau nas
+coordenadas.**

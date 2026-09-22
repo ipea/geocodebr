@@ -538,12 +538,13 @@ divergirem**; o valor também é a chave do cache do CNEFE no CI (mudou o releas
 
 **Pendências conhecidas (setembro/2026):**
 
-- Diagnóstico de 21/09 sobre 43,9 M de endereços do CadÚnico
-  (`quality_reports/diagnoses/2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M.md`): motor em
-  paridade, mas dois bugs abertos — Python grava `similaridade_logradouro = 1` em todo match
-  probabilístico (dtype `Null` → `INTEGER`; fix em `geocode.py:250`), e `numero > 2^31−1` vira `NA` no R
-  mas sobrevive como `Int64` no Python. O teste de paridade não compara colunas numéricas além de
-  `lat`/`lon`/`distancia_metros`, por isso não pegou nenhum dos dois.
+- **Paridade em escala confirmada em 22/09** sobre 43,9 M de endereços do CadÚnico
+  (`quality_reports/diagnoses/2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M.md`, §6): output
+  idêntico em todas as colunas, diferença máxima de 1,8e-13 grau nas coordenadas. A rodada 1 (21/09)
+  tinha achado dois bugs no Python (`similaridade_logradouro` fixa em 1 por dtype `Null` → `INTEGER`;
+  `numero > 2^31−1` mantido como `Int64` enquanto o R vira `NA`), ambos corrigidos. **Lacuna que
+  continua:** o teste de paridade não compara colunas numéricas além de `lat`/`lon`/`distancia_metros`
+  nem tem fixture com número > int32 — teria deixado os dois bugs passarem.
 - `DATA_RELEASE` do Python foi alinhado a `v0.5.0` no merge (PR #109); R e Python leem o mesmo release.
   Falta confirmar que `python-parity.yaml` rodou verde na `main` contra os dados `v0.5.0` (`lat`/`lon` em
   `float`, `cod_setor` em `int64`) — a última rodada confirmada à mão pela equipe (17/09) foi com `v0.4.1`.
