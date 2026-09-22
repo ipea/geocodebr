@@ -79,6 +79,31 @@ def test_numero_string_with_character_format():
     assert out["numero_padr"].to_list() == ["S/N"]
 
 
+def test_numero_string_acima_de_int32_vira_nulo():
+    # Em R, `as.integer()` devolve NA (com aviso) acima de .Machine$integer.max,
+    # e o endereco segue o laco sem numero (dl*/pl*). O Python precisa emular
+    # esse contrato (report de paridade 2026-09-21, §3.2).
+    out = enderecobr_padronizar_enderecos(
+        make_df(numero=["0000003000524637"]), FIELDS
+    )
+    assert out["numero_padr"].to_list() == [None]
+
+
+def test_numero_integer_acima_de_int32_vira_nulo():
+    out = enderecobr_padronizar_enderecos(
+        make_df(numero=[3000524637]), FIELDS
+    )
+    assert out["numero_padr"].to_list() == [None]
+
+
+def test_numero_no_limite_int32_e_preservado():
+    # 2^31 - 1 ainda cabe em Int32 e nao pode virar nulo
+    out = enderecobr_padronizar_enderecos(
+        make_df(numero=["2147483647"]), FIELDS
+    )
+    assert out["numero_padr"].to_list() == [2147483647]
+
+
 def test_estado_por_extenso_format():
     out = enderecobr_padronizar_enderecos(
         make_df(), FIELDS, formato_estados="por_extenso"

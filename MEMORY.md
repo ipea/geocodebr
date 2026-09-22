@@ -346,3 +346,33 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   contagem de linhas. Atribuir os bytes coluna a coluna (`parquet_metadata()` do DuckDB, que lê só o footer)
   e usar `sum(n_casos)` + anti-join na chave natural como teste real de conteúdo. Ver
   `quality_reports/diagnoses/2026-09-15_cnefe-v041-vs-v050-auditoria.md` e os dois scripts ao lado.
+
+- `[LEARN:python-port]` `pl.lit(None)` (dtype `Null`) registrado no DuckDB e materializado com
+  `CREATE TEMP TABLE AS SELECT *` vira **`INTEGER`**, não `DOUBLE`. Numa coluna de trabalho como
+  `similaridade_logradouro`, todo Jaro 0,85-0,99 era truncado para `1`. **Certo:**
+  `pl.lit(None, dtype=pl.Float64)`. **Por quê:** o dtype de uma literal nula polars não sobrevive ao
+  round-trip Arrow → DuckDB; sempre explicitar o tipo na criação da coluna de trabalho. O teste unitário
+  só pega isso se exercitar `geocode()` de ponta a ponta — o fixture `match_env` do
+  `test_matching.py` já declara a coluna como `pa.float64()` e mascara o bug.
+
+- `[LEARN:python-port]` `map_elements(..., return_dtype=pl.Int32)` **levanta `SchemaError`** quando a UDF
+  devolve um inteiro acima de `Int32` (ex.: `padronizar_numeros_para_int("0000003000524637")` →
+  `3000524637`), em vez de converter para nulo. **Certo:** mapear com `return_dtype=pl.Int64` e
+  `.cast(pl.Int32, strict=False)` — o cast estrito relaxado é quem produz o `null` que emula o `NA` do
+  `as.integer()` do R (report de paridade 2026-09-21, §3.2). **Por quê:** `cast(strict=False)` é a única
+  forma de obter *overflow → null*; `return_dtype` valida e aborta.
+
+- `[LEARN:testes]` Adicionar um `numero` acima de 2^31 ao `small_sample.csv` faz a **coluna inteira
+  `Numero` mudar de dtype na leitura**, e de forma assimétrica: o `read.csv()` do R promove para `double`
+  (`17` → `17.0`, `3000524637`), enquanto o pyarrow do Python mantém `int64`. A coluna de input ecoada no
+  output diverge como string (`"17"` vs `"17.0"`) e derruba o teste de paridade. **Certo:** em
+  `test_r_python_parity.py`, comparar células numericamente quando ambas parseiam como número
+  (`_cells_equal`), já que é representação, não conteúdo. **Por quê:** o dtype do input não é o que se
+  quer testar — o contrato é o valor. Confirmado que os testes do R (`test-geocode.R`, incluindo
+  `length(match_types_found) == 17`) continuam passando: a linha nova cai em `dl01`, tipo já existente.
+
+- `[LEARN:testes]` O `run_all_comparisons()` do teste de paridade só comparava lat/lon e células não
+  numéricas; `similaridade_logradouro` (float) ficava de fora. Foi exatamente por isso que o bug do
+  `pl.lit(None)` (§ acima) passou por 43 M de linhas. **Certo:** `compare_numeric_cells()` com
+  `NUMERIC_OUTPUT_TOLERANCES` (`similaridade_logradouro` 1e-3; `desvio_metros`, `contagem_cnefe`,
+  `numero_encontrado` exatos). Revertendo o fix do dtype, o teste agora falha (verificado).
