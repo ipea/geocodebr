@@ -56,7 +56,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  dplyr::slice_sample(n = sample_size) |> # sample 20K
+  # dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -76,14 +76,14 @@ stop()
 gc(T,T,T)
 
 #bench::system_time(
-bench::mark(iterations = 5,
+bench::mark(iterations = 1,
   # cadgeo_novo <- geocodebr:::geocode_core(
   cadgeo_novo <- geocode(
     enderecos  = df,
     campos_endereco = campos,
-    n_cores = 7, # 7
+    n_cores = NULL, # 7
     verboso = T,
-    resultado_completo = F,
+    resultado_completo = T,
     resultado_sf = F,
     resolver_empates = T,
     padronizar_enderecos = T,
@@ -96,6 +96,8 @@ bench::mark(iterations = 5,
 #                    process    real
 # v0.6.4 CRAN          3.17m  14.45m
 # v0.7.0 devendbr2      2.2m     15m
+#   expression            min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory     time       gc      
+# devEndbr2 claude      12.7m  12.7m   0.00132     8.5GB  0.00132     1     1      12.7m <df>   <Rprofmem> <bench_tm> <tibble>
 
 
 2+2
@@ -107,10 +109,9 @@ bench::mark(iterations = 5,
 # v0.5.0 CRAN      6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.6.4 CRAN      5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # devEndbr2        4.61m  4.61m   0.00362     992MB  0.00362     1     1      4.61m <df>   <Rprofmem> <bench_tm> <tibble>
-# devEndbr2 claude 3.66m  3.99m   0.00417     992MB        0     5     0        20m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2 claude 3.59m  3.59m   0.00465     992MB        0     1     0      3.59m <df>   <Rprofmem> <bench_tm> <tibble>
 
-
-#plus claude       2.33m  2.33m   0.00716    1.43GB  0.00716     1     1      2.33m <df>   <Rprofmem> <bench_tm> <tibble>
+#claude core null  2.65m  2.65m   0.00628     992MB        0     1     0      2.65m <df>   <Rprofmem> <bench_tm> <tibble>
 #plus claude-core 21.90m  21.9m  0.000761    4.95GB  0.00457     1     6      21.9m <df>   <Rprofmem> <bench_tm> <tibble>
 
 
