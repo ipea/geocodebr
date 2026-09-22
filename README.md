@@ -15,7 +15,7 @@ o pacote está disponível em **R** e em **Python**.
 
 | R | Python | Repo |
 |----|----|----|
-| [![CRAN status](https://www.r-pkg.org/badges/version/geocodebr)](https://CRAN.R-project.org/package=geocodebr) <br /> [![CRAN/METACRAN Total downloads](https://cranlogs.r-pkg.org/badges/grand-total/geocodebr?color=blue)](https://CRAN.R-project.org/package=geocodebr) <br /> [![r-check](https://github.com/ipea/geocodebr/workflows/check/badge.svg)](https://github.com/ipea/geocodebr/actions) <br /> [![Codecov test coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/ipea/geocodebr?branch=main) <br /> [![Lifecycle: experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html) | [![PyPI](https://img.shields.io/badge/PyPI-em%20breve-9ca3af)]() <br /> [![Downloads](https://img.shields.io/badge/downloads-em%20breve-9ca3af)]() <br /> [![python-check](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml) [![python-r-parity](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml) <br /> [![Codecov test coverage](https://codecov.io/gh/ipea/geocodebr/branch/python_test/graph/badge.svg?flag=python)](https://app.codecov.io/gh/ipea/geocodebr/tree/python_test?flags%5B0%5D=python) <br /> [![Lifecycle: experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html) | <img alt="GitHub stars" src="https://img.shields.io/github/stars/ipea/geocodebr.svg?color=orange"> <br /> [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) |
+| [![CRAN status](https://www.r-pkg.org/badges/version/geocodebr)](https://CRAN.R-project.org/package=geocodebr) <br /> [![CRAN/METACRAN Total downloads](https://cranlogs.r-pkg.org/badges/grand-total/geocodebr?color=blue)](https://CRAN.R-project.org/package=geocodebr) <br /> [![r-check](https://github.com/ipea/geocodebr/workflows/check/badge.svg)](https://github.com/ipea/geocodebr/actions) <br /> [![Codecov test coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg?flag=r)](https://app.codecov.io/gh/ipea/geocodebr?branch=main?flags%5B0%5D=r) <br /> [![Lifecycle: experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html) | [![PyPI](https://img.shields.io/badge/PyPI-em%20breve-9ca3af)]() <br /> [![Downloads](https://img.shields.io/badge/downloads-em%20breve-9ca3af)]() <br /> [![python-check](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml) [![python-r-parity](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml) <br /> [![Codecov test coverage](https://codecov.io/gh/ipea/geocodebr/branch/main/graph/badge.svg?flag=python)](https://app.codecov.io/gh/ipea/geocodebr/tree/main?flags%5B0%5D=python) <br /> [![Lifecycle: experimental](https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html) | <img alt="GitHub stars" src="https://img.shields.io/github/stars/ipea/geocodebr.svg?color=orange"> <br /> [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) |
 
 ## Instalação
 
@@ -97,6 +97,9 @@ df <- geocodebr::geocode(
   resultado_sf = TRUE,
   verboso = FALSE
   )
+#> Warning message:
+#> In (function (numeros, formato = "character")  :
+#>   NAs introduced by coercion to integer range
 ```
 
 Os resultados do **{geocodebr}** são classificados em seis categorias
@@ -191,7 +194,7 @@ resultado = geocode(
 ```
 
 Mais detalhes e exemplos na documentação completa da versão
-[Python](../python-package/README.md).
+[Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
 
 ### Windows e performance
 
@@ -204,8 +207,8 @@ automaticamente as threads do DuckDB e oferecendo um comando
 com o Segment Heap — em benchmarks internos com 10 milhões de endereços,
 o tempo total do `geocode()` caiu de 11:47 para 3:08 minutos. Mais
 detalhes na seção [Windows e
-performance](../python-package/README.md#windows-e-performance) do
-README da versão Python.
+performance](https://github.com/ipea/geocodebr/blob/main/python-package/README.md#windows-e-performance)
+do README da versão Python.
 
 ## Nota <a href="https://www.ipea.gov.br"><img src="r-package/man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>
 

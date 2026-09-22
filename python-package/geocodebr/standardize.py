@@ -65,7 +65,7 @@ def _padronizar_numero_expr(
         ).otherwise(pl.col(col_orig))
 
         if formato == "integer":
-            return expr_sem_zero.cast(pl.Int64, strict=False)
+            return expr_sem_zero.cast(pl.Int32, strict=False)
 
         # Para formato character: Null deve virar "S/N" e o fill_null(0) garante isso,
         # já que padronizar_numeros_para_string(0) -> "S/N".
@@ -77,11 +77,13 @@ def _padronizar_numero_expr(
     # Input em string
     if formato == "integer":
         # padronizar_numeros_para_int retorna None para 'S/N', vazio,
-        # múltiplos números, etc
+        # múltiplos números, etc. O bind pode devolver ints acima de Int32
+        # (ex.: "0000003000524637"); o cast strict=False os converte em null,
+        # emulando o NA do as.integer() do R (report de paridade 2026-09-21, §3.2).
         return _col_to_str(col_orig).map_elements(
             enderecobr.padronizar_numeros_para_int,
             return_dtype=pl.Int64,
-        )
+        ).cast(pl.Int32, strict=False)
 
     # Para formato character: Nulo e vazio devem virar "S/N".
     # fill_null("") garante que null -> "" -> "S/N" via padronizar_numeros.

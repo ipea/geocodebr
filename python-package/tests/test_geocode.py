@@ -99,6 +99,57 @@ def test_geocode_treats_zero_number_as_missing(cnefe_cache):
     assert out.column("precisao").to_pylist() == ["logradouro"]
 
 
+def test_geocode_probabilistic_similarity_below_one(cnefe_cache):
+    # Regressao do report de paridade 2026-09-21, §3.3: a coluna de trabalho
+    # `similaridade_logradouro` era criada como Null (polars) -> INTEGER no
+    # DuckDB, e todo Jaro aceito (0,85-0,99) era truncado para 1. A coluna
+    # precisa ser float, casar por Jaro e ficar estritamente abaixo de 1.
+    # Jaro('RUA CARLO', 'RUA MARCO') = 0,884.
+    cnefe = pa.table(
+        {
+            "estado": ["DF"],
+            "municipio": ["BRASILIA"],
+            "logradouro": ["RUA MARCO"],
+            "numero": [100],
+            "cep": ["70000-000"],
+            "localidade": ["CENTRO"],
+            "lon": [-47.9],
+            "lat": [-15.8],
+            "endereco_completo": ["RUA MARCO, 100 - CENTRO, BRASILIA - DF"],
+            "desvio_metros": [10],
+            "n_casos": [1],
+            "cod_setor": ["001"],
+        }
+    )
+    cnefe_cache(cnefe)
+
+    addresses = pa.table(
+        {
+            "uf": ["Distrito Federal"],
+            "cidade": ["Brasilia"],
+            "rua": ["Rua Carlo"],
+            "num": ["100"],
+            "cep_in": ["70000-000"],
+            "bairro": ["Centro"],
+        }
+    )
+    fields = definir_campos(
+        estado="uf",
+        municipio="cidade",
+        logradouro="rua",
+        numero="num",
+        cep="cep_in",
+        localidade="bairro",
+    )
+
+    out = geocode(addresses, fields, resultado_completo=True, verboso=False)
+
+    assert out.column("tipo_resultado").to_pylist() == ["pn01"]
+    similaridade = out.column("similaridade_logradouro").to_pylist()[0]
+    assert similaridade == pytest.approx(0.884, abs=1e-3)
+    assert similaridade < 1
+
+
 def test_geocode_rejects_invalid_n_cores():
     with pytest.raises(ValueError, match="n_cores"):
         geocode(pa.table({"a": [1]}), n_cores=0)
