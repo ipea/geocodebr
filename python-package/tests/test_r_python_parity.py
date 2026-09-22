@@ -55,6 +55,22 @@ CEPS = ["70390-025", "20071-001", "99999-999"]
 
 ADDRESS_COLS = ["estado", "municipio", "logradouro", "cep", "localidade"]
 
+# Colunas numericas de saida do geocode() com tolerancia absoluta por coluna
+# (0.0 = exato). lat/lon usam 1e-6: a mesma coordenada pode passar por caminhos
+# diferentes (ordem de acumulacao da media ponderada no DuckDB) e divergir nos
+# ultimos digitos do float. similaridade_logradouro, sempre 1.0 no Python por um
+# bug de dtype (report de paridade 2026-09-21), usa 1e-3.
+NUMERIC_OUTPUT_TOLERANCES = {
+    "lat": 1e-6,
+    "lon": 1e-6,
+    "lon_geom": 1e-6,
+    "lat_geom": 1e-6,
+    "similaridade_logradouro": 1e-3,
+    "desvio_metros": 0.0,
+    "contagem_cnefe": 0.0,
+    "numero_encontrado": 0.0,
+}
+
 
 # ---------------------------------------------------------------------------
 # fixtures
@@ -710,20 +726,19 @@ def compare_match_types(py: pa.Table, r: pa.Table) -> list[str]:
     return diffs
 
 
-def compare_coordinates(
-    py: pa.Table,
-    r: pa.Table,
-    atol: float = 1e-6,
-) -> list[str]:
-    """Level 4: lat/lon within tolerance."""
+def compare_numeric_cells(py: pa.Table, r: pa.Table) -> list[str]:
+    """Level 4: numeric output columns within per-column tolerance."""
+    if py.num_rows != r.num_rows:
+        return ["Numeric comparison skipped (row count mismatch)."]
+
     diffs = []
-    for col_name in ("lat", "lon", "lon_geom", "lat_geom"):
-        if col_name not in py.schema.names or col_name not in r.schema.names:
+    for col, atol in NUMERIC_OUTPUT_TOLERANCES.items():
+        if col not in py.schema.names or col not in r.schema.names:
             continue
         diffs += _compare_floats(
-            col_name,
-            _column_to_float_list(py, col_name),
-            _column_to_float_list(r, col_name),
+            col,
+            _column_to_float_list(py, col),
+            _column_to_float_list(r, col),
             atol,
         )
     return diffs
@@ -741,7 +756,7 @@ def compare_non_numeric_cells(py: pa.Table, r: pa.Table) -> list[str]:
     }
 
     for name in py.schema.names:
-        if name in float_cols:
+        if name in float_cols or name in NUMERIC_OUTPUT_TOLERANCES:
             continue
         if name not in r.schema.names:
             continue
@@ -751,7 +766,7 @@ def compare_non_numeric_cells(py: pa.Table, r: pa.Table) -> list[str]:
 
         cell_diffs = []
         for i, (pv, rv) in enumerate(zip(py_vals, r_vals)):
-            if pv != rv:
+            if not _cells_equal(pv, rv):
                 cell_diffs.append((i, pv, rv))
 
         if cell_diffs:
@@ -766,12 +781,12 @@ def compare_non_numeric_cells(py: pa.Table, r: pa.Table) -> list[str]:
 
 
 def run_all_comparisons(py_table: pa.Table, r_table: pa.Table) -> list[str]:
-    """Run all 5 comparison levels, collecting all diffs."""
+    """Run all comparison levels, collecting all diffs."""
     all_diffs = []
     all_diffs += compare_schema(py_table, r_table)
     all_diffs += compare_row_count(py_table, r_table)
     all_diffs += compare_match_types(py_table, r_table)
-    all_diffs += compare_coordinates(py_table, r_table)
+    all_diffs += compare_numeric_cells(py_table, r_table)
     all_diffs += compare_non_numeric_cells(py_table, r_table)
     return all_diffs
 
@@ -793,6 +808,22 @@ def _compare_floats(col_name: str, py_vals, r_vals, atol: float) -> list[str]:
     if len(mismatches) > 20:
         diffs.append(f"  ... and {len(mismatches) - 20} more")
     return diffs
+
+
+def _cells_equal(pv, rv) -> bool:
+    """Igualdade de celula, tolerando representacao numerica distinta.
+
+    A mesma coluna de input pode ser lida em dtypes diferentes dos dois lados:
+    um numero acima de 2^31 vira ``double`` no ``read.csv()`` do R e ``int64``
+    no pyarrow do Python, e a coluna ecoada no output aparece como "17" vs
+    "17.0". O valor e o mesmo; comparar numericamente quando ambos parseiam.
+    """
+    if pv == rv:
+        return True
+    try:
+        return math.isclose(float(pv), float(rv), abs_tol=0.0)
+    except (TypeError, ValueError):
+        return False
 
 
 def _cell_diffs(col_name: str, py_vals, r_vals) -> list[str]:

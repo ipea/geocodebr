@@ -361,3 +361,18 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   `.cast(pl.Int32, strict=False)` — o cast estrito relaxado é quem produz o `null` que emula o `NA` do
   `as.integer()` do R (report de paridade 2026-09-21, §3.2). **Por quê:** `cast(strict=False)` é a única
   forma de obter *overflow → null*; `return_dtype` valida e aborta.
+
+- `[LEARN:testes]` Adicionar um `numero` acima de 2^31 ao `small_sample.csv` faz a **coluna inteira
+  `Numero` mudar de dtype na leitura**, e de forma assimétrica: o `read.csv()` do R promove para `double`
+  (`17` → `17.0`, `3000524637`), enquanto o pyarrow do Python mantém `int64`. A coluna de input ecoada no
+  output diverge como string (`"17"` vs `"17.0"`) e derruba o teste de paridade. **Certo:** em
+  `test_r_python_parity.py`, comparar células numericamente quando ambas parseiam como número
+  (`_cells_equal`), já que é representação, não conteúdo. **Por quê:** o dtype do input não é o que se
+  quer testar — o contrato é o valor. Confirmado que os testes do R (`test-geocode.R`, incluindo
+  `length(match_types_found) == 17`) continuam passando: a linha nova cai em `dl01`, tipo já existente.
+
+- `[LEARN:testes]` O `run_all_comparisons()` do teste de paridade só comparava lat/lon e células não
+  numéricas; `similaridade_logradouro` (float) ficava de fora. Foi exatamente por isso que o bug do
+  `pl.lit(None)` (§ acima) passou por 43 M de linhas. **Certo:** `compare_numeric_cells()` com
+  `NUMERIC_OUTPUT_TOLERANCES` (`similaridade_logradouro` 1e-3; `desvio_metros`, `contagem_cnefe`,
+  `numero_encontrado` exatos). Revertendo o fix do dtype, o teste agora falha (verificado).
