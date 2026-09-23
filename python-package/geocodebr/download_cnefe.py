@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
@@ -9,7 +10,10 @@ from tqdm import tqdm
 
 from .cache import apaga_data_release_antigo, listar_pasta_cache
 from .constants import ALL_CNEFE_FILES, DATA_RELEASE
+from .errors import GeocodeBRError
 from .messages import message_downloading_cnefe, message_using_local_cnefe
+
+MAX_DOWNLOAD_WORKERS = 8
 
 
 def download_cnefe(
@@ -72,8 +76,7 @@ def download_cnefe(
         return str(cache_dir)
 
     message_downloading_cnefe(verboso)
-    for url, dest in tqdm(to_download, disable=not verboso):
-        _download_file(url, dest)
+    _download_files_parallel(to_download, verboso=verboso)
 
     return str(cache_dir)
 
@@ -94,6 +97,34 @@ def _select_files(tabela: str | Iterable[str]) -> list[str]:
         )
     # Lista vazia (character(0) no R) e valida: devolve [] sem baixar nada
     return [valid[t] for t in tabelas]
+
+
+def _download_files_parallel(
+    to_download: list[tuple[str, Path]], verboso: bool = True
+) -> None:
+    # Baixa os arquivos concorrentemente. Os downloads sao I/O-bound, entao
+    # threads bastam: o requests libera o GIL enquanto espera a rede. Cada
+    # thread chama requests.get direto (Session descartavel), sem estado
+    # compartilhado entre elas -- logo nao ha race condition.
+    #
+    # Espelha perform_requests_in_parallel() em r-package/R/download_cnefe.R,
+    # que usa httr2::req_perform_parallel(). Isolado numa funcao propria para
+    # facilitar mock nos testes.
+    max_workers = min(len(to_download), MAX_DOWNLOAD_WORKERS)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = [pool.submit(_download_file, url, dest) for url, dest in to_download]
+        erros = []
+        for future in tqdm(as_completed(futures), total=len(futures), disable=not verboso):
+            try:
+                future.result()
+            except Exception as exc:  # noqa: BLE001 -- agrega e reporta no fim
+                erros.append(exc)
+
+    if erros:
+        raise GeocodeBRError(
+            "Nao foi possivel baixar os dados do CNEFE. Por favor, tente novamente."
+        ) from erros[0]
 
 
 def _download_file(url: str, dest: Path) -> None:

@@ -1,6 +1,6 @@
 # geocodebr Python: Geolocalização de Endereços Brasileiros <img align="right" src="../r-package/man/figures/logo.svg" alt="" width="180">
 
-[![PyPI](https://img.shields.io/badge/PyPI-em%20breve-9ca3af)]()
+[![PyPI version](https://badge.fury.io/py/geocodebr.svg)](https://badge.fury.io/py/geocodebr)
 [![python-check](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-check.yaml)
 [![python-parity](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml/badge.svg)](https://github.com/ipea/geocodebr/actions/workflows/python-parity.yaml)
 [![Codecov test
@@ -17,8 +17,20 @@ Estatísticos), publicado pelo IBGE.
 
 ## Instalação
 
-No momento, esta versão Python ainda está em desenvolvimento dentro deste
-repositório (a publicação no PyPI está planejada). Para instalar localmente:
+O pacote está disponível no PyPI:
+
+```bash
+python -m pip install geocodebr
+```
+
+Para usar `geocode_reverso()` ou receber o resultado como
+`geopandas.GeoDataFrame` (`resultado_gpd=True`), instale o extra `geo`:
+
+```bash
+python -m pip install "geocodebr[geo]"
+```
+
+Para instalar a partir do código-fonte deste repositório:
 
 ```bash
 cd python-package

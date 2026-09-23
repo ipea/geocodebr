@@ -3,8 +3,9 @@ import requests
 from pathlib import Path
 
 from geocodebr import download_cnefe
-from geocodebr.constants import DATA_RELEASE
+from geocodebr.constants import ALL_CNEFE_FILES, DATA_RELEASE
 from geocodebr.download_cnefe import _download_file
+from geocodebr.errors import GeocodeBRError
 
 
 class FakeResponse:
@@ -95,3 +96,32 @@ def test_download_cnefe_with_and_without_cache(cache_tmp, monkeypatch):
     assert (
         Path(dir_without_cache) / f"geocodebr_data_release_{DATA_RELEASE}" / "municipio.parquet"
     ).exists()
+
+
+def test_download_cnefe_parallel_downloads_all_files(cache_tmp, monkeypatch):
+    import sys
+
+    monkeypatch.setattr(
+        sys.modules["geocodebr.download_cnefe"], "_download_file",
+        lambda url, dest: dest.write_bytes(b"fake"),
+    )
+
+    cache_dir = download_cnefe("todas", verboso=False, cache=True)
+    data_dir = Path(cache_dir) / f"geocodebr_data_release_{DATA_RELEASE}"
+
+    baixados = sorted(path.name for path in data_dir.iterdir())
+    assert baixados == sorted(ALL_CNEFE_FILES)
+
+
+def test_download_cnefe_wraps_download_errors(cache_tmp, monkeypatch):
+    import sys
+
+    def falha(url, dest):
+        raise requests.HTTPError("500 Server Error")
+
+    monkeypatch.setattr(
+        sys.modules["geocodebr.download_cnefe"], "_download_file", falha
+    )
+
+    with pytest.raises(GeocodeBRError, match="CNEFE"):
+        download_cnefe("municipio", verboso=False, cache=True)

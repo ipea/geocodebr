@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-23
+
+### Modificado
+
+- `download_cnefe()`: o download das tabelas do CNEFE passou a ser feito em
+  paralelo, com `ThreadPoolExecutor` (até 8 workers, um por arquivo), em vez do
+  laço sequencial anterior. Espelha o comportamento do R
+  (`httr2::req_perform_parallel()`) e reduz o tempo de download. Erros de
+  download agora são agregados e relançados como `GeocodeBRError`, e a barra de
+  progresso passa a contar arquivos concluídos.
+
 ## [0.1.0] - 2026-09-22
 
 Primeira versão pública do pacote Python `geocodebr`, um porte do pacote R
