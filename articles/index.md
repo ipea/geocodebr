@@ -3,7 +3,7 @@
 ### Todas as vinhetas
 
 - [Geocode
-  reverso](https://ipeagit.github.io/geocodebr/articles/geocode_reverso.md):
-- [Geocode](https://ipeagit.github.io/geocodebr/articles/geocode.md):
+  reverso](https://ipea.github.io/geocodebr/articles/geocode_reverso.md):
+- [Geocode](https://ipea.github.io/geocodebr/articles/geocode.md):
 - [Introdução ao
-  geocodebr](https://ipeagit.github.io/geocodebr/articles/geocodebr.md):
+  geocodebr](https://ipea.github.io/geocodebr/articles/geocodebr.md):

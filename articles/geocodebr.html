@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -67,7 +67,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Introdução ao geocodebr</h1>
             
-            <h4 data-toc-skip class="date">2026-08-23</h4>
+            <h4 data-toc-skip class="date">2026-09-23</h4>
       
       <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocodebr.Rmd" class="external-link"><code>vignettes/geocodebr.Rmd</code></a></small>
       <div class="d-none name"><code>geocodebr.Rmd</code></div>
@@ -150,16 +150,10 @@ encontrar as coordenadas geográficas dos endereços de input.</li>
 <span>  cache <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #BB0000;">duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> /tmp/Rtmpb3nPA2/duckdb</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; This is removed when the R session ends.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #00BBBB;">•</span><span style="color: #BB0000;"> Extensions are re-downloaded each session.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #00BBBB;">•</span><span style="color: #BB0000;"> Secrets are lost.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> See ?duckdb_storage for details and alternatives.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; Warning message:</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; Foram encontrados 3 casos de empate. Estes casos foram marcados com valor</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BB0000;">Warning messages:</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; 1: In (function (numeros, formato = "character")  :</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt;   NAs introduced by coercion to integer range</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; 2: Foram encontrados 3 casos de empate. Estes casos foram marcados com valor</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; `TRUE` na coluna 'empate', e podem ser inspecionados na coluna</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; 'endereco_encontrado'. Alternativamente, use `resolver_empates = TRUE` para que</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; o pacote lide com os empates automaticamente. Ver documentação da função. </span></span></span>
@@ -176,7 +170,7 @@ seis categorias gerais de <code>precisao</code>, dependendo do nível de
 exatidão com que cada endereço de input foi encontrado nos dados do
 CNEFE. s resultados trazem ainda uma estimativa da incerteza da
 localização encontrado como um <code>desvio_metros</code>. Para mais
-informações, consulte a documentação da função ou a <a href="https://ipea.github.io/geocodebr/articles/geocode.html" class="external-link"><strong>vignette
+informações, consulte a documentação da função ou a <a href="https://ipea.github.io/geocodebr/articles/geocode.html"><strong>vignette
 “geocode”</strong></a>.</p>
 </div>
 <div class="section level3">
@@ -185,7 +179,7 @@ endereços<a class="anchor" aria-label="anchor" href="#geolocaliza%C3%A7%C3%A3o-
 </h3>
 <p>A função <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code>, por sua vez, permite a
 geolocalização reversa, ou seja, a busca de endereços próximos a um
-conjunto de coordenadas geográficas. Mais detalhes na <a href="https://ipea.github.io/geocodebr/articles/geocode_reverso.html" class="external-link"><strong>vignette
+conjunto de coordenadas geográficas. Mais detalhes na <a href="https://ipea.github.io/geocodebr/articles/geocode_reverso.html"><strong>vignette
 “geocode”</strong></a>.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># amostra de pontos espaciais</span></span>
@@ -202,23 +196,7 @@ conjunto de coordenadas geográficas. Mais detalhes na <a href="https://ipea.git
 <span>  dist_max <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  verboso <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1</span></span>
-<span><span class="op">)</span></span>
-<span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpMHZPQX/duckdb</span></span>
-<span><span class="co">#&gt; This is removed when the R session ends.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> See ?duckdb_storage for details and alternatives.</span></span>
-<span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpMHZPQX/duckdb</span></span>
-<span><span class="co">#&gt; This is removed when the R session ends.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> See ?duckdb_storage for details and alternatives.</span></span></code></pre></div>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="busca-por-ceps">3. Busca por CEPs<a class="anchor" aria-label="anchor" href="#busca-por-ceps"></a>
@@ -238,15 +216,7 @@ células H3 na resolução espacial desejada.</p>
 <span>  h3_res <span class="op">=</span> <span class="fl">9</span>,</span>
 <span>  resultado_sf <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  verboso <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span><span class="op">)</span></span>
-<span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpMHZPQX/duckdb</span></span>
-<span><span class="co">#&gt; This is removed when the R session ends.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> See ?duckdb_storage for details and alternatives.</span></span></code></pre></div>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -280,14 +250,14 @@ dentro dela.</li>
 <span><span class="co">#&gt; [1] "/home/runner/.cache/R/geocodebr"</span></span>
 <span></span>
 <span><span class="fu">geocodebr</span><span class="fu">::</span><span class="fu"><a href="../reference/listar_dados_cache.html">listar_dados_cache</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_cep_localidade.parquet"                  </span></span>
-<span><span class="co">#&gt; [2] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_cep.parquet"                             </span></span>
-<span><span class="co">#&gt; [3] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_localidade.parquet"                      </span></span>
-<span><span class="co">#&gt; [4] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_cep_localidade.parquet"       </span></span>
-<span><span class="co">#&gt; [5] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_localidade.parquet"           </span></span>
-<span><span class="co">#&gt; [6] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_numero_cep_localidade.parquet"</span></span>
-<span><span class="co">#&gt; [7] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_numero_localidade.parquet"    </span></span>
-<span><span class="co">#&gt; [8] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio.parquet"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_cep_localidade.parquet"                  </span></span>
+<span><span class="co">#&gt; [2] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_cep.parquet"                             </span></span>
+<span><span class="co">#&gt; [3] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_localidade.parquet"                      </span></span>
+<span><span class="co">#&gt; [4] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_cep_localidade.parquet"       </span></span>
+<span><span class="co">#&gt; [5] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_localidade.parquet"           </span></span>
+<span><span class="co">#&gt; [6] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_numero_cep_localidade.parquet"</span></span>
+<span><span class="co">#&gt; [7] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_numero_localidade.parquet"    </span></span>
+<span><span class="co">#&gt; [8] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio.parquet"</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Índice"><h2>Nesta página</h2>
     </nav></aside>

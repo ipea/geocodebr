@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -67,7 +67,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Geocode reverso</h1>
             
-            <h4 data-toc-skip class="date">2026-08-23</h4>
+            <h4 data-toc-skip class="date">2026-09-23</h4>
       
       <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocode_reverso.Rmd" class="external-link"><code>vignettes/geocode_reverso.Rmd</code></a></small>
       <div class="d-none name"><code>geocode_reverso.Rmd</code></div>
@@ -108,35 +108,22 @@ encontrados.</p>
 <span>  verboso <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_cores <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/Rtmp6aTEeA/duckdb</span></span>
-<span><span class="co">#&gt; This is removed when the R session ends.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> See ?duckdb_storage for details and alternatives.</span></span>
-<span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/Rtmp6aTEeA/duckdb</span></span>
-<span><span class="co">#&gt; This is removed when the R session ends.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> See ?duckdb_storage for details and alternatives.</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">df_enderecos</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Simple feature collection with 3 features and 8 fields</span></span>
+<span><span class="co">#&gt; Simple feature collection with 6 features and 7 fields</span></span>
 <span><span class="co">#&gt; Geometry type: POINT</span></span>
 <span><span class="co">#&gt; Dimension:     XY</span></span>
-<span><span class="co">#&gt; Bounding box:  xmin: -51.49634 ymin: -19.29416 xmax: -39.92601 ymax: 0.3649148</span></span>
+<span><span class="co">#&gt; Bounding box:  xmin: -40.7334 ymin: -20.44142 xmax: -39.92601 ymax: -18.69095</span></span>
 <span><span class="co">#&gt; Geodetic CRS:  SIRGAS 2000</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 9</span></span></span>
-<span><span class="co">#&gt;      id estado municipio  logradouro    numero cep   localidade distancia_metros</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>     1 ES     PANCAS     CORREGO BOA …     32 2975… LAJINHA                561.</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>    11 ES     SAO MATEUS RODOVIA SAO …      6 2994… KM 13                  373.</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>    17 AP     SANTANA    RAMAL MATAO …     14 6892… PIACACA                365.</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 8</span></span></span>
+<span><span class="co">#&gt;      id estado municipio  logradouro           cep   localidade distancia_metros</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>     1 ES     COLATINA   CORREGO BOA VISTA    2970… SAO JOAO …             50.3</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>     6 ES     VIANA      ESTRADA BOM JESUS    2913… BOM JESUS…            606. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>     7 ES     COLATINA   FAZENDA SANTA LUCIA… 2970… FAZENDA S…            483. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span>     8 ES     SAO MATEUS FAZENDA ESCADINHA    2994… ESCADINHA             540. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span>    11 ES     SAO MATEUS RODOVIA ES-381       2994… KM 13                 239. </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span>    12 ES     SAO MATEUS LADEIRA DE DONA ANA  2994… KM 28                 773. </span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 1 more variable: geometry &lt;POINT [°]&gt;</span></span></span></code></pre></div>
 <p>Por padrão, a função busca pelo endereço mais próximo num raio
 aproximado de 1000 metros. No entanto, o usuário pode ajustar esse valor
@@ -150,7 +137,7 @@ a função é executada, ela baixa os dados do CNEFE e salva em um cache
 local na sua máquina. No total, esses dados somam cerca de 3 GB, o que
 pode fazer com que a primeira execução da função demore. Esses dados, no
 entanto, são salvos de forma persistente, logo eles são baixados uma
-única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados" class="external-link">aqui</a>.</p>
+única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados">aqui</a>.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Índice"><h2>Nesta página</h2>
     </nav></aside>

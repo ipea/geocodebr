@@ -3,7 +3,7 @@
 ## Geolocalização reversa: de coordenadas espaciais para endereços
 
 A função
-[`geocode_reverso()`](https://ipeagit.github.io/geocodebr/reference/geocode_reverso.md)
+[`geocode_reverso()`](https://ipea.github.io/geocodebr/reference/geocode_reverso.md)
 permite fazer geolocalização reversa, isto é, a partir de um conjunto de
 coordenadas geográficas, encontrar os endereços correspondentes ou
 próximos. Essa funcionalidade pode ser útil, por exemplo, para
@@ -36,35 +36,22 @@ df_enderecos <- geocodebr::geocode_reverso(
   verboso = FALSE,
   n_cores = 1
 )
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmp6aTEeA/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmp6aTEeA/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
 
 head(df_enderecos)
-#> Simple feature collection with 3 features and 8 fields
+#> Simple feature collection with 6 features and 7 fields
 #> Geometry type: POINT
 #> Dimension:     XY
-#> Bounding box:  xmin: -51.49634 ymin: -19.29416 xmax: -39.92601 ymax: 0.3649148
+#> Bounding box:  xmin: -40.7334 ymin: -20.44142 xmax: -39.92601 ymax: -18.69095
 #> Geodetic CRS:  SIRGAS 2000
-#> # A tibble: 3 × 9
-#>      id estado municipio  logradouro    numero cep   localidade distancia_metros
-#>   <int> <chr>  <chr>      <chr>          <int> <chr> <chr>                 <dbl>
-#> 1     1 ES     PANCAS     CORREGO BOA …     32 2975… LAJINHA                561.
-#> 2    11 ES     SAO MATEUS RODOVIA SAO …      6 2994… KM 13                  373.
-#> 3    17 AP     SANTANA    RAMAL MATAO …     14 6892… PIACACA                365.
+#> # A tibble: 6 × 8
+#>      id estado municipio  logradouro           cep   localidade distancia_metros
+#>   <int> <chr>  <chr>      <chr>                <chr> <chr>                 <dbl>
+#> 1     1 ES     COLATINA   CORREGO BOA VISTA    2970… SAO JOAO …             50.3
+#> 2     6 ES     VIANA      ESTRADA BOM JESUS    2913… BOM JESUS…            606. 
+#> 3     7 ES     COLATINA   FAZENDA SANTA LUCIA… 2970… FAZENDA S…            483. 
+#> 4     8 ES     SAO MATEUS FAZENDA ESCADINHA    2994… ESCADINHA             540. 
+#> 5    11 ES     SAO MATEUS RODOVIA ES-381       2994… KM 13                 239. 
+#> 6    12 ES     SAO MATEUS LADEIRA DE DONA ANA  2994… KM 28                 773. 
 #> # ℹ 1 more variable: geometry <POINT [°]>
 ```
 
@@ -75,7 +62,7 @@ metros) de busca. Se um ponto de *input* não tiver nenhum endereço
 próximo dentro do raio de busca, o ponto não é incluído no *output*.
 
 **Nota:** A função
-[`geocode_reverso()`](https://ipeagit.github.io/geocodebr/reference/geocode_reverso.md)
+[`geocode_reverso()`](https://ipea.github.io/geocodebr/reference/geocode_reverso.md)
 requer que os dados do CNEFE estejam armazenados localmente. A primeita
 vez que a função é executada, ela baixa os dados do CNEFE e salva em um
 cache local na sua máquina. No total, esses dados somam cerca de 3 GB, o

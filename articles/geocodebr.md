@@ -35,9 +35,9 @@ remotes::install_github("ipea/geocodebr")
 O **{geocodebr}** possui três funções principais para geolocalização de
 dados:
 
-1.  [`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
-2.  [`geocode_reverso()`](https://ipeagit.github.io/geocodebr/reference/geocode_reverso.md)
-3.  [`busca_por_cep()`](https://ipeagit.github.io/geocodebr/reference/busca_por_cep.md)
+1.  [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
+2.  [`geocode_reverso()`](https://ipea.github.io/geocodebr/reference/geocode_reverso.md)
+3.  [`busca_por_cep()`](https://ipea.github.io/geocodebr/reference/busca_por_cep.md)
 
 ### 1. Geolocalização: de endereços para coordenadas espaciais
 
@@ -46,11 +46,11 @@ no Brasil, a geolocalização desses dados pode ser feita em apenas dois
 passos:
 
 1.  O primeiro passo é usar a função
-    [`definir_campos()`](https://ipeagit.github.io/geocodebr/reference/definir_campos.md)
+    [`definir_campos()`](https://ipea.github.io/geocodebr/reference/definir_campos.md)
     para indicar os nomes das colunas no seu `data.frame` que
     correspondem a cada campo dos endereços.
 2.  O segundo passo é usar a função
-    [`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
+    [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
     para encontrar as coordenadas geográficas dos endereços de input.
 
 ``` r
@@ -84,16 +84,10 @@ df <- geocodebr::geocode(
   cache = TRUE,
   n_cores = 1
 )
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmpb3nPA2/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
-#> Warning message:
-#> Foram encontrados 3 casos de empate. Estes casos foram marcados com valor
+#> Warning messages:
+#> 1: In (function (numeros, formato = "character")  :
+#>   NAs introduced by coercion to integer range
+#> 2: Foram encontrados 3 casos de empate. Estes casos foram marcados com valor
 #> `TRUE` na coluna 'empate', e podem ser inspecionados na coluna
 #> 'endereco_encontrado'. Alternativamente, use `resolver_empates = TRUE` para que
 #> o pacote lide com os empates automaticamente. Ver documentação da função. 
@@ -101,7 +95,7 @@ df <- geocodebr::geocode(
 ```
 
 **Nota:** A função
-[`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
 requer que os dados do CNEFE estejam armazenados localmente. A primeita
 vez que a função é executada, ela baixa os dados do CNEFE e salva em um
 cache local na sua máquina. No total, esses dados somam cerca de 1.4 GB,
@@ -121,7 +115,7 @@ função ou a [**vignette
 ### 2. Geolocalização reversa: de coordenadas espaciais para endereços
 
 A função
-[`geocode_reverso()`](https://ipeagit.github.io/geocodebr/reference/geocode_reverso.md),
+[`geocode_reverso()`](https://ipea.github.io/geocodebr/reference/geocode_reverso.md),
 por sua vez, permite a geolocalização reversa, ou seja, a busca de
 endereços próximos a um conjunto de coordenadas geográficas. Mais
 detalhes na [**vignette
@@ -144,28 +138,12 @@ df_enderecos <- geocodebr::geocode_reverso(
   verboso = FALSE,
   n_cores = 1
 )
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpMHZPQX/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpMHZPQX/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
 ```
 
 ### 3. Busca por CEPs
 
 Por fim, a função
-[`busca_por_cep()`](https://ipeagit.github.io/geocodebr/reference/busca_por_cep.md)
+[`busca_por_cep()`](https://ipea.github.io/geocodebr/reference/busca_por_cep.md)
 permite fazer consultas de CEPs para encontrar endereços associados a
 cada CEP. A função recebe um vetor de CEPs e retorna um `data.frame` com
 os endereços e as coordenadas geográficas de cada CEP. O parâmetro
@@ -183,34 +161,26 @@ df_ceps <- geocodebr::busca_por_cep(
   resultado_sf = FALSE,
   verboso = FALSE
 )
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpMHZPQX/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
 ```
 
 ## Cache de dados
 
 Como comentado anteriormente, os dados do CNEFE são baixados na primeira
 vez que a
-[`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
-é executada. Esses dados ficam salvos no *cache* do pacote e não
-precisam ser baixados novamente. O pacote inclui algumas funções que
-ajudam a gerenciar o *cache*:
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md) é
+executada. Esses dados ficam salvos no *cache* do pacote e não precisam
+ser baixados novamente. O pacote inclui algumas funções que ajudam a
+gerenciar o *cache*:
 
-- [`listar_pasta_cache()`](https://ipeagit.github.io/geocodebr/reference/listar_pasta_cache.md) -
+- [`listar_pasta_cache()`](https://ipea.github.io/geocodebr/reference/listar_pasta_cache.md) -
   retorna o endereço do *cache* na sua máquina, onde os dados do CNEFE
   estão salvos;
-- [`definir_pasta_cache()`](https://ipeagit.github.io/geocodebr/reference/definir_pasta_cache.md) -
+- [`definir_pasta_cache()`](https://ipea.github.io/geocodebr/reference/definir_pasta_cache.md) -
   define uma pasta personalizada para ser usada como *cache*. Essa
   configuração é persistente entre diferentes sessões do R;
-- [`listar_dados_cache()`](https://ipeagit.github.io/geocodebr/reference/listar_dados_cache.md) -
+- [`listar_dados_cache()`](https://ipea.github.io/geocodebr/reference/listar_dados_cache.md) -
   lista todos os arquivos armazenados no *cache*;
-- [`deletar_pasta_cache()`](https://ipeagit.github.io/geocodebr/reference/deletar_pasta_cache.md) -
+- [`deletar_pasta_cache()`](https://ipea.github.io/geocodebr/reference/deletar_pasta_cache.md) -
   exclui a pasta de *cache*, bem como todos os arquivos que estavam
   armazenados dentro dela.
 
@@ -223,12 +193,12 @@ geocodebr::listar_pasta_cache()
 #> [1] "/home/runner/.cache/R/geocodebr"
 
 geocodebr::listar_dados_cache()
-#> [1] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_cep_localidade.parquet"                  
-#> [2] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_cep.parquet"                             
-#> [3] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_localidade.parquet"                      
-#> [4] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_cep_localidade.parquet"       
-#> [5] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_localidade.parquet"           
-#> [6] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_numero_cep_localidade.parquet"
-#> [7] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio_logradouro_numero_localidade.parquet"    
-#> [8] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.4.1/municipio.parquet"
+#> [1] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_cep_localidade.parquet"                  
+#> [2] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_cep.parquet"                             
+#> [3] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_localidade.parquet"                      
+#> [4] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_cep_localidade.parquet"       
+#> [5] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_localidade.parquet"           
+#> [6] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_numero_cep_localidade.parquet"
+#> [7] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio_logradouro_numero_localidade.parquet"    
+#> [8] "/home/runner/.cache/R/geocodebr/geocodebr_data_release_v0.5.0/municipio.parquet"
 ```

@@ -36,7 +36,7 @@ geocode(
 
   Um vetor de caracteres. A correspondência entre cada campo de endereço
   e o nome da coluna que o descreve na tabela `enderecos`. A função
-  [`definir_campos()`](https://ipeagit.github.io/geocodebr/reference/definir_campos.md)
+  [`definir_campos()`](https://ipea.github.io/geocodebr/reference/definir_campos.md)
   auxilia na criação deste vetor e realiza algumas verificações nos
   dados de entrada. Campos de endereço passados como `NULL` serão
   ignorados, e a função deve receber pelo menos um campo não nulo, além
@@ -57,8 +57,12 @@ geocode(
   uma mesma cidade). Esses casos são trados como 'empate' e o parâmetro
   `resolver_empates` indica se a função deve resolver esses empates
   automaticamente. Por padrão, é `TRUE`, e a função retorna apenas o
-  caso mais provável. Para mais detalhes sobre como é feito o processo
-  de desempate, consulte abaixo a seção "Detalhes".
+  caso mais provável, preservando uma linha de output por linha de
+  input. Com `FALSE`, cada endereço empatado retorna uma linha por
+  coordenada candidata (o output pode ter mais linhas que o input) e a
+  coluna `empate` é incluída no output para identificar esses casos.
+  Para mais detalhes sobre como é feito o processo de desempate,
+  consulte abaixo a seção "Detalhes".
 
 - resultado_sf:
 
@@ -119,23 +123,31 @@ abaixo.
 Lidando com casos de empate:
 
 No processo de geolocalização de dados, é possível que para alguns
-endereços de input sejam encontrados diferentes coordenadas possíveis
+endereços de input sejam encontradas diferentes coordenadas possíveis
 (e.g. duas ruas diferentes com o mesmo nome, mas em bairros distintos em
-uma mesma cidade). Esses casos são trados como empate'. Quando a função
-`geocode()` recebe o o parâmetro `resolver_empates = TRUE`, os casos de
-empate são resolvidos automaticamente pela função. A solução destes
-empates é feita da seguinte maneira:
+uma mesma cidade). Esses casos são tratados como 'empate'. Quando a
+função `geocode()` recebe o parâmetro `resolver_empates = TRUE`, os
+casos de empate são resolvidos automaticamente pela função. A solução
+destes empates é feita da seguinte maneira:
 
-1.  Quando se encontra diferente coordenadas possíveis para um mesmo
-    endereço de input, nós assumimos que essas coordendas pertencem
-    provavelmente a endereços diferentes se (a) estas coordenadas estão
-    a mais de 1Km entre si, ou (b) estão associadas a um logradouro
-    'ambíguo', i.e. que costumam se repetir em muitos bairros (e.g. "RUA
-    A", "RUA QUATRO", "RUA 10", etc). Nestes casos, a solução de
-    desempate é retornar o ponto com maior número de estabelecimentos no
-    CNEFE, valor indicado na coluna `"contagem_cnefe"`.
+1.  Antes de qualquer coisa, o pacote avalia se os pontos candidatos
+    estão muito próximos entre si. Candidatos separados por menos de 300
+    metros são considerados como representando o mesmo local, e nesses
+    casos a solução de desempate é reter apenas o ponto com maior número
+    de estabelecimentos no CNEFE, valor indicado na coluna
+    `"contagem_cnefe"`. Se ao final desta etapa restar um único ponto
+    candidato, o caso deixa de ser tratado como empate.
 
-2.  Quando as coordenadas possivelmente associadas a um endereço estão a
+2.  Quando ainda restam candidatos após a etapa anterior, nós assumimos
+    que essas coordenadas pertencem provavelmente a endereços diferentes
+    se (a) estas coordenadas estão a mais de 1Km entre si, ou (b) estão
+    associadas a um logradouro 'ambíguo', i.e. que costumam se repetir
+    em muitos bairros (e.g. "RUA A", "RUA QUATRO", "RUA 10", etc).
+    Nestes casos, a solução de desempate é retornar o ponto com maior
+    número de estabelecimentos no CNEFE, valor indicado na coluna
+    `"contagem_cnefe"`.
+
+3.  Quando as coordenadas possivelmente associadas a um endereço estão a
     menos de 1Km entre si e não se trata de um logradouro 'ambíguo', nós
     assumimos que os pontos pertencem provavelmente ao mesmo logradouro
     (e.g. diferentes CEPs ao longo de uma mesma rua). Nestes casos, a
@@ -345,14 +357,6 @@ df <- geocodebr::geocode(
   )
 #> ℹ Padronizando endereços de entrada
 #> ℹ Utilizando dados do CNEFE armazenados localmente
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmp15BUhj/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
 #> ℹ Geolocalizando endereços
 #>  Casos processados: 0/2 ■                                  0% - dn01 
 #>  Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! 

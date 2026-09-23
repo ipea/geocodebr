@@ -1,8 +1,8 @@
-# Atualiza dados no release local
+# Apaga do cache os dados de releases antigos
 
-Detecta automaticamente se o release local esta desatualizado. Se sim,
-apaga a pasta de cache do release local e atualiza a versao do release
-no caminho da pasta
+Detecta se a pasta de cache contem dados de releases anteriores ao
+utilizado pela versao atual do pacote. Se sim, apaga **apenas** as
+pastas desses releases antigos, preservando a pasta do release corrente.
 
 ## Uso
 

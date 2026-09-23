@@ -3,7 +3,7 @@
 ## Geolocalização: de endereços para coordenadas espaciais
 
 A principal função do pacote {geocodebr} é a
-[`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md),
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md),
 que recebe uma tabela (`data.frame`) de endereços como entrada e retorna
 a mesma tabela geolocalizada como saída. Para demonstrar essa função,
 utilizamos no exemplo abaixo pequeno conjunto de dados que contém
@@ -14,7 +14,7 @@ A geolocalização desses dados com **{geocodebr}** pode ser feita em
 apenas dois passos:
 
 1.  O primeiro passo é usar a função
-    [`definir_campos()`](https://ipeagit.github.io/geocodebr/reference/definir_campos.md)
+    [`definir_campos()`](https://ipea.github.io/geocodebr/reference/definir_campos.md)
     para indicar os nomes das colunas no seu `data.frame` que
     correspondem a cada campo dos endereços. No exemplo abaixo, nós
     indicamos que coluna que contém a informação de logradouro se chama
@@ -42,11 +42,11 @@ campos <- definir_campos(
 ```
 
 2.  O segundo passo é usar a função
-    [`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
+    [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
     para encontrar as coordenadas geográficas dos dados de input.
 
 **Nota:** A função
-[`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
 requer que os dados do CNEFE estejam armazenados localmente. A primeita
 vez que a função é executada, ela baixa os dados do CNEFE e salva em um
 cache local na sua máquina. No total, esses dados somam cerca de 1.2 GB,
@@ -67,14 +67,9 @@ ends_geo <- geocode(
   resultado_sf = FALSE,
   verboso = FALSE
   )
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpTnQL32/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
+#> Warning message:
+#> In (function (numeros, formato = "character")  :
+#>   NAs introduced by coercion to integer range
 #> 
 
 head(ends_geo)
@@ -87,10 +82,10 @@ head(ends_geo)
 #> 6  6      Rua Princesa Isabel    263           Estacao Experimental
 #>      nm_municipio code_muni nm_uf        lat       lon   precisao
 #> 1     Nova Iguacu   3303500    RJ -22.695509 -43.47116     numero
-#> 2 Duque de Caxias   3301702    RJ -22.779174 -43.31132     numero
-#> 3  Angra dos Reis   3300100    RJ -22.978800 -44.20846 logradouro
-#> 4  Rio de Janeiro   3304557    RJ -22.869117 -43.51140 logradouro
-#> 5     Mangaratiba   3302601    RJ -22.929864 -43.97214     numero
+#> 2 Duque de Caxias   3301702    RJ -22.779175 -43.31132     numero
+#> 3  Angra dos Reis   3300100    RJ -22.978800 -44.20847 logradouro
+#> 4  Rio de Janeiro   3304557    RJ -22.869116 -43.51140 logradouro
+#> 5     Mangaratiba   3302601    RJ -22.929865 -43.97214     numero
 #> 6      Rio Branco   1200401    AC  -9.963438 -67.83559     numero
 #>   tipo_resultado desvio_metros
 #> 1           dn01             8
@@ -123,7 +118,7 @@ algumas colunas extras discriminando separadamente cada componente do
 endereço que teria sido encontrado.
 
 Cabe também destacar aqui outros três argumentos da função
-[`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md):
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md):
 
 - `h3_res` : que permite o usuário inserir uma coluna no output
   indicando o id da célula H3 na resolução espacial desejada. Detalhes
@@ -146,12 +141,12 @@ SIRGAS2000 (EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.
 ## Processo de matching de endereços
 
 As coordenadas incluídas no resultado da
-[`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
-são calculadas a partir da média das coordenadas dos endereços do CNEFE
-que correspondem a cada um dos endereços de *input*. Esse cálculo é
-feito em duas etapas, e retorna o ponto médio dos 95% pontos mais
-próximos entre si, evitando eventual distorção por devido a poucos
-pontos muito isolados.
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md) são
+calculadas a partir da média das coordenadas dos endereços do CNEFE que
+correspondem a cada um dos endereços de *input*. Esse cálculo é feito em
+duas etapas, e retorna o ponto médio dos 95% pontos mais próximos entre
+si, evitando eventual distorção por devido a poucos pontos muito
+isolados.
 
 A correspondência entre os endereços de entrada e os do CNEFE pode ser
 feita com base em diferentes combinações de campos, impactando, assim,
@@ -180,7 +175,7 @@ abaixo.
 
 A coluna `precisao` se refere ao nível de agregação das coordenadas do
 CNEFE utilizadas no processo de geolicalização. A função
-[`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
 sempre retorna o resultado de maior precisão possível - ou seja, ela só
 vai procurar endereços com precisão `"numero_aproximado"` (ver a seguir)
 caso não tenha encontrado correspondência de precisão `"numero"`. As
@@ -286,7 +281,7 @@ tende a ser bem pequeno.
 
 - Quando o usuário passa o argumento `resultado_completo = TRUE`, a
   função
-  [`geocode()`](https://ipeagit.github.io/geocodebr/reference/geocode.md)
+  [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
   também retorna a coluna `cod_setor` com o código do setor censitário
   do endereço encontrado. Atualmente, a função somente retorna o código
   do setor dos casos em que todos os pontos do CNEFE correspondentes

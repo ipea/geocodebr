@@ -9,7 +9,7 @@ de input devem ser passados como um data.frame, no qual cada coluna
 descreve um campo do endereço (logradouro, número, cep, etc). Os resuldos dos
 endereços geolocalizados podem seguir diferentes níveis de precisão. Consulte
 abaixo a seção "Detalhes" para mais informações. As coordenadas de output
-utilizam o sistema de coordenadas geográficas SIRGAS 2000, EPSG 4674.'><meta property="og:image" content="https://ipeagit.github.io/geocodebr/logo.svg"></head><body>
+utilizam o sistema de coordenadas geográficas SIRGAS 2000, EPSG 4674.'><meta property="og:image" content="https://ipea.github.io/geocodebr/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Avance para o conteúdo</a>
 
 
@@ -17,7 +17,7 @@ utilizam o sistema de coordenadas geográficas SIRGAS 2000, EPSG 4674.'><meta pr
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -111,8 +111,11 @@ indicar diferentes coordenadas possíveis (e.g. duas ruas diferentes com o
 mesmo nome em uma mesma cidade). Esses casos são trados como 'empate' e o
 parâmetro <code>resolver_empates</code> indica se a função deve resolver esses empates
 automaticamente. Por padrão, é <code>TRUE</code>, e a função retorna apenas o caso
-mais provável. Para mais detalhes sobre como é feito o processo de
-desempate, consulte abaixo a seção "Detalhes".</p></dd>
+mais provável, preservando uma linha de output por linha de input. Com
+<code>FALSE</code>, cada endereço empatado retorna uma linha por coordenada candidata
+(o output pode ter mais linhas que o input) e a coluna <code>empate</code> é incluída
+no output para identificar esses casos. Para mais detalhes sobre como é
+feito o processo de desempate, consulte abaixo a seção "Detalhes".</p></dd>
 
 
 <dt id="arg-resultado-sf">resultado_sf<a class="anchor" aria-label="anchor" href="#arg-resultado-sf"></a></dt>
@@ -169,18 +172,24 @@ Alternativamente, o resultado pode ser um objeto <code>sf</code>.</p>
 <code>precisao</code>, <code>tipo_resultado</code> e <code>desvio_metros</code>, explicadas abaixo.</p>
 <p>Lidando com casos de empate:</p>
 <p>No processo de geolocalização de dados, é possível que para alguns endereços
-de input sejam encontrados diferentes coordenadas possíveis (e.g. duas ruas
+de input sejam encontradas diferentes coordenadas possíveis (e.g. duas ruas
 diferentes com o mesmo nome, mas em bairros distintos em uma mesma cidade).
-Esses casos são trados como empate'. Quando a função <code>geocode()</code> recebe o
-o parâmetro <code>resolver_empates = TRUE</code>, os casos de empate são resolvidos
+Esses casos são tratados como 'empate'. Quando a função <code>geocode()</code> recebe o
+parâmetro <code>resolver_empates = TRUE</code>, os casos de empate são resolvidos
 automaticamente pela função. A solução destes empates é feita da seguinte
-maneira:</p><ol><li><p>Quando se encontra diferente coordenadas possíveis para um mesmo endereço
-de input, nós assumimos que essas coordendas pertencem provavelmente a endereços
-diferentes se (a) estas coordenadas estão a mais de 1Km entre si, ou (b) estão
-associadas a um logradouro 'ambíguo', i.e. que costumam se repetir em muitos
-bairros (e.g. "RUA A", "RUA QUATRO", "RUA 10", etc). Nestes casos, a solução
-de desempate é retornar o ponto com maior número de estabelecimentos no CNEFE,
-valor indicado na coluna <code>"contagem_cnefe"</code>.</p></li>
+maneira:</p><ol><li><p>Antes de qualquer coisa, o pacote avalia se os pontos candidatos estão
+muito próximos entre si. Candidatos separados por menos de 300 metros são
+considerados como representando o mesmo local, e nesses casos a solução de
+desempate é reter apenas o ponto com maior número de estabelecimentos no
+CNEFE, valor indicado na coluna <code>"contagem_cnefe"</code>. Se ao final desta etapa
+restar um único ponto candidato, o caso deixa de ser tratado como empate.</p></li>
+<li><p>Quando ainda restam candidatos após a etapa anterior, nós assumimos que
+essas coordenadas pertencem provavelmente a endereços diferentes se (a) estas
+coordenadas estão a mais de 1Km entre si, ou (b) estão associadas a um
+logradouro 'ambíguo', i.e. que costumam se repetir em muitos bairros (e.g.
+"RUA A", "RUA QUATRO", "RUA 10", etc). Nestes casos, a solução de desempate é
+retornar o ponto com maior número de estabelecimentos no CNEFE, valor
+indicado na coluna <code>"contagem_cnefe"</code>.</p></li>
 <li><p>Quando as coordenadas possivelmente associadas a um endereço estão a menos
 de 1Km entre si e não se trata de um logradouro 'ambíguo', nós assumimos que
 os pontos pertencem provavelmente ao mesmo logradouro (e.g. diferentes CEPs
@@ -330,14 +339,6 @@ coluna <code>cod_setor</code> é <code>NA</code>.</p>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Padronizando endereços de entrada</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Utilizando dados do CNEFE armazenados localmente</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ /tmp/Rtmp15BUhj/duckdb</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">This is removed when the R session ends.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">• Extensions are re-downloaded each session.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">• Secrets are lost.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ See ?duckdb_storage for details and alternatives.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;">ℹ Geolocalizando endereços</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 0/2 ■                                  0% - dn01 </span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BB0000;"> Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! </span></span>

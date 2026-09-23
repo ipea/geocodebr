@@ -5,10 +5,7 @@ Message when caching file
 ## Uso
 
 ``` r
-cache_message(
-  local_file = parent.frame()$local_file,
-  cache = parent.frame()$cache
-)
+cache_message(local_file, cache)
 ```
 
 ## Argumentos

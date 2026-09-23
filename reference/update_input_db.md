@@ -5,7 +5,12 @@ Update input_padrao_db to remove observations previously matched
 ## Uso
 
 ``` r
-update_input_db(con, update_tb = "input_padrao_db", reference_tb)
+update_input_db(
+  con,
+  update_tb = "input_padrao_db",
+  reference_tb,
+  match_type = NULL
+)
 ```
 
 ## Argumentos
@@ -21,6 +26,11 @@ update_input_db(con, update_tb = "input_padrao_db", reference_tb)
 - reference_tb:
 
   A table written in con used as reference
+
+- match_type:
+
+  String. Se informado, apaga apenas os ids inseridos em `reference_tb`
+  com esse `tipo_resultado` (os da etapa corrente)
 
 ## Valor
 

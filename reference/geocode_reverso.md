@@ -57,8 +57,6 @@ distância entre o ponto de input e o endereço mais próximo encontrado.
 
 ``` r
 library(geocodebr)
-library(sf)
-#> Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 
 # ler amostra de dados
 pontos <- readRDS(
@@ -74,32 +72,16 @@ df_enderecos <- geocodebr::geocode_reverso(
   verboso = TRUE
   )
 #> ℹ Utilizando dados do CNEFE armazenados localmente
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmptBhSdj/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmptBhSdj/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
 
 head(df_enderecos)
-#> Simple feature collection with 1 feature and 8 fields
+#> Simple feature collection with 1 feature and 7 fields
 #> Geometry type: POINT
 #> Dimension:     XY
 #> Bounding box:  xmin: -40.7334 ymin: -19.29416 xmax: -40.7334 ymax: -19.29416
 #> Geodetic CRS:  SIRGAS 2000
-#> # A tibble: 1 × 9
-#>      id estado municipio logradouro     numero cep   localidade distancia_metros
-#>   <int> <chr>  <chr>     <chr>           <int> <chr> <chr>                 <dbl>
-#> 1     1 ES     PANCAS    CORREGO BOA V…     32 2975… LAJINHA                561.
+#> # A tibble: 1 × 8
+#>      id estado municipio logradouro        cep       localidade distancia_metros
+#>   <int> <chr>  <chr>     <chr>             <chr>     <chr>                 <dbl>
+#> 1     1 ES     COLATINA  CORREGO BOA VISTA 29700-005 SAO JOAO …             50.3
 #> # ℹ 1 more variable: geometry <POINT [°]>
 ```

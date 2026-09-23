@@ -69,28 +69,20 @@ df <- geocodebr::busca_por_cep(
   verboso = TRUE
   )
 #> ℹ Baixando dados do CNEFE
-#> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmptBhSdj/duckdb
-#> This is removed when the R session ends.
-#> • Extensions are re-downloaded each session.
-#> • Secrets are lost.
-#> ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-#> ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-#> ℹ See ?duckdb_storage for details and alternatives.
 
 head(df)
 #>          cep estado      municipio                logradouro localidade
 #>       <char> <char>         <char>                    <char>     <char>
 #> 1: 20071-001     RJ RIO DE JANEIRO AVENIDA PRESIDENTE VARGAS     CENTRO
-#> 2: 70390-025     DF       BRASILIA  EDF SEPS 702 902 BLOCO A    ASA SUL
-#> 3: 70390-025     DF       BRASILIA  EDF SEPS 702 902 BLOCO B    ASA SUL
-#> 4: 70390-025     DF       BRASILIA  EDF SEPS 702 902 BLOCO C    ASA SUL
+#> 2: 70390-025     DF       BRASILIA      SEPS 702 902 BLOCO A    ASA SUL
+#> 3: 70390-025     DF       BRASILIA      SEPS 702 902 BLOCO B    ASA SUL
+#> 4: 70390-025     DF       BRASILIA      SEPS 702 902 BLOCO C    ASA SUL
 #> 5: 99999-999   <NA>           <NA>                      <NA>       <NA>
 #>          lon       lat           h3_10
 #>        <num>     <num>          <char>
-#> 1: -43.18265 -22.90234 8aa8a06a0a1ffff
+#> 1: -43.18267 -22.90230 8aa8a06a0a1ffff
 #> 2: -47.89608 -15.79815 8aa8c249d857fff
-#> 3: -47.89439 -15.79742 8aa8c249d8e7fff
+#> 3: -47.89439 -15.79741 8aa8c249d8e7fff
 #> 4: -47.89707 -15.79922 8aa8c249d867fff
 #> 5:        NA        NA            <NA>
 ```

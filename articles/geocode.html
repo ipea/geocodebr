@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -67,7 +67,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Geocode</h1>
             
-            <h4 data-toc-skip class="date">2026-08-23</h4>
+            <h4 data-toc-skip class="date">2026-09-23</h4>
       
       <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocode.Rmd" class="external-link"><code>vignettes/geocode.Rmd</code></a></small>
       <div class="d-none name"><code>geocode.Rmd</code></div>
@@ -121,7 +121,7 @@ função é executada, ela baixa os dados do CNEFE e salva em um cache
 local na sua máquina. No total, esses dados somam cerca de 1.2 GB, o que
 pode fazer com que a primeira execução da função demore. Esses dados, no
 entanto, são salvos de forma persistente, logo eles são baixados uma
-única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados" class="external-link">aqui</a>.</p>
+única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados">aqui</a>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># geolicalização</span></span>
 <span><span class="va">ends_geo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/geocode.html">geocode</a></span><span class="op">(</span></span>
@@ -133,14 +133,9 @@ entanto, são salvos de forma persistente, logo eles são baixados uma
 <span>  resultado_sf <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  verboso <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #BB0000;">duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> /tmp/RtmpTnQL32/duckdb</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; This is removed when the R session ends.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #00BBBB;">•</span><span style="color: #BB0000;"> Extensions are re-downloaded each session.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #00BBBB;">•</span><span style="color: #BB0000;"> Secrets are lost.</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span></span></span>
-<span><span class="co"><span style="color: #BB0000;">#&gt; </span><span style="color: #0000BB;">ℹ</span><span style="color: #BB0000;"> See ?duckdb_storage for details and alternatives.</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BB0000;">Warning message:</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt; In (function (numeros, formato = "character")  :</span></span></span>
+<span><span class="co"><span style="color: #BB0000;">#&gt;   NAs introduced by coercion to integer range</span></span></span>
 <span><span class="co"><span style="color: #BB0000;">#&gt; </span></span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">ends_geo</span><span class="op">)</span></span>
@@ -153,10 +148,10 @@ entanto, são salvos de forma persistente, logo eles são baixados uma
 <span><span class="co">#&gt; 6  6      Rua Princesa Isabel    263           Estacao Experimental</span></span>
 <span><span class="co">#&gt;      nm_municipio code_muni nm_uf        lat       lon   precisao</span></span>
 <span><span class="co">#&gt; 1     Nova Iguacu   3303500    RJ -22.695509 -43.47116     numero</span></span>
-<span><span class="co">#&gt; 2 Duque de Caxias   3301702    RJ -22.779174 -43.31132     numero</span></span>
-<span><span class="co">#&gt; 3  Angra dos Reis   3300100    RJ -22.978800 -44.20846 logradouro</span></span>
-<span><span class="co">#&gt; 4  Rio de Janeiro   3304557    RJ -22.869117 -43.51140 logradouro</span></span>
-<span><span class="co">#&gt; 5     Mangaratiba   3302601    RJ -22.929864 -43.97214     numero</span></span>
+<span><span class="co">#&gt; 2 Duque de Caxias   3301702    RJ -22.779175 -43.31132     numero</span></span>
+<span><span class="co">#&gt; 3  Angra dos Reis   3300100    RJ -22.978800 -44.20847 logradouro</span></span>
+<span><span class="co">#&gt; 4  Rio de Janeiro   3304557    RJ -22.869116 -43.51140 logradouro</span></span>
+<span><span class="co">#&gt; 5     Mangaratiba   3302601    RJ -22.929865 -43.97214     numero</span></span>
 <span><span class="co">#&gt; 6      Rio Branco   1200401    AC  -9.963438 -67.83559     numero</span></span>
 <span><span class="co">#&gt;   tipo_resultado desvio_metros</span></span>
 <span><span class="co">#&gt; 1           dn01             8</span></span>

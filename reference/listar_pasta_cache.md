@@ -2,7 +2,7 @@
 
 Obtém o caminho da pasta utilizada para armazenar em cache os dados do
 geocodebr. Útil para inspecionar a pasta configurada com
-[`definir_pasta_cache()`](https://ipeagit.github.io/geocodebr/reference/definir_pasta_cache.md)
+[`definir_pasta_cache()`](https://ipea.github.io/geocodebr/reference/definir_pasta_cache.md)
 em uma sessão anterior do R. Retorna a pasta de cache padrão caso
 nenhuma pasta personalizado tenha sido configurada anteriormente.
 

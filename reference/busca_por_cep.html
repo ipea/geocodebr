@@ -3,7 +3,7 @@
 coordenadas de output utilizam o sistema de coordenadas geográficas SIRGAS
 2000, EPSG 4674."><meta property="og:description" content="Busca endereços e suas coordenadas geográficas a partir de um CEP. As
 coordenadas de output utilizam o sistema de coordenadas geográficas SIRGAS
-2000, EPSG 4674."><meta property="og:image" content="https://ipeagit.github.io/geocodebr/logo.svg"></head><body>
+2000, EPSG 4674."><meta property="og:image" content="https://ipea.github.io/geocodebr/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Avance para o conteúdo</a>
 
 
@@ -11,7 +11,7 @@ coordenadas de output utilizam o sistema de coordenadas geográficas SIRGAS
 
     <a class="navbar-brand me-2" href="../index.html">geocodebr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.6.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Versão lançada">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Alternar de navegação">
@@ -119,28 +119,20 @@ longitude (<code>lon</code>). Alternativamente, o resultado pode ser um objeto <
 <span class="r-in"><span>  verboso <span class="op">=</span> <span class="cn">TRUE</span></span></span>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">ℹ</span> Baixando dados do CNEFE</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> duckdb keeps downloaded extensions and secrets in a temporary directory:</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/RtmptBhSdj/duckdb</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> This is removed when the R session ends.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Secrets are lost.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> See ?duckdb_storage for details and alternatives.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          cep estado      municipio                logradouro localidade</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       &lt;char&gt; &lt;char&gt;         &lt;char&gt;                    &lt;char&gt;     &lt;char&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1: 20071-001     RJ RIO DE JANEIRO AVENIDA PRESIDENTE VARGAS     CENTRO</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2: 70390-025     DF       BRASILIA  EDF SEPS 702 902 BLOCO A    ASA SUL</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3: 70390-025     DF       BRASILIA  EDF SEPS 702 902 BLOCO B    ASA SUL</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4: 70390-025     DF       BRASILIA  EDF SEPS 702 902 BLOCO C    ASA SUL</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2: 70390-025     DF       BRASILIA      SEPS 702 902 BLOCO A    ASA SUL</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3: 70390-025     DF       BRASILIA      SEPS 702 902 BLOCO B    ASA SUL</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4: 70390-025     DF       BRASILIA      SEPS 702 902 BLOCO C    ASA SUL</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5: 99999-999   &lt;NA&gt;           &lt;NA&gt;                      &lt;NA&gt;       &lt;NA&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          lon       lat           h3_10</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        &lt;num&gt;     &lt;num&gt;          &lt;char&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1: -43.18265 -22.90234 8aa8a06a0a1ffff</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1: -43.18267 -22.90230 8aa8a06a0a1ffff</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2: -47.89608 -15.79815 8aa8c249d857fff</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3: -47.89439 -15.79742 8aa8c249d8e7fff</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3: -47.89439 -15.79741 8aa8c249d8e7fff</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4: -47.89707 -15.79922 8aa8c249d867fff</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5:        NA        NA            &lt;NA&gt;</span>
 </code></pre></div>
