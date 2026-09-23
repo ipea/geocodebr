@@ -5,7 +5,8 @@ Duration: 6m 41s
 
 0 errors ✔ | 0 warnings ✔ | 0 notes ✔
 
-obs. URL <www.ipea.gov.br> works fine on the browser.
+obs.1 URL <www.ipea.gov.br> works fine on the browser.
+obs.2 URL related to python has been removed
 
 
 ## Mudanças grandes (Major changes)
