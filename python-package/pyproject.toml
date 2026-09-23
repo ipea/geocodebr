@@ -4,21 +4,19 @@ build-backend = "hatchling.build"
 
 [project]
 name = "geocodebr"
-version = "0.1.0"
+version = "0.1.1"
 description = "Geolocalização de endereços brasileiros com DuckDB"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE.txt"]
 authors = [
-  { name = "Rafael H. M. Pereira", email = "rafa.pereira.br@gmail.com" },
-  { name = "Daniel Herszenhut", email = "dhersz@gmail.com" },
+  { name = "Rafael H. M. Pereira"},
+  { name = "Daniel Herszenhut" },
   { name = "Gabriel Garcia de Almeida" },
+  { name = "Camila Gonçalves de Brito" }
 ]
-maintainers = [
-  { name = "Camila Gonçalves de Brito" },
-  { name = "Jefferson Silva dos Anjos" }
-]
+
 keywords = ["geocoding", "geolocation", "enderecos", "brasil", "cnefe", "ibge", "duckdb"]
 classifiers = [
   "Development Status :: 3 - Alpha",
