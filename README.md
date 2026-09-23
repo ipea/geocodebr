@@ -38,13 +38,18 @@ remotes::install_github("ipea/geocodebr", subdir = "r-package")
 ### Python
 
 A versão Python do {geocodebr} usa o mesmo conjunto de dados e os mesmos
-nomes de funções do pacote R, com DuckDB como motor tabular principal.
-No momento, ainda está em desenvolvimento (a publicação no PyPI está
-planejada). Para instalar localmente:
+nomes de funções do pacote R, com DuckDB como motor tabular principal. O
+pacote está disponível no PyPI:
 
 ``` bash
-cd python-package
-python -m pip install -e .
+python -m pip install geocodebr
+```
+
+Para usar `geocode_reverso()` ou receber o resultado como
+`geopandas.GeoDataFrame` (`resultado_gpd=True`), instale o extra `geo`:
+
+``` bash
+python -m pip install "geocodebr[geo]"
 ```
 
 ## Utilização em R
