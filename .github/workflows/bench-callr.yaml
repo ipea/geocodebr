@@ -24,10 +24,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
 
     env:
-      RODADAS: 8
+      RODADAS: 20
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
