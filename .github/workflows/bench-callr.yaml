@@ -1,0 +1,89 @@
+# Benchmark temporario: geocode() (R) em processo x via callr em Linux/macOS.
+# Pergunta: o R fora do Windows deteriora entre chamadas sem o callr? Ver
+# quality_reports/diagnoses/2026-09-24_geocode-callr-deterioracao-heap.md e o
+# plano quality_reports/plans/2026-09-24_geocode-callr-condicional.md.
+# CONTIDO A BRANCH bench-callr-linux: nao mesclar na main.
+
+name: bench-callr
+
+on:
+  push:
+    branches:
+      - bench-callr-linux
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    if: github.ref == 'refs/heads/bench-callr-linux'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    env:
+      RODADAS: 8
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: r-package
+          dependencies: '"hard"'
+          extra-packages: any::ps, local::.
+
+      - name: Restore CNEFE cache (R)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/R/geocodebr
+            ~/Library/Caches/org.R-project.R/R/geocodebr
+          key: cnefe-r-${{ runner.os }}-v0.5.0
+
+      - name: Session info
+        run: |
+          Rscript -e 'sessionInfo(); cat("cores:", parallelly::availableCores(), "\n"); cat("duckdb", as.character(packageVersion("duckdb")), "\n")'
+
+      - name: Aquecimento (download do CNEFE, fora da medicao)
+        run: Rscript -e 'invisible(geocodebr::download_cnefe(tabela = "todas", verboso = TRUE))'
+
+      - name: Braco em processo (geocode_core, mesmo processo)
+        run: Rscript quality_reports/diagnoses/2026-09-24_bench_callr_portavel.R inproc $RODADAS inproc bench_inproc.csv
+
+      - name: Braco callr (geocode(), subprocesso por chamada)
+        run: Rscript quality_reports/diagnoses/2026-09-24_bench_callr_portavel.R callr $RODADAS callr bench_callr.csv
+
+      - name: Resumo
+        if: always()
+        run: |
+          Rscript -e '
+            fs <- intersect(c("bench_inproc.csv", "bench_callr.csv"), list.files())
+            d <- do.call(rbind, lapply(fs, read.csv))
+            print(d)
+            out <- c("## ", Sys.info()[["sysname"]], "\n\n| modo | rodada | wall_s | rss_depois_mb | checksum_lat |\n|---|---|---|---|---|\n")
+            out <- c(out, sprintf("| %s | %d | %.2f | %d | %.6f |\n", d$modo, d$rodada, d$wall_s, d$rss_depois_mb, d$checksum_lat))
+            for (m in unique(d$modo)) {
+              w <- d$wall_s[d$modo == m]
+              out <- c(out, sprintf("\n**%s**: 1a = %.2f s, ultima = %.2f s, razao = %.2fx, mediana 2-%d = %.2f s\n",
+                                    m, w[1], w[length(w)], w[length(w)] / w[1], length(w), median(w[-1])))
+            }
+            cat(out, sep = "", file = Sys.getenv("GITHUB_STEP_SUMMARY"), append = TRUE)
+          '
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-callr-${{ matrix.os }}
+          path: bench_*.csv
