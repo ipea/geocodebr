@@ -86,13 +86,18 @@ geocode <- function(
   cache = TRUE,
   n_cores = NULL
 ) {
-  # O corpo roda em um subprocesso via callr. Atencao: o subprocesso NAO herda o
-  # namespace desta sessao - ele carrega o geocodebr que estiver instalado na
-  # biblioteca (.libPaths()). Se os dois divergirem - tipico ao desenvolver com
-  # devtools::load_all(), ou com uma instalacao antiga na biblioteca - as funcoes
-  # internas simplesmente somem la dentro ("could not find function geocode_core").
-  # Por isso: em modo dev, mandamos o subprocesso carregar o mesmo codigo-fonte;
-  # fora dele, conferimos que as versoes batem antes de rodar.
+  # O motor (geocode_core) roda em processo ou num subprocesso callr, conforme
+  # usar_callr(): o subprocesso so e necessario no Windows quando a sessao roda
+  # num exe sem Segment Heap (ex.: rsession.exe do RStudio), onde o DuckDB
+  # degrada a cada chamada no mesmo processo. Ver usar_callr() abaixo.
+  #
+  # No callr, o subprocesso NAO herda o namespace desta sessao - ele carrega o
+  # geocodebr que estiver instalado na biblioteca (.libPaths()). Se os dois
+  # divergirem - tipico ao desenvolver com devtools::load_all(), ou com uma
+  # instalacao antiga na biblioteca - as funcoes internas somem la dentro
+  # ("could not find function geocode_core"). Por isso: em modo dev, mandamos o
+  # subprocesso carregar o mesmo codigo-fonte; fora dele, conferimos que as
+  # versoes batem antes de rodar.
   dev_path <- caminho_pacote_dev()
   versao_sessao <- as.character(getNamespaceVersion(asNamespace("geocodebr")))
 
@@ -108,53 +113,89 @@ geocode <- function(
   )
   on.exit(unlink(arquivo_saida), add = TRUE)
 
-  resumo_filho <- callr::r(
-    func = function(
-      dev_path,
-      versao_sessao,
-      enderecos,
-      campos_endereco,
-      resultado_completo,
-      resolver_empates,
-      resultado_sf,
-      h3_res,
-      padronizar_enderecos,
-      verboso,
-      cache,
-      n_cores,
-      arquivo_saida
-    ) {
-      if (!is.null(dev_path)) {
-        if (!requireNamespace("pkgload", quietly = TRUE)) {
+  # Nos dois caminhos o resultado sai do DuckDB para o mesmo parquet e passa pelo
+  # mesmo pos-processamento abaixo, entao o output e identico por construcao
+  if (!usar_callr()) {
+    # copy(): o motor faz setDT()/:= e alteraria por referencia o objeto do
+    # usuario -- protecao que o callr dava de graca. A chamada fica explicita
+    # (sem do.call) para o data.frame nunca ser embutido na call
+    resumo_filho <- geocode_core(
+      enderecos = data.table::copy(enderecos),
+      campos_endereco = campos_endereco,
+      resultado_completo = resultado_completo,
+      resolver_empates = resolver_empates,
+      resultado_sf = resultado_sf,
+      h3_res = h3_res,
+      padronizar_enderecos = padronizar_enderecos,
+      verboso = verboso,
+      cache = cache,
+      n_cores = n_cores,
+      arquivo_saida = arquivo_saida
+    )
+  } else {
+    resumo_filho <- callr::r(
+      func = function(
+        dev_path,
+        versao_sessao,
+        enderecos,
+        campos_endereco,
+        resultado_completo,
+        resolver_empates,
+        resultado_sf,
+        h3_res,
+        padronizar_enderecos,
+        verboso,
+        cache,
+        n_cores,
+        arquivo_saida
+      ) {
+        if (!is.null(dev_path)) {
+          if (!requireNamespace("pkgload", quietly = TRUE)) {
+            stop(
+              "O geocodebr foi carregado em modo de desenvolvimento ",
+              "(devtools::load_all()), e o pacote 'pkgload' e necessario para ",
+              "reproduzir esse carregamento no subprocesso usado por geocode(). ",
+              "Instale o pkgload ou instale o geocodebr normalmente.",
+              call. = FALSE
+            )
+          }
+          pkgload::load_all(dev_path, quiet = TRUE)
+        }
+
+        ns <- asNamespace("geocodebr")
+        versao_subprocesso <- as.character(getNamespaceVersion(ns))
+        if (!identical(versao_subprocesso, versao_sessao)) {
           stop(
-            "O geocodebr foi carregado em modo de desenvolvimento ",
-            "(devtools::load_all()), e o pacote 'pkgload' e necessario para ",
-            "reproduzir esse carregamento no subprocesso usado por geocode(). ",
-            "Instale o pkgload ou instale o geocodebr normalmente.",
+            "Divergencia de versao do geocodebr: a sessao usa a ", versao_sessao,
+            " e o subprocesso interno carregou a ", versao_subprocesso,
+            " de ", dirname(getNamespaceInfo(ns, "path")), ". ",
+            "Reinstale o geocodebr para que as duas coincidam.",
             call. = FALSE
           )
         }
-        pkgload::load_all(dev_path, quiet = TRUE)
-      }
 
-      ns <- asNamespace("geocodebr")
-      versao_subprocesso <- as.character(getNamespaceVersion(ns))
-      if (!identical(versao_subprocesso, versao_sessao)) {
-        stop(
-          "Divergencia de versao do geocodebr: a sessao usa a ", versao_sessao,
-          " e o subprocesso interno carregou a ", versao_subprocesso,
-          " de ", dirname(getNamespaceInfo(ns, "path")), ". ",
-          "Reinstale o geocodebr para que as duas coincidam.",
-          call. = FALSE
+        # Run internal engine
+        # resultado_sf/h3_res seguem sendo passados mesmo que o pos-processamento
+        # (H3, sf) rode no processo pai: e o geocode_core() que valida os dois com
+        # checkmate, e essa validacao precisa continuar acontecendo aqui
+        geocode_core <- get("geocode_core", envir = ns)
+        geocode_core(
+          enderecos = enderecos,
+          campos_endereco = campos_endereco,
+          resultado_completo = resultado_completo,
+          resolver_empates = resolver_empates,
+          resultado_sf = resultado_sf,
+          h3_res = h3_res,
+          padronizar_enderecos = padronizar_enderecos,
+          verboso = verboso,
+          cache = cache,
+          n_cores = n_cores,
+          arquivo_saida = arquivo_saida
         )
-      }
-
-      # Run internal engine
-      # resultado_sf/h3_res seguem sendo passados mesmo que o pos-processamento
-      # (H3, sf) rode no processo pai: e o geocode_core() que valida os dois com
-      # checkmate, e essa validacao precisa continuar acontecendo aqui
-      geocode_core <- get("geocode_core", envir = ns)
-      geocode_core(
+      },
+      args = list(
+        dev_path = dev_path,
+        versao_sessao = versao_sessao,
         enderecos = enderecos,
         campos_endereco = campos_endereco,
         resultado_completo = resultado_completo,
@@ -166,26 +207,11 @@ geocode <- function(
         cache = cache,
         n_cores = n_cores,
         arquivo_saida = arquivo_saida
-      )
-    },
-    args = list(
-      dev_path = dev_path,
-      versao_sessao = versao_sessao,
-      enderecos = enderecos,
-      campos_endereco = campos_endereco,
-      resultado_completo = resultado_completo,
-      resolver_empates = resolver_empates,
-      resultado_sf = resultado_sf,
-      h3_res = h3_res,
-      padronizar_enderecos = padronizar_enderecos,
-      verboso = verboso,
-      cache = cache,
-      n_cores = n_cores,
-      arquivo_saida = arquivo_saida
-    ),
-    show = TRUE,
-    package = FALSE
-  )
+      ),
+      show = TRUE,
+      package = FALSE
+    )
+  }
 
   # le o resultado gravado pelo filho ------------------------------------------
   # altrep desligado de proposito: com altrep as colunas voltam lazy e o custo de
@@ -230,6 +256,26 @@ caminho_pacote_dev <- function() {
   } else {
     NULL
   }
+}
+
+
+# TRUE quando geocode() precisa rodar o motor num subprocesso callr: so no
+# Windows com o heap NT legado, onde o DuckDB multithread degrada a cada chamada
+# no mesmo processo (duckdb/duckdb#24027). O heap e fixado pelo manifesto do exe
+# que hospeda a sessao: Rterm/Rgui/Rscript declaram Segment Heap; o rsession.exe
+# do RStudio nao. Linux e macOS nao tem o problema (medido). Na duvida, callr.
+# Unico ponto de decisao -- e de mock nos testes. Ver
+# quality_reports/diagnoses/2026-09-24_geocode-callr-deterioracao-heap.md
+usar_callr <- function() {
+  if (.Platform$OS.type != "windows") {
+    return(FALSE)
+  }
+  exe <- tryCatch(ps::ps_exe(), error = function(e) "")
+  if (!isTRUE(file.exists(exe))) {
+    return(TRUE)
+  }
+  bytes <- readBin(exe, what = "raw", n = file.size(exe))
+  length(grepRaw("SegmentHeap</heapType>", bytes, fixed = TRUE)) == 0
 }
 
 

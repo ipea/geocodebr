@@ -423,3 +423,25 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   só de um lado). Parear por chave natural única (`co_familiar_fam`) e checar igualdade das colunas de
   input coluna a coluna antes de atribuir qualquer diferença ao pacote. **Por quê:** o pareamento
   posicional deu 43,87 M de "divergências" de input que eram só ordem.
+
+- `[LEARN:duckdb]` A deterioracao do `geocode()` sem `callr` no R e o mesmo problema de heap do Python
+  (duckdb/duckdb#24027), **nao** algo do geocodebr: `Rterm.exe`/`Rgui.exe`/`Rscript.exe` declaram
+  `SegmentHeap` no manifesto, o `rsession.exe` do RStudio **nao**. O `callr` sobe `R.home("bin")/Rterm`,
+  entao troca o heap alem de zerar o processo. A/B de 24/09 (large_sample, 8 rodadas, Rterm com so a linha
+  do heap removida): NT em processo 11,6 -> 18,1 s (1,55x); SegmentHeap em processo plano em ~8 s (o mais
+  rapido); com callr, plano em ~11-12 s (overhead ~3,3 s/chamada); 4 threads so atenua (1,21x).
+  **Por que:** "o DuckDB degrada sem callr" leva a otimizar o lugar errado. Detalhes e opcoes em
+  `quality_reports/diagnoses/2026-09-24_geocode-callr-deterioracao-heap.md`.
+  **Implementado em 27/09** (plano v3): `usar_callr()` em `R/geocode.R` decide; `callr` so no Windows sem
+  Segment Heap. Linux/macOS medidos planos em processo (Actions, 25/09). Efeito colateral: o custo de
+  +9,5 s do `load_all` no filho (entrada acima) so existe agora no RStudio/Windows.
+
+- `[LEARN:paridade]` `similaridade_logradouro` com `resultado_completo = TRUE`: o R fazia
+  `UPDATE output_db2 SET ... = COALESCE(..., 1)` **antes** do `LEFT JOIN`, então input sem correspondência
+  saía `NA`; o "patch_merge" do Python moveu o `COALESCE` para a projeção **depois** do JOIN e passou a
+  devolver `1.0` nessas linhas. O `pytest -m r_parity` não pegou porque os fixtures geocodificam 100% das
+  linhas. Em 24/09 o R trocou o `UPDATE` pela projeção já com `CASE WHEN y.tempidgeocodebr IS NULL THEN
+  NULL ELSE COALESCE(...) END` (mantém `NA`); a correção do Python ficou para os mantenedores do porte,
+  via issue no GitHub — até ela ser mesclada, a paridade nesse ponto segue quebrada. **Por quê:** mover um
+  `UPDATE` pré-JOIN para a projeção pós-JOIN muda o valor das linhas sem match; e fixture sem linha
+  não encontrada é ponto cego do teste de paridade.

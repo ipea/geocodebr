@@ -252,6 +252,10 @@ test_that("errors with incorrect input", {
 # validar o input. Aqui forcamos um erro de validacao da Etapa 0: se a mensagem
 # vier de dentro do motor, o subprocesso achou geocode_core.
 test_that("subprocesso do callr enxerga as funcoes internas do pacote", {
+  # forca o caminho callr em qualquer SO (fora do Windows com heap legado,
+  # geocode() rodaria em processo e este teste nao exercitaria o subprocesso)
+  local_mocked_bindings(usar_callr = function() TRUE)
+
   campos_invalidos <- geocodebr::definir_campos(
     logradouro = "coluna_que_nao_existe",
     municipio = "nm_municipio",
@@ -269,4 +273,24 @@ test_that("subprocesso do callr enxerga as funcoes internas do pacote", {
 
   expect_false(grepl("could not find function", erro, fixed = TRUE))
   expect_true(grepl("coluna_que_nao_existe", erro, fixed = TRUE))
+})
+
+
+
+# os dois caminhos de geocode() -- em processo e via callr (ver usar_callr()) --
+# precisam dar o mesmo output, e o caminho em processo nao pode alterar o objeto
+# do usuario (o motor faz setDT()/:= por referencia)
+test_that("geocode() em processo = via callr, sem alterar o input", {
+  entrada <- input_df[1:50, ]
+  # copia PROFUNDA: `antes <- entrada` seria alterada junto por setDT() e o
+  # expect_identical() abaixo passaria mesmo com o input modificado
+  antes <- data.table::copy(entrada)
+
+  local_mocked_bindings(usar_callr = function() FALSE)
+  em_processo <- tester(enderecos = entrada, resolver_empates = TRUE)
+  expect_identical(entrada, antes)
+
+  local_mocked_bindings(usar_callr = function() TRUE)
+  via_callr <- tester(enderecos = entrada, resolver_empates = TRUE)
+  expect_identical(em_processo, via_callr)
 })

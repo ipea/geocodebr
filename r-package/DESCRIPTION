@@ -1,7 +1,7 @@
 Type: Package
 Package: geocodebr
 Title: Geolocalização De Endereços Brasileiros (Geocoding Brazilian Addresses)
-Version: 0.7.0
+Version: 0.7.0.0001
 Authors@R: c(
     person("Rafael H. M.", "Pereira", , "rafa.pereira.br@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2125-7465")),
@@ -47,6 +47,7 @@ Imports:
     httr2 (>= 1.0.0),
     nanoarrow (>= 0.3.0.1),
     parallelly,
+    ps,
     purrr,
     rlang,
     sf,

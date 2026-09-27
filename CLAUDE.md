@@ -218,9 +218,12 @@ Coordenadas de entrada e saída usam **SIRGAS 2000, EPSG 4674**.
 
 ## Arquitetura interna
 
-- **`geocode()` roda seu corpo dentro de `callr::r()`** (`R/geocode.R`) — processo R separado, por isolamento
-  de memória/DuckDB. Consequência prática ao depurar: `browser()` ou `print()` dentro do corpo não se comportam
-  como numa chamada comum. Para investigar, extraia a lógica ou chame as funções internas diretamente.
+- **`geocode()` só usa `callr::r()` no Windows com heap legado** (`R/geocode.R`, `usar_callr()`). Quando o exe
+  que hospeda a sessão não declara Segment Heap (ex.: `rsession.exe` do RStudio), o motor roda num processo
+  separado, porque ali o DuckDB degrada a cada chamada no mesmo processo. Em Linux, macOS e Windows sob
+  Rterm/Rgui/Rscript, roda na própria sessão (2–3 s mais rápido, medido). Ao depurar no caminho `callr`,
+  `browser()`/`print()` dentro do motor não se comportam como numa chamada comum: chame `geocode_core()` direto
+  ou mocke `usar_callr()`. Diagnóstico: `quality_reports/diagnoses/2026-09-24_geocode-callr-deterioracao-heap.md`.
 - **Backend DuckDB + Arrow/Parquet** — `R/create_geocodebr_db.R` cria a conexão; `R/register_cnefe_tables.R`
   registra as tabelas do CNEFE. Extensão espacial via `duckspatial`.
 - **Matching em camadas** — determinístico em `R/match_cases.R`; probabilístico por similaridade de **Jaro**
@@ -266,10 +269,12 @@ vários parâmetros são compartilhados por três ou mais funções exportadas.
 
 ### geocode()
 
-`geocode()` (`R/geocode.R`) é apenas um invólucro: todo o corpo roda dentro de `callr::r()`, num processo R
-separado. Isso isola a memória do DuckDB e — efeito colateral importante — **protege o objeto do usuário**,
-já que o motor usa `data.table::setDT()` e `:=` que modificariam `enderecos` por referência. O motor real é
-`geocode_core()`, no mesmo arquivo.
+`geocode()` (`R/geocode.R`) é apenas um invólucro. O motor real é `geocode_core()`, no mesmo arquivo, e roda
+em processo ou num subprocesso `callr`, conforme `usar_callr()` (ver "Arquitetura interna"). Nos dois caminhos
+o resultado sai do DuckDB para um parquet temporário e passa pelo mesmo pós-processamento, então o output é
+idêntico por construção. **O objeto do usuário precisa ser protegido**, porque o motor usa
+`data.table::setDT()` e `:=`, que modificariam `enderecos` por referência. No caminho `callr` isso vem de graça;
+em processo, `geocode()` passa `data.table::copy(enderecos)`. Não remover essa cópia (há teste de regressão).
 
 **Etapa 0 — validação e preparação do input.** `checkmate` valida os tipos; `check_clean_colnames()`
 rejeita nomes de coluna com qualquer caractere fora de `[A-Za-z0-9_]`. `assert_and_assign_address_fields()`
@@ -436,7 +441,7 @@ usuário veja o que não foi achado. Se *nenhum* CEP for encontrado, a função 
 
 | | `geocode()` | `geocode_reverso()` | `busca_por_cep()` |
 |---|---|---|---|
-| Isolamento em `callr` | Sim | Não | Não |
+| Isolamento em `callr` | Só no Windows com heap legado (RStudio) | Não | Não |
 | Tabelas CNEFE baixadas | 8 (todas) | 1 | 1 |
 | Extensão espacial DuckDB | Não | **Sim** | Não |
 | Como limita municípios | Colunas UF+município do input (obrigatórias) | Join espacial com bboxes | Não limita |
@@ -474,7 +479,7 @@ interface (não de resultado):
 
 | Python (`geocodebr/`) | R (`r-package/R/`) | Conteúdo |
 |---|---|---|
-| `geocode.py` | `geocode.R` | Pipeline do `geocode()`. **Sem `callr`** — roda no processo do usuário; o input é materializado em `polars` (o objeto do usuário não é modificado por referência, então o isolamento do R não é necessário) |
+| `geocode.py` | `geocode.R` | Pipeline do `geocode()`. **Sem subprocesso** — roda no processo do usuário; o input é materializado em `polars` (o objeto do usuário não é modificado por referência). No Windows sem Segment Heap, em vez do subprocesso que o R usa, limita as threads (`_heap.py`) |
 | `matching.py` | `match_cases.R`, `match_cases_probabilistic.R`, `match_weighted_cases.R`, `match_weighted_cases_probabilistic.R`, `match_helpers.R`, `trata_empates_geocode_duckdb.R` + `update_input_db`/`add_precision_col`/`merge_results_to_input`/`cria_col_logradouro_confusao` de `utils.R` | Os quatro `match_*()`, desempate, e as etapas SQL do laço |
 | `match_types.py` | `utils.R` (`all_possible_match_types`, `get_key_cols`, `get_reference_table`, `get_prob_match_cutoff`) | Módulo **puro** (sem DuckDB): a escada de 25 etapas e seus metadados |
 | `string_dist.py` | `string_dist.R` | Similaridade de Jaro no DuckDB |
