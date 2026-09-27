@@ -2,6 +2,8 @@
 
 ## geocodebr v0.7.0
 
+Lançamento CRAN: 2026-09-23
+
 ### Mudanças grandes (Major changes)
 
 - Novo cache de dados
@@ -32,6 +34,17 @@
 
 ### Mudanças pequenas (Minor changes)
 
+- A função
+  [`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
+  agora roda na própria sessão do R no Linux, no macOS e no Windows fora
+  do RStudio (Rterm, Rgui, Rscript), o que a deixa de 2 a 3 segundos
+  mais rápida por chamada. Com isso, mensagens e avisos da função podem
+  ser capturados com
+  [`suppressMessages()`](https://rdrr.io/r/base/message.html) e
+  [`suppressWarnings()`](https://rdrr.io/r/base/warning.html). No
+  Windows, dentro do RStudio, ela continua rodando num processo
+  separado, que evita a perda progressiva de desempenho do DuckDB em
+  chamadas sucessivas.
 - Otimização de diversas etapas da função
   [`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md),
   deixando a função com menor uso de memória e aprox. 17% mais rápida em
