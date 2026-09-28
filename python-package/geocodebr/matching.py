@@ -335,7 +335,6 @@ def merge_results_to_input(
     select_columns: list[str],
     resultado_completo: bool,
     incluir_empate: bool = False,
-    materializar: bool = False,
 ) -> None:
     select_columns_y = [
         "lat",
@@ -387,13 +386,12 @@ def merge_results_to_input(
             expr = f"{quote_ident(y)}.{quote_ident(col)}"
         y_exprs.append(f"{expr} AS {quote_ident(col)}")
     select_y = ", ".join(y_exprs)
-    # VIEW por padrao: o resultado vai do JOIN direto para o Arrow no fetch final,
-    # sem uma segunda copia inteira no DuckDB. TABLE so quando add_h3_columns()
-    # precisa fazer ALTER/UPDATE nela
-    tipo = "TABLE" if materializar else "VIEW"
+    # TABLE, nao VIEW: com VIEW o JOIN + ORDER BY rodam durante o fetch para o
+    # Arrow, e em bases grandes o processo fica com ~10 GB retidos apos o
+    # retorno (43,9 M linhas, Windows), sem reduzir o pico
     con.execute(
         f"""
-        CREATE OR REPLACE TEMP {tipo} geocodebr_result AS
+        CREATE OR REPLACE TEMP TABLE geocodebr_result AS
         SELECT {select_x}, {select_y}
         FROM {quote_ident(x)}
         LEFT JOIN {quote_ident(y)}

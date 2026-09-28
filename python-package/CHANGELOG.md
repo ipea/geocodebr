@@ -34,9 +34,6 @@
   vez por grupo de candidatos, e não uma vez por candidato, e o agrupamento
   usa colunas curtas em vez do texto do endereço. Mesma query do pacote R. O
   resultado não muda.
-- `geocode()`: sem `h3_res`, o resultado final passa do DuckDB direto para o
-  Arrow, sem uma cópia intermediária inteira no banco. Um pouco menos de
-  memória e de tempo em bases grandes. O resultado não muda.
 - `geocode()`: as tabelas de logradouros usadas na busca probabilística passam
   a ser filtradas também pelos estados do input, e não só pelos municípios,
   deixando de carregar municípios homônimos de outros estados. Espelha o

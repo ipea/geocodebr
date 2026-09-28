@@ -1,6 +1,6 @@
 # Plano — Python: não manter uma segunda cópia do resultado no DuckDB (lição 6)
 
-**Status:** APPROVED (27/09) — implementado; ver "Resultado" no fim
+**Status:** REVERTIDO (28/09) — implementado em 27/09 e desfeito; ver "Revertido" no fim
 **Data:** 27/09/2026
 **Origem:** lição B6 de `quality_reports/diagnoses/2026-09-23_licoes-cruzadas-geocode-R-Python.md`
 **Princípio:** o mínimo de código, sem mudar nenhum resultado.
@@ -125,3 +125,42 @@ Implementado como planejado: `merge_results_to_input(..., materializar=False)` c
 
   O tempo total em 5M saiu maior nas rodadas "depois" (70 / 68 s vs 60 / 61 s). Como a única fase que o
   patch toca ficou mais rápida, isso é ruído da máquina fora do trecho alterado.
+
+## Revertido (28/09/2026)
+
+A `VIEW` foi desfeita: `merge_results_to_input()` volta a criar sempre `TEMP TABLE geocodebr_result`, e o
+parâmetro `materializar` saiu (`matching.py`, `geocode.py`). A entrada correspondente do `CHANGELOG.md` foi
+removida — não chegou a ser publicada.
+
+**Motivo:** no CadÚnico completo (`sample_data/df_full_data.parquet`, 43,9 M linhas; Windows, Segment Heap,
+`n_cores=7`), a `VIEW` deixa ~10 GB retidos no processo depois que o `geocode()` retorna, sem reduzir o pico.
+Uma rodada por variante, todas com o restante do PR #117 aplicado:
+
+| Após o `geocode()` retornar | `VIEW` | `TABLE` |
+|---|---|---|
+| Working set | 20,9 GB | 11,1 GB |
+| Memória comprometida (private bytes) | 26,4 GB | 14,8 GB |
+| Pico de working set no `geocode()` | 56,1 GB | 56,0 GB |
+| Tabela Arrow devolvida | 7,47 GB | 7,47 GB |
+
+- **Não é objeto vivo:** a conexão DuckDB já está fechada, e apagar a tabela Arrow ou chamar
+  `release_unused()` do pool do Arrow não libera nada. A memória fica comprometida para o processo.
+- **Mecanismo provável (não provado):** com a `VIEW`, o `LEFT JOIN ... ORDER BY` de 43,9 M linhas roda
+  *durante* o fetch para o Arrow, e os buffers temporários do sort ficam intercalados com os buffers do
+  resultado (alocados pelo DuckDB, não pelo pool do Arrow). Quando o sort libera os seus, o alocador não
+  consegue devolver essas regiões ao SO. Com `TABLE`, o sort termina e libera antes do fetch começar.
+- **Por que as medições acima não pegaram:** o efeito depende da escala. Em 10 M linhas não aparece
+  (3,84 GB com `VIEW` × 3,99 GB com `TABLE`); em 1 M e 5 M, onde este plano mediu, também não. Só
+  Windows com Segment Heap foi testado; no Linux/macOS o DuckDB usa outro alocador.
+
+**Verificação após reverter:**
+
+- Suíte unitária: 176 passed.
+- 43,9 M linhas, código revertido: memória ao final (com o `DataFrame` pandas) 15,7 GB, no nível da `main`
+  (15,2–17,6 GB) e não mais do PR com `VIEW` (22,9–27,5 GB); pico no `geocode()` 56,0 GB; checksum do
+  resultado idêntico às rodadas anteriores (mesmas 43.882.020 linhas, somas de lat/lon e hash por linha).
+- Tempo dessa rodada: 687 s, acima das 3 rodadas do PR com `VIEW` (508–589 s). Na rodada de diagnóstico,
+  a variante com `TABLE` forçada levou 528 s, então a diferença parece ruído — mas é uma rodada só.
+
+Scripts e resultados brutos do benchmark e do diagnóstico ficaram no scratchpad da sessão de 27–28/09
+(`bench_one.py`, `diag_mem.py`) e não foram versionados.

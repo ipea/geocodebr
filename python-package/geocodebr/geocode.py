@@ -320,7 +320,6 @@ def geocode(
             select_columns=original_columns,
             resultado_completo=resultado_completo,
             incluir_empate=not resolver_empates,
-            materializar=bool(h3_values),
         )
         add_h3_columns(con, "geocodebr_result", h3_values)
         ## message_as_arrow(verboso)
