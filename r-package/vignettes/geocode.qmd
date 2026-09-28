@@ -20,6 +20,23 @@ knitr::opts_chunk$set(
 Sys.setenv(OMP_THREAD_LIMIT = 2)
 ```
 
+```{=html}
+<style>
+/* Blocos R e Python lado a lado. O layout nao depende do CSS de colunas do
+   Quarto, para funcionar tambem quando o pkgdown renderiza a vignette. */
+div.columns.r-py { display: flex !important; gap: 1rem; align-items: flex-start; }
+div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 0; }
+@media (max-width: 767px) {
+  div.columns.r-py { flex-direction: column; }
+  div.columns.r-py > div.column { width: 100% !important; }
+}
+</style>
+```
+
+O {geocodebr} está disponível em R e em Python, com funções e argumentos
+equivalentes. Ao longo desta vignette, cada exemplo mostra o código em R (à
+esquerda) e em Python (à direita).
+
 ## Geolocalização: de endereços para coordenadas espaciais
 
 A principal função do pacote {geocodebr} é a `geocode()`, que recebe uma tabela
@@ -41,11 +58,12 @@ As colunas indicando o `estado` e o `municipio` são obrigatórias. Os demais
 campos são opcionais.
 :::
 
-::::: {.column-screen-insert}
-::: {.column width="45%"}
+:::: {.columns .r-py .column-page}
+::: {.column width="50%"}
 ```{r}
-print("R")
-
+#| filename: "R"
+#| message: false
+#| warning: false
 library(geocodebr)
 
 # leitura de amostra de dados
@@ -66,25 +84,29 @@ campos <- definir_campos(
 ```
 :::
 
-::: {.column width="45%"}
-```python
-print("Python")
+::: {.column width="50%"}
+```{.python filename="Python"}
+import pandas as pd
+from geocodebr import definir_campos, geocode
+
+# leitura de amostra de dados
+ends = pd.read_csv(
+    "https://raw.githubusercontent.com/ipeaGIT/geocodebr/"
+    "main/r-package/inst/extdata/small_sample.csv"
+)
+
+# definição dos campos de endereço
 campos = definir_campos(
-    logradouro="logradouro",
-    numero="numero",
-    cep="cep",
-    localidade="localidade",
-    municipio="municipio",
-    estado="estado",
+    estado="nm_uf",
+    municipio="nm_municipio",
+    logradouro="nm_logradouro",
+    numero="Numero",
+    cep="Cep",
+    localidade="Bairro",
 )
 ```
 :::
-:::::
-
-teste
-
-
-
+::::
 
 2. O segundo passo é usar a função `geocode()` para encontrar as coordenadas
 geográficas dos dados de input.
@@ -98,10 +120,13 @@ no entanto, são salvos de forma  persistente, logo eles são baixados uma únic
 Mais informações sobre o cache de dados [aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
 :::
 
-::::: {.column-screen-insert}
-::: {.column width="45%"}
+:::: {.columns .r-py .column-page}
+::: {.column width="50%"}
 ```{r}
-# geolicalização
+#| filename: "R"
+#| message: false
+#| warning: false
+# geolocalização
 ends_geo <- geocode(
   enderecos = ends,
   campos_endereco = campos,
@@ -116,21 +141,23 @@ head(ends_geo)
 ```
 :::
 
-::: {.column width="45%"}
-```python
-print("Python")
-resultado = geocode(
-    enderecos=enderecos,
+::: {.column width="50%"}
+```{.python filename="Python"}
+# geolocalização
+ends_geo = geocode(
+    enderecos=ends,
     campos_endereco=campos,
     resultado_completo=False,
     resolver_empates=True,
-    h3_res=[8, 10],
+    h3_res=9,
+    resultado_gpd=False,
     verboso=False,
 )
-print(resultado.to_pandas().head())
+
+ends_geo.to_pandas().head()
 ```
 :::
-:::::
+::::
 
 Por padrão, a tabela de *output* é igual à tabela de input do usuário acrescida de colunas com a latitude e longitude encontradas, bem como de colunas indicando o nível de precisão dos resultados e o endereço encontrado. Quando `resultado_completo = TRUE`, o output é acrescido de algumas colunas extras discriminando separadamente cada componente do endereço que teria sido encontrado.
 
@@ -145,7 +172,7 @@ com mesmo nome mas em bairros distintos). Quando `TRUE`, a função resolve os
 empates selecioando os endereços com maior número de visitas do CNEFE. Quando
 `FALSE`, a função retorna todos os resultados indicando os casos empatados na
 coluna 'empate' para que o usuário possa inspecionar cada caso coluna 'endereco_encontrado'.
-- `resultado_sf`: quando `TRUE`, o output é retornado como um objeto espacial de classe `sf` simple feature.
+- `resultado_sf`: quando `TRUE`, o output é retornado como um objeto espacial de classe `sf` simple feature. Em Python, o argumento equivalente é `resultado_gpd`, que retorna um `geopandas.GeoDataFrame` (requer `pip install geocodebr[geo]`). Sem ele, o Python retorna um `pyarrow.Table`.
 
 As coordendas espaciais do resultado usam o sistema de referência SIRGAS2000
 (EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.
