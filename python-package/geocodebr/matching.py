@@ -19,7 +19,7 @@ from .match_types import (
 from .string_dist import calculate_string_dist
 from .tables import register_cnefe_table, register_unique_logradouros_table
 from .messages import inform
-from .utils import quote_ident
+from .utils import quote_ident, sql_string
 
 
 def create_output_db(con: duckdb.DuckDBPyConnection, resultado_completo: bool) -> None:
@@ -60,7 +60,7 @@ def match_cases(
 ) -> int:
     y = get_reference_table(match_type)
     key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type, pasta_dados)
+    register_cnefe_table(con, match_type, pasta_dados, resultado_completo=resultado_completo)
 
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in key_cols)
@@ -86,7 +86,7 @@ def match_cases(
         WHERE {cols_not_null}
         """
     )
-    return update_input_db(con, update_tb=x, reference_tb=output_tb)
+    return update_input_db(con, update_tb=x, reference_tb=output_tb, match_type=match_type)
 
 
 def match_weighted_cases(
@@ -100,12 +100,13 @@ def match_weighted_cases(
 ) -> int:
     y = get_reference_table(match_type)
     original_key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type, pasta_dados)
+    register_cnefe_table(con, match_type, pasta_dados, resultado_completo=resultado_completo)
 
     cols_not_null = " AND ".join(f"{x}.{col} IS NOT NULL" for col in original_key_cols)
     key_cols = [col for col in original_key_cols if col != "numero"]
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
     ordem_first = "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
+    sel_livres, grp_livres = _cols_livres(y, key_cols)
     colunas_encontradas, additional_first, additional_second = _complete_weighted_columns(
         y, key_cols, resultado_completo, ordem_first
     )
@@ -116,9 +117,8 @@ def match_weighted_cases(
           SELECT {x}.tempidgeocodebr,
                  {x}.numero,
                  {y}.numero AS numero_cnefe,
-                 ABS({x}.numero - {y}.numero) AS distancia_numero,
                  {y}.lat, {y}.lon,
-                 REGEXP_REPLACE({y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
+                 {y}.endereco_completo{sel_livres},
                  {y}.desvio_metros,
                  {x}.log_causa_confusao,
                  {y}.n_casos AS contagem_cnefe {additional_first}
@@ -134,16 +134,16 @@ def match_weighted_cases(
         SELECT tempidgeocodebr,
           SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
           SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
-          FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
+          REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,
           FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
           FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_second}
         FROM temp_db
-        GROUP BY tempidgeocodebr, endereco_encontrado
+        GROUP BY tempidgeocodebr, numero {grp_livres}
         """
     )
-    return update_input_db(con, update_tb=x, reference_tb=output_tb)
+    return update_input_db(con, update_tb=x, reference_tb=output_tb, match_type=match_type)
 
 
 def match_cases_probabilistic(
@@ -157,7 +157,7 @@ def match_cases_probabilistic(
 ) -> int:
     y = get_reference_table(match_type)
     key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type, pasta_dados)
+    register_cnefe_table(con, match_type, pasta_dados, resultado_completo=resultado_completo)
     unique_logradouros_tbl = register_unique_logradouros_table(con, match_type, pasta_dados)
     calculate_string_dist(con, match_type, unique_logradouros_tbl)
 
@@ -196,7 +196,7 @@ def match_cases_probabilistic(
         WHERE {cols_not_null}
         """
     )
-    return update_input_db(con, update_tb=x, reference_tb=output_tb)
+    return update_input_db(con, update_tb=x, reference_tb=output_tb, match_type=match_type)
 
 
 def match_weighted_cases_probabilistic(
@@ -210,7 +210,7 @@ def match_weighted_cases_probabilistic(
 ) -> int:
     y = get_reference_table(match_type)
     original_key_cols = get_key_cols(match_type)
-    register_cnefe_table(con, match_type, pasta_dados)
+    register_cnefe_table(con, match_type, pasta_dados, resultado_completo=resultado_completo)
     if match_type not in MATCH_TYPES_JARO_REDUNDANTE:
         unique_logradouros_tbl = register_unique_logradouros_table(con, match_type, pasta_dados)
         calculate_string_dist(con, match_type, unique_logradouros_tbl)
@@ -221,6 +221,7 @@ def match_weighted_cases_probabilistic(
     join_condition = join_condition.replace("input_padrao_db.logradouro", "input_padrao_db.temp_lograd_determ")
     cols_not_null_match = cols_not_null.replace(".logradouro", ".temp_lograd_determ")
     ordem_first = "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
+    sel_livres, grp_livres = _cols_livres(y, key_cols)
     colunas_prefix = ""
     additional_prefix_first = ""
     additional_prefix_second = ""
@@ -243,9 +244,8 @@ def match_weighted_cases_probabilistic(
           SELECT {x}.tempidgeocodebr,
                  {x}.numero,
                  {y}.numero AS numero_cnefe,
-                 ABS({x}.numero - {y}.numero) AS distancia_numero,
                  {y}.lat, {y}.lon,
-                 REGEXP_REPLACE({y}.endereco_completo, ', \\d+ -', CONCAT(', ', {x}.numero, ' (aprox) -')) AS endereco_encontrado,
+                 {y}.endereco_completo{sel_livres},
                  {y}.desvio_metros,
                  {x}.log_causa_confusao,
                  {y}.n_casos AS contagem_cnefe {additional_first}
@@ -261,16 +261,16 @@ def match_weighted_cases_probabilistic(
         SELECT tempidgeocodebr,
           SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
           SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
-          FIRST(endereco_encontrado {ordem_first}) AS endereco_encontrado,
+          REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,
           FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
           FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_second}
         FROM temp_db
-        GROUP BY tempidgeocodebr, endereco_encontrado
+        GROUP BY tempidgeocodebr, numero {grp_livres}
         """
     )
-    return update_input_db(con, update_tb=x, reference_tb=output_tb)
+    return update_input_db(con, update_tb=x, reference_tb=output_tb, match_type=match_type)
 
 
 def select_match_function(match_type: str):
@@ -289,18 +289,21 @@ def update_input_db(
     con: duckdb.DuckDBPyConnection,
     update_tb: str = "input_padrao_db",
     reference_tb: str = "output_db",
+    match_type: str | None = None,
 ) -> int:
-    before = con.execute(f"SELECT COUNT(*) FROM {quote_ident(update_tb)}").fetchone()[0]
-    con.execute(
+    # so os ids inseridos NESTA etapa ainda estao em update_tb (as etapas
+    # anteriores ja apagaram os seus); filtrar por tipo_resultado evita varrer
+    # a output_db inteira -- que cresce a cada etapa -- 25 vezes. O DELETE ja
+    # devolve o numero de linhas apagadas. Espelha update_input_db() do R
+    filtro_etapa = f"WHERE tipo_resultado = {sql_string(match_type)}" if match_type else ""
+    return con.execute(
         f"""
         DELETE FROM {quote_ident(update_tb)}
         WHERE tempidgeocodebr IN (
-          SELECT tempidgeocodebr FROM {quote_ident(reference_tb)}
+          SELECT tempidgeocodebr FROM {quote_ident(reference_tb)} {filtro_etapa}
         )
         """
-    )
-    after = con.execute(f"SELECT COUNT(*) FROM {quote_ident(update_tb)}").fetchone()[0]
-    return before - after
+    ).fetchone()[0]
 
 
 def add_precision_col(con: duckdb.DuckDBPyConnection, update_tb: str) -> None:
@@ -332,6 +335,7 @@ def merge_results_to_input(
     select_columns: list[str],
     resultado_completo: bool,
     incluir_empate: bool = False,
+    materializar: bool = False,
 ) -> None:
     select_columns_y = [
         "lat",
@@ -383,9 +387,13 @@ def merge_results_to_input(
             expr = f"{quote_ident(y)}.{quote_ident(col)}"
         y_exprs.append(f"{expr} AS {quote_ident(col)}")
     select_y = ", ".join(y_exprs)
+    # VIEW por padrao: o resultado vai do JOIN direto para o Arrow no fetch final,
+    # sem uma segunda copia inteira no DuckDB. TABLE so quando add_h3_columns()
+    # precisa fazer ALTER/UPDATE nela
+    tipo = "TABLE" if materializar else "VIEW"
     con.execute(
         f"""
-        CREATE OR REPLACE TEMP TABLE geocodebr_result AS
+        CREATE OR REPLACE TEMP {tipo} geocodebr_result AS
         SELECT {select_x}, {select_y}
         FROM {quote_ident(x)}
         LEFT JOIN {quote_ident(y)}
@@ -799,6 +807,23 @@ def _build_found_columns(
     colunas_encontradas = f"{colunas_encontradas}, cod_setor"
 
     return colunas_encontradas, additional_cols
+
+
+def _cols_livres(y: str, key_cols: list[str]) -> tuple[str, str]:
+    """Colunas de ``y`` que compõem ``endereco_completo`` e não são fixadas pelo join.
+
+    É por elas que os candidatos de um mesmo ``tempidgeocodebr`` se separam em
+    endereços distintos. Espelha ``cols_livres`` de
+    ``r-package/R/match_weighted_cases.R``: a partição por
+    ``(tempidgeocodebr, numero, cols_livres)`` é a mesma que por
+    ``endereco_encontrado`` (a string é constante em cada grupo do CNEFE e
+    cep/localidade distintos geram strings distintas), mas com chave curta e o
+    regex rodando 1x por grupo, e não 1x por candidato.
+    """
+    livres = [c for c in ("cep", "localidade") if c in y.split("_") and c not in key_cols]
+    sel = "".join(f", {y}.{c} AS {c}_cnefe" for c in livres)
+    grp = "".join(f", {c}_cnefe" for c in livres)
+    return sel, grp
 
 
 def _complete_weighted_columns(

@@ -34,6 +34,7 @@ from .matching import (
     select_match_function,
     trata_empates_geocode_duckdb,
 )
+from .tables import dropa_tabelas_obsoletas
 from .messages import (
     message_looking_for_matches,
     message_preparing_output,
@@ -244,9 +245,12 @@ def geocode(
         df_input = df_input.with_row_index("tempidgeocodebr")
         original_columns = [col for col in input_columns] + ["tempidgeocodebr"]
         df_padrao = df_padrao.with_columns(df_input["tempidgeocodebr"])
-        # Create temp `logradouro` columns to be used in probabilistic match
+        # Create temp `logradouro` columns to be used in probabilistic match.
+        # temp_lograd_determ comeca NULL (como o NA_character_ do R): o filtro
+        # "temp_lograd_determ IS NOT NULL" dos joins probabilisticos precisa
+        # excluir as linhas sem candidato do Jaro
         df_padrao = df_padrao.with_columns(
-            pl.lit("").alias("temp_lograd_determ"),
+            pl.lit(None, dtype=pl.Utf8).alias("temp_lograd_determ"),
             pl.lit(None, dtype=pl.Float64).alias("similaridade_logradouro"),
         )
 
@@ -270,7 +274,7 @@ def geocode(
             unit="end",
             bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{postfix}]",
         ) as pbar:
-             for match_type in ALL_POSSIBLE_MATCH_TYPES:
+             for i, match_type in enumerate(ALL_POSSIBLE_MATCH_TYPES):
                 key_cols = get_key_cols(match_type)
                 if all(col in input_padrao_columns for col in key_cols) and not any(
                     col in campos_nao_declarados for col in key_cols
@@ -284,14 +288,28 @@ def geocode(
                     )
                     matched_rows += affected
                     pbar.update(affected)
+                    # libera as tabelas que as etapas restantes nao usam mais
+                    dropa_tabelas_obsoletas(
+                        con, ALL_POSSIBLE_MATCH_TYPES[i + 1:], campos_nao_declarados
+                    )
                     if matched_rows == n_rows:
                         break
+
+        # nada apos o laco le input_padrao_db nem as tabelas de referencia
+        dropa_tabelas_obsoletas(con, [], campos_nao_declarados)
+        con.execute("DROP TABLE IF EXISTS input_padrao_db")
 
         message_preparing_output(verboso)
         empates_resolvidos = trata_empates_geocode_duckdb(
             con, resultado_completo, resolver_empates, verboso
         )
         output_table_to_use = "output_db" if empates_resolvidos == 0 else "output_db2"
+        # tabelas de trabalho dos empates; output_db so sai se o resultado
+        # estiver em output_db2 (IF EXISTS cobre o ramo que a renomeia)
+        con.execute("DROP TABLE IF EXISTS ids_empatados")
+        con.execute("DROP TABLE IF EXISTS empates_classif")
+        if output_table_to_use == "output_db2":
+            con.execute("DROP TABLE IF EXISTS output_db")
         ## message_add_precision(verboso)
         add_precision_col(con, output_table_to_use)
         ## message_merge_input(verboso)
@@ -302,6 +320,7 @@ def geocode(
             select_columns=original_columns,
             resultado_completo=resultado_completo,
             incluir_empate=not resolver_empates,
+            materializar=bool(h3_values),
         )
         add_h3_columns(con, "geocodebr_result", h3_values)
         ## message_as_arrow(verboso)

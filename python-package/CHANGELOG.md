@@ -2,6 +2,46 @@
 
 ## [Unreleased]
 
+### Corrigido
+
+- `geocode()`: a coluna interna usada na busca probabilística
+  (`temp_lograd_determ`) passa a começar nula, como no pacote R, e não como
+  texto vazio. Antes, se a base do CNEFE tivesse um logradouro vazio, endereços
+  sem candidato na busca por similaridade poderiam ser dados como encontrados
+  nesse logradouro (`pn01`). O release atual do CNEFE não tem logradouro vazio,
+  então o resultado com os dados atuais não muda.
+
+### Modificado
+
+- `geocode()`: a cada etapa do matching, a remoção dos endereços já encontrados
+  passou a considerar só os resultados da etapa corrente, em vez de varrer
+  todos os resultados acumulados, e deixou de fazer duas contagens extras por
+  etapa. Espelha a otimização já presente no pacote R. O resultado não muda.
+- `geocode()`: menor uso de memória. As tabelas de referência do CNEFE passam a
+  ser apagadas assim que nenhuma etapa seguinte do matching precisa delas, assim
+  como as tabelas intermediárias depois do laço e da resolução de empates; e as
+  colunas do CNEFE que o pacote não usa (`code_muni`, `n_setor` e, sem
+  `resultado_completo`, `cod_setor`) deixam de ser carregadas. Pico de memória
+  ~12% menor com 20 mil endereços e ~33% menor com 1 milhão. Espelha o pacote
+  R. O resultado não muda.
+- `geocode()`: busca probabilística mais rápida. O cálculo de similaridade de
+  logradouros passou a ser feito uma vez por combinação distinta de chave e
+  logradouro (em vez de uma vez por endereço), sem candidatos repetidos, e as
+  etapas sem número deixam de recalcular endereços com número, já testados na
+  etapa anterior. Mesma query do pacote R. O resultado não muda.
+- `geocode()`: interpolação por número (resultados `da01`–`da04` e
+  `pa01`–`pa03`) mais rápida. O endereço encontrado passou a ser montado uma
+  vez por grupo de candidatos, e não uma vez por candidato, e o agrupamento
+  usa colunas curtas em vez do texto do endereço. Mesma query do pacote R. O
+  resultado não muda.
+- `geocode()`: sem `h3_res`, o resultado final passa do DuckDB direto para o
+  Arrow, sem uma cópia intermediária inteira no banco. Um pouco menos de
+  memória e de tempo em bases grandes. O resultado não muda.
+- `geocode()`: as tabelas de logradouros usadas na busca probabilística passam
+  a ser filtradas também pelos estados do input, e não só pelos municípios,
+  deixando de carregar municípios homônimos de outros estados. Espelha o
+  pacote R. O resultado não muda.
+
 ## [0.1.1] - 2026-09-23
 
 ### Modificado

@@ -3,14 +3,40 @@ from __future__ import annotations
 import duckdb
 
 from .cache import caminho_parquet
-from .match_types import get_key_cols, get_reference_table
+from .match_types import (
+    ALL_POSSIBLE_MATCH_TYPES,
+    get_key_cols,
+    get_reference_table,
+    tabelas_ainda_necessarias,
+)
 from .utils import quote_ident
+
+
+def dropa_tabelas_obsoletas(
+    con: duckdb.DuckDBPyConnection,
+    match_types_restantes: list[str],
+    campos_nao_declarados: list[str],
+) -> None:
+    """Apaga as tabelas temporárias que nenhuma etapa restante do laço usa.
+
+    O DuckDB libera a memória de uma TEMP TABLE no DROP; sem isso as tabelas de
+    referência maiores (~10 GB cada em escala nacional) ficariam vivas até o
+    fim do geocode(). Espelha ``dropa_tabelas_obsoletas()`` do R.
+    """
+    candidatas = {get_reference_table(mt) for mt in ALL_POSSIBLE_MATCH_TYPES} | {
+        "unique_logr_municipio_logradouro_localidade",
+        "unique_logr_municipio_logradouro_cep_localidade",
+    }
+    necessarias = tabelas_ainda_necessarias(match_types_restantes, campos_nao_declarados)
+    for tb in sorted(candidatas - necessarias):
+        con.execute(f"DROP TABLE IF EXISTS {quote_ident(tb)}")
 
 
 def register_cnefe_table(
     con: duckdb.DuckDBPyConnection,
     match_type: str,
     pasta_dados: str | None = None,
+    resultado_completo: bool = True,
 ) -> bool:
     cnefe_table_name = get_reference_table(match_type)
     exists = con.execute(
@@ -21,6 +47,21 @@ def register_cnefe_table(
         return True
 
     path_to_parquet = caminho_parquet(cnefe_table_name, pasta_dados)
+
+    # colunas que nenhuma query le: code_muni e n_setor nunca; cod_setor so com
+    # resultado_completo. Espelha register_cnefe_table() do R (~10% menos
+    # memoria). A lista sai do schema do parquet porque EXCLUDE de coluna
+    # inexistente e erro no DuckDB
+    excluir = ["code_muni", "n_setor"] + ([] if resultado_completo else ["cod_setor"])
+    presentes = {
+        r[0]
+        for r in con.execute(
+            f"DESCRIBE SELECT * FROM read_parquet('{path_to_parquet}')"
+        ).fetchall()
+    }
+    excluir = [c for c in excluir if c in presentes]
+    projecao = f"* EXCLUDE ({', '.join(excluir)})" if excluir else "*"
+
     con.execute(
         f"""
         CREATE TEMP TABLE IF NOT EXISTS {quote_ident(cnefe_table_name)} AS
@@ -30,7 +71,7 @@ def register_cnefe_table(
         unique_states AS (
             SELECT DISTINCT estado FROM input_padrao_db
         )
-        SELECT *
+        SELECT {projecao}
         FROM read_parquet('{path_to_parquet}') m
         WHERE m.estado IN (SELECT estado FROM unique_states)
           AND m.municipio IN (SELECT municipio FROM unique_munis)
@@ -91,10 +132,14 @@ def register_unique_logradouros_table(
             CREATE TEMP TABLE IF NOT EXISTS {quote_ident(table_name)} AS
             WITH unique_munis AS (
                 SELECT DISTINCT municipio FROM input_padrao_db
+            ),
+            unique_states AS (
+                SELECT DISTINCT estado FROM input_padrao_db
             )
             SELECT {distinct} {select_cols_sql}
             FROM read_parquet('{path_to_parquet}') m
-            WHERE m.municipio IN (SELECT municipio FROM unique_munis)
+            WHERE m.estado IN (SELECT estado FROM unique_states)
+              AND m.municipio IN (SELECT municipio FROM unique_munis)
             """
         )
     return table_name
