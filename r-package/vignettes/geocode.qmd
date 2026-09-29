@@ -39,17 +39,21 @@ esquerda) e em Python (à direita).
 
 ## Geolocalização: de endereços para coordenadas espaciais
 
-A principal função do pacote {geocodebr} é a `geocode()`, que recebe uma tabela
-(`data.frame`) de endereços como entrada e retorna a mesma tabela geolocalizada
-como saída. Para demonstrar essa função, utilizamos no exemplo abaixo pequeno
-conjunto de dados que contém endereços com problemas comuns, como informações
+A principal função do pacote {geocodebr} é a `geocode()`, que recebe uma 
+tabela de endereços como entrada e retorna a mesma tabela geolocalizada
+como saída. No caso do R, esse input deve ser um `data.frame`. Já no Python, 
+a função pode receber tanto um Polars ou Pandas `DataFrame` quanto o caminho 
+para um arquivo com a tabela de endereços em formato `.csv` ou `.parquet`.
+
+Para demonstrar essa função, utilizamos no exemplo abaixo pequeno conjunto 
+de dados que contém endereços com problemas comuns, como informações 
 ausentes e campos digitados incorretamente.
 
 A geolocalização desses dados com **{geocodebr}** pode ser feita em apenas dois
 passos:
 
 1. O primeiro passo é usar a função `definir_campos()` para indicar os nomes das
-colunas no seu `data.frame` que correspondem a cada campo dos endereços. No
+colunas na tabela de *input* que correspondem a cada campo dos endereços. No
 exemplo abaixo, nós indicamos que coluna que contém a informação de logradouro se
 chama `"nm_logradouro"`, que a coluna de número se chama `"Numero"`, etc.
 
@@ -102,7 +106,7 @@ campos = definir_campos(
     logradouro="nm_logradouro",
     numero="Numero",
     cep="Cep",
-    localidade="Bairro",
+    localidade="Bairro"
 )
 ```
 :::
@@ -110,15 +114,6 @@ campos = definir_campos(
 
 2. O segundo passo é usar a função `geocode()` para encontrar as coordenadas
 geográficas dos dados de input.
-
-::: {.callout-note title="Nota"}
-A função `geocode()` requer que os dados do CNEFE estejam armazenados
-localmente. A primeita vez que a função é executada, ela baixa os dados do CNEFE
-e salva em um cache local na sua máquina. No total, esses dados somam cerca de
-1.2 GB, o que pode fazer com que a primeira execução da função demore. Esses dados,
-no entanto, são salvos de forma  persistente, logo eles são baixados uma única vez.
-Mais informações sobre o cache de dados [aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
-:::
 
 :::: {.columns .r-py .column-page}
 ::: {.column width="50%"}
@@ -151,15 +146,32 @@ ends_geo = geocode(
     resolver_empates=True,
     h3_res=9,
     resultado_gpd=False,
-    verboso=False,
+    verboso=False
 )
 
-ends_geo.to_pandas().head()
 ```
 :::
 ::::
 
-Por padrão, a tabela de *output* é igual à tabela de input do usuário acrescida de colunas com a latitude e longitude encontradas, bem como de colunas indicando o nível de precisão dos resultados e o endereço encontrado. Quando `resultado_completo = TRUE`, o output é acrescido de algumas colunas extras discriminando separadamente cada componente do endereço que teria sido encontrado.
+
+::: {.callout-note title="Nota"}
+A função `geocode()` requer que os dados do CNEFE estejam armazenados
+localmente. A primeita vez que a função é executada, ela baixa os dados do CNEFE
+e salva em um cache local na sua máquina. No total, esses dados somam cerca de
+1.2 GB, o que pode fazer com que a primeira execução da função demore. Esses dados,
+no entanto, são salvos de forma  persistente, logo eles são baixados uma única vez.
+Mais informações sobre o cache de dados [aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
+:::
+
+
+O resultado fica como abaixo. Por padrão, a tabela de *output* é igual à tabela de input do usuário acrescida de colunas com a latitude e longitude encontradas, bem como de colunas indicando o nível de precisão dos resultados e o endereço encontrado. Quando `resultado_completo = TRUE`, o output é acrescido de algumas colunas extras discriminando separadamente cada componente do endereço que teria sido encontrado.
+
+```{r}
+#| message: false
+#| warning: false
+head(ends_geo)
+```
+
 
 Cabe também destacar aqui outros três argumentos da função `geocode()`:
 
@@ -176,7 +188,6 @@ coluna 'empate' para que o usuário possa inspecionar cada caso coluna 'endereco
 
 As coordendas espaciais do resultado usam o sistema de referência SIRGAS2000
 (EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.
-
 
 
 ## Processo de matching de endereços
@@ -207,7 +218,7 @@ A precisão dos resultados do **{geocodebr}** são apresentadas em 3 colunas, `p
 ### Precisão
 
 A coluna `precisao` se refere ao nível de agregação das coordenadas do CNEFE
-utilizadas no processo de geolicalização. A função `geocode()` sempre retorna o resultado de maior precisão possível - ou seja, ela só vai procurar endereços com precisão `"numero_aproximado"` (ver a seguir) caso não tenha encontrado correspondência de precisão `"numero"`. As coordenadas calculadas podem ser classificadas em seis diferentes categorias de precisão:
+utilizadas no processo de geolocalização. A função `geocode()` sempre retorna o resultado de maior precisão possível - ou seja, ela só vai procurar endereços com precisão `"numero_aproximado"` (ver a seguir) caso não tenha encontrado correspondência de precisão `"numero"`. As coordenadas calculadas podem ser classificadas em seis diferentes categorias de precisão:
 
 1. `"numero"` - calculadas a partir de endereços que compartilham o mesmo
 logradouro e número;

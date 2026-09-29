@@ -37,7 +37,7 @@ O {geocodebr} está disponível em R e em Python, com funções e argumentos
 equivalentes. Ao longo desta vignette, cada exemplo mostra o código em R (à
 esquerda) e em Python (à direita).
 
-## Busca por CEP: de CEPs para endereços
+## Busca por CEP: de CEPs para endereços e coordenadas
 
 A função `busca_por_cep()` permite fazer consultas de CEPs para encontrar os
 endereços associados a cada CEP, junto com suas coordenadas geográficas. Essa
@@ -68,7 +68,6 @@ df_ceps <- busca_por_cep(
   verboso = FALSE
 )
 
-head(df_ceps)
 ```
 :::
 
@@ -84,18 +83,26 @@ df_ceps = busca_por_cep(
     cep=ceps,
     h3_res=9,
     resultado_gpd=False,
-    verboso=False,
+    verboso=False
 )
 
-df_ceps.to_pandas().head()
 ```
 :::
 ::::
 
-O resultado traz as colunas `cep`, `estado`, `municipio`, `logradouro` e
-`localidade` de cada endereço encontrado, além das coordenadas de latitude
-(`lat`) e longitude (`lon`). Cabe destacar alguns detalhes sobre o formato do
-*output*:
+
+O *output* fica como abaixo, e traz as colunas `cep`, `estado`, `municipio`, 
+`logradouro` e `localidade` de cada endereço encontrado, além das coordenadas 
+de latitude (`lat`) e longitude (`lon`). 
+
+```{r}
+#| message: false
+#| warning: false
+head(df_ceps)
+```
+
+
+Cabe destacar alguns detalhes sobre o formato do *output*:
 
 - **Um CEP pode retornar várias linhas.** Um mesmo CEP costuma cobrir mais de um
 logradouro ou localidade, e cada combinação encontrada no CNEFE vira uma linha

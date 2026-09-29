@@ -72,11 +72,9 @@ pontos <- st_as_sf(
 df_enderecos <- geocode_reverso(
   pontos = pontos,
   dist_max = 1000,
-  verboso = FALSE,
-  n_cores = 1
+  verboso = FALSE
 )
 
-head(df_enderecos)
 ```
 :::
 
@@ -99,14 +97,20 @@ pontos = gpd.GeoDataFrame(
 df_enderecos = geocode_reverso(
     pontos=pontos,
     dist_max=1000,
-    verboso=False,
-    n_cores=1,
+    verboso=False
 )
 
 df_enderecos.head()
 ```
 :::
 ::::
+
+Assim fica o output no R como `sf`. No Python fica parecido como `GeoDataFrame`. 
+```{r}
+#| message: false
+#| warning: false
+head(df_enderecos)
+```
 
 Por padrão, a função busca pelo endereço mais próximo num raio aproximado de 1000 metros. No entanto,  o usuário pode ajustar esse valor usando o parâmetro `dist_max` para definir a distância máxima (em metros) de busca. Se um ponto de *input* não tiver nenhum endereço próximo dentro do raio de busca, o ponto não é incluído no *output*.
 
