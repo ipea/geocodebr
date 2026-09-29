@@ -197,14 +197,21 @@ merge_results_to_input <- function(
       'empate',
       'cod_setor'
     )
+  }
 
-    # relace NULL similaridade_logradouro as 1 because they were found deterministically
-    DBI::dbExecute(
-      con,
-      glue::glue(
-        "UPDATE {y}
-      SET similaridade_logradouro = COALESCE(similaridade_logradouro, 1);"
-      )
+  expr_y <- paste0(y, '.', select_columns_y)
+
+  # similaridade_logradouro NULL em caso encontrado = match deterministico, que
+  # e exibido como 1. Feito na projecao, e nao com UPDATE da tabela inteira
+  # (evita reescrever a coluna e o undo do UPDATE). O CASE mantem NULL nas
+  # linhas sem correspondencia no LEFT JOIN, como o UPDATE (que agia antes do
+  # JOIN) mantinha
+  if (isTRUE(resultado_completo)) {
+    eh_sim <- select_columns_y == 'similaridade_logradouro'
+    expr_y[eh_sim] <- glue::glue(
+      "CASE WHEN {y}.tempidgeocodebr IS NULL THEN NULL
+        ELSE COALESCE({y}.similaridade_logradouro, 1) END
+        AS similaridade_logradouro"
     )
   }
 
@@ -238,7 +245,7 @@ merge_results_to_input <- function(
   select_clause <- paste0(
     select_x,
     ',',
-    paste0(glue::glue('{y}'), ".", select_columns_y, collapse = ", ")
+    paste0(expr_y, collapse = ", ")
   )
 
   # Create the JOIN clause dynamically

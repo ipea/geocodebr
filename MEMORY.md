@@ -5,10 +5,22 @@ Correções e fatos aprendidos que persistem entre sessões.
 Quando um erro é corrigido, ou quando uma abordagem não óbvia é confirmada, acrescente uma entrada
 `[LEARN:categoria]` abaixo, no formato `errado → certo`, com uma linha explicando **por quê**.
 
-Categorias em uso: `cnefe` (quirks da fonte de dados do IBGE), `duckdb`, `cran`, `testes`, `workflow`.
+Categorias em uso: `cnefe` (quirks da fonte de dados do IBGE), `duckdb`, `cran`, `testes`, `workflow`,
+`geocode`, `paridade` (divergências R ↔ Python encontradas e como foram resolvidas), `python` (quirks do
+porte Python que não têm equivalente no R).
 
 Não registre aqui o que o próprio repositório já documenta (estrutura do código, histórico do git,
 conteúdo do [CLAUDE.md](CLAUDE.md)) — registre o que não é derivável lendo o código.
+
+## Pacote Python e paridade R ↔ Python
+
+Desde setembro/2026 o repo tem dois pacotes: R em `r-package/` e Python em `python-package/` (versão de
+testes `0.1.0`). **Regra do projeto: mesma base de input ⇒ output idêntico nos dois pacotes.** Detalhes
+da regra, do teste (`python-package/tests/test_r_python_parity.py`) e do fluxo obrigatório ao mudar
+lógica de matching estão em [CLAUDE.md](CLAUDE.md), seções "Pacote Python" e "Paridade R ↔ Python".
+Consequência prática para a iniciativa de performance abaixo: **toda otimização do R que passe pelo
+critério `identical()` ainda precisa de contrapartida (ou confirmação de não-efeito) no Python** antes
+de ser considerada fechada.
 
 ## Revisão de código em andamento
 
@@ -272,6 +284,98 @@ usuário — não tentar regenerar.
   condicional e não é" pode já estar coberto por um filtro mais a jusante no pipeline — ler até o fim do
   caminho do dado (aqui, `merge_results_to_input()`) antes de assumir que a origem precisa mudar.
 
+- `[LEARN:duckdb]` "Python é mais lento que R com o mesmo DuckDB no Windows" → **a variável não é a
+  toolchain (MSVC vs MinGW), é o heap do processo hospedeiro**. O `Rscript.exe`/`Rterm.exe` optam pelo
+  **Segment Heap** no manifest embutido; o `python.exe` (python.org) e o CLI usam o heap NT legacy, cujo
+  lock global serializa alocação/free multithread — e o DuckDB no Windows não tem jemalloc pra bypassar
+  isso. Piora com MAIS threads (24 threads é pior que 8 no legacy; escala negativa). Causa raiz
+  documentada em [duckdb/duckdb#24027](https://github.com/duckdb/duckdb/issues/24027) (autor: Douglas
+  Braga, Ipea, máquina 24 cores/512GB igual à nossa); fix upstream [duckdb#24036](https://github.com/duckdb/duckdb/pull/24036)
+  conserta **só o CLI** — o wheel Python nunca vai se auto-consertar (manifest pertence ao exe
+  hospedeiro). Medido no port Python (10M CadÚnico, 24 threads): total 11:47 → **3:08** rodando com uma
+  cópia do interpretador com manifest SegmentHeap (`python-sh.exe`, criada com o
+  `patch_segment_heap.py` da reprodução da issue; o `python.exe` original fica intocado).
+  Esse mesmo mecanismo explicou dois mistérios: a inflação ~10× dos empates em dados reais (strings
+  reais ampliam o tráfego de alocação; 1:51 → 0:05) e o `con.close()` de ~3 min (frees na mesma fila;
+  2:56 → 0:05). Mitigação sem patch: `n_cores≈4`. Ver tabela completa em
+  `python-package/benchmarks/resultados_benchmark.md`. **Por quê:** a hipótese inicial (toolchain) veio
+  da pesquisa de docs e estava errada — a issue nasceu exatamente com essa hipótese errada e o próprio
+  autor a refutou com cross-hosting da DLL do R dentro do python.exe (fica lenta) e do MSVC CLI
+  patcheado (fica rápido). Ao comparar clientes DuckDB no Windows, parear SEMPRE o processo hospedeiro.
+
+- `[LEARN:testes]` Nesta máquina compartilhada, benchmarks de tempos curtos variam ±15-20% entre
+  rodadas (carga da máquina), então comparações antes/depois precisam ser **pareadas e intercaladas na
+  mesma janela** (run A, run B, run A, run B) — foi o que fechou o sinal do heap (o primeiro A/B da
+  investigação, em janelas separadas, mediu "1,4× de toolchain"; pareado e em escala maior, o fator
+  real era ~4×). Fases determinísticas de sort/materialização são reprodutíveis (merge deu 0:41 três
+  vezes seguidas) e podem ser lidas de rodada única; fases de matching/empates não. Protocolo fixo no
+  `python-package/benchmarks/benchmark_sample.py` (sample 10M em `data/sample_cad_unico.parquet`).
+  **Por quê:** direção de melhoria medida em janelas separadas numa máquina compartilhada não é
+  evidência — pode ser só a carga do momento.
+
+
+- `[LEARN:python-port]` Patch de Segment Heap no Windows (v1, `python -m geocodebr._heap_patch`):
+  (1) **`GetProcessHeap`/`HeapQueryInformation` NAO e indicador valido de Segment Heap** — reporta 0
+  (legacy) ate no exe patcheado que performa bem (wall 3:08 vs 11:47 no benchmark 10M); a deteccao do
+  pacote le o RT_MANIFEST do exe (`_heap.py::tem_segment_heap`), nunca consulta o heap. (2) A copia
+  patcheada precisa ser criada **na mesma pasta do original** — copiar o exe para outro diretorio
+  quebra a resolucao de DLLs (exit 0xC0000135 STATUS_DLL_NOT_FOUND). (3) O patch e size-preserving
+  (o recurso RT_MANIFEST tem tamanho fixo no PE): comprime whitespace entre tags e preenche com
+  espacos antes de `</assembly>`. (4) Mensagens user-facing no port Python sao ASCII-safe — o
+  codepage do console Windows embaralha acentos quando a saida e pipada. **Por que:** os tres
+  pontos custaram uma rodada de debugging cada; o (1) contradiz a intuicao da API Win32.
+
+- `[LEARN:python-port]` Registro do Windows NAO liga Segment Heap por processo:
+  `AppCompatFlags\Layers` e `Image File Execution Options` persistem a MESMA camada de
+  shim do `__COMPAT_LAYER` (env) — ja refutada na Fase 0. Teste pareado (2026-09-10,
+  workload canonico 8M, duckdb 1.5.3): 18,9 s com layer no registro vs 20,0 s sem layer
+  (gap 1,07x, ambos deteriorando 1,2->6 s) vs 8,4 s plano no exe patcheado via manifesto.
+  **Por que:** o shim de compatibilidade nao alcanca o heap criado pelo UCRT no startup,
+  por onde passam as alocacoes do DuckDB; so o manifesto (lido no image load) muda o
+  escopo do heap. Detalhes no adendo da Fase 0 do plano de 2026-09-08.
+
+- `[LEARN:python-port]` Minimo da curva tempo x threads no heap legacy CONFIRMADO em
+  4 threads por sweep real (`benchmarks/verifica_sweep_threads.py`, 2026-09-10,
+  workload canonico 8M, 3 rodadas intercaladas, filho fresco por ponto): 4t = 18,9 s
+  (minimo), bacia plana 3-6 (±11%/4%), escala negativa a partir de ~8t (+31% em 24t,
+  close tambem cresce com threads). **Por que:** o cap `N_CORES_HEAP_LEGACY = 4` do
+  `geocode()` era premissa da issue do duckdb ("peak around 4 threads") sem sweep
+  proprio; agora e medicao local. Filho fresco por ponto e essencial: a deterioracao
+  acumulada do heap dentro de um processo contaminaria a curva.
+
+- `[LEARN:duckdb]` `SET threads = N` NAO e clampeado ao numero de cores: `SET threads = 64`
+  numa maquina de 24 cores gruda (`current_setting('threads')` = 64) e o processo cria os
+  workers de verdade (92 threads no processo). So rejeita < 1 (SyntaxException). **Por que:**
+  um cap de threads aplicado por politica do pacote (ex.: `N_CORES_HEAP_LEGACY = 4`) precisa
+  ser `min(cap, os.cpu_count())` para nao gerar oversubscription em maquinas pequenas — o
+  DuckDB nao protege contra isso.
+
+- `[LEARN:duckdb]` O DuckDB **canonicaliza o caminho do banco no `connect()`** — o `path` reportado
+  por `duckdb_databases()` pode divergir textualmente do que foi passado: no macOS resolve o symlink
+  `/var` → `/private/var` e no Windows pode expandir nomes curtos 8.3 do TEMP (`RUNNER~1` →
+  `runneradmin`). Comparação textual (`Path ==`) com `tempfile.gettempdir()` falha mesmo sendo o
+  mesmo diretório — o `close_geocodebr_db()` (`python-package/geocodebr/db.py`) não apagava o
+  `.duckdb` temporário no mac/windows-latest e vazava 1 arquivo por chamada. → Comparar com
+  `Path(a).resolve() == Path(b).resolve()` (resolve symlinks e nomes curtos/case). **Por quê:**
+  só se manifestou num SO diferente do de desenvolvimento; a CI multi-SO foi o que expôs, a
+  máquina local nunca reproduziu.
+
+- `[LEARN:workflow]` Relatório de cobertura pro Codecov precisa ter filenames **relativos à raiz do
+  repo**, porque os `paths` das `flags` no `codecov.yml` são comparados com os filenames como
+  gravados no relatório processado. Gerar o `coverage.xml` rodando pytest dentro de `python-package/`
+  grava filenames tipo `__init__.py` com `<source>` absoluto — o match da flag fica dependente de
+  como o uploader junta `<source>` + filename. → Rodar o pytest com `--cov` **a partir da raiz**
+  (`working-directory: .` + `uv run --project python-package pytest python-package/tests`), que grava
+  `python-package/geocodebr/<modulo>.py` direto no XML. **Por quê:** quando não casa, a flag sobe
+  sem cobertura nenhuma no app.codecov.io e nada dá erro — foi a fonte de dor num pacote anterior.
+
+- `[LEARN:testes]` Teste que exercita função com guarda de plataforma (`sys.platform != "win32"`
+  → retorno antecipado) precisa **forçar a plataforma** via fixture (`win32` em `tests/test_heap.py`:
+  `monkeypatch.setattr(sys, "platform", "win32")`). Escrito e rodado só no Windows, passa; na CI
+  Linux/macOS falha com `assert None is False` porque a guarda devolve `None` (contrato documentado
+  de `tem_segment_heap`). Quando o objetivo do teste é o parser de bytes e não a guarda, forçar a
+  plataforma no teste em vez de acondicionar o comportamento ao SO do dev. **Por quê:** só apareceu
+  com a CI multi-SO; localmente era verde o tempo todo.
 - `[LEARN:cnefe]` Entre os releases `v0.4.1` e `v0.5.0` do CNEFE pré-processado, o tamanho em disco cai
   27,8% (2.758 → 1.992 MB). **100% disso vem de `lat`/`lon` mudarem de `double` para `float`** — as duas
   colunas somam −766,1 MB de um encolhimento líquido de −765,7 MB; todo o resto se cancela. O v0.5.0 também
@@ -289,82 +393,89 @@ usuário — não tentar regenerar.
   e usar `sum(n_casos)` + anti-join na chave natural como teste real de conteúdo. Ver
   `quality_reports/diagnoses/2026-09-15_cnefe-v041-vs-v050-auditoria.md` e os dois scripts ao lado.
 
-- `[LEARN:benchmark]` Em 43,9M, duas corridas do MESMO código variam até ~20 % no total (1112 s a
-  frio na primeira corrida da noite → 894/910 s quentes), e etapas isoladas variam ainda mais (Jaro
-  em `pn02`: 57-130 s; `merge`: 93-115 s). **Diferença de total abaixo de ~10 % é inconclusiva.**
-  O que funcionou em 19/09: baselines intercalados na fila (início, meio, fim), mediana dos quentes
-  como referência, e **Δ por etapa** (o timer por função dentro do filho) como evidência primária
-  para patches pequenos — `p04` deu −5 s na etapa de DELETE numa corrida cujo total ficou 150 s
-  *acima* do baseline por ruído em etapas que o patch nem toca. **Por quê:** sem isso, patches
-  pequenos parecem regressões e patches grandes parecem maiores do que são.
+- `[LEARN:workflow]` O porte Python foi desenvolvido na branch `python_test` (bifurcada da `main` em
+  27/08/2026, `f88f12d`) e mesclado na `main` em 21/09/2026 (PR #109, `416f006`); o merge trouxe só
+  `python-package/`, os workflows `python-*.yaml` e o README, sem tocar `r-package/R/`. Em branches
+  anteriores a esse merge, `python-package/` aparece só com `placeholder.txt` — não é sinal de que o
+  porte sumiu. **Por quê:** o placeholder induz a conclusão errada de que "o Python ainda não começou".
 
-- `[LEARN:duckdb]` `DROP TABLE` de uma TEMP TABLE libera a memória na hora (sem `CHECKPOINT`);
-  `DELETE` não libera nada (+256 MB de delete vectors por 15M linhas) e `UPDATE` cria versões. Até
-  19/09 `geocode()` nunca dropava nada: 8 tabelas de referência + `input_padrao_db` + `output_db`
-  + `output_db2` + `input_db` somavam 51 GB no DuckDB e 82 GB de working set no filho durante o
-  merge, quando só `output_db2` e `input_db` eram necessárias. Dropar cada tabela de referência
-  após a última etapa que a usa (`dropa_tabelas_obsoletas()`, derivado de
-  `reference_table_by_match_type` + ordem do laço) + dropar `input_padrao_db` após o laço +
-  `output_db`/`ids_empatados`/`empates_classif` quando `output_db2` existe: pico 80,6 → 46,8 GB,
-  custo 2,3 s. **Por quê:** numa máquina de 16-32 GB isso é a diferença entre rodar em memória e
-  fazer spill para disco.
+- `[LEARN:paridade]` A `python_test` bifurcou **antes** da migração do CNEFE para `v0.5.0` (15/09) e
+  ficou semanas com R e Python em `v0.4.1` enquanto a `main` já estava em `v0.5.0`; o `DATA_RELEASE` do
+  Python só foi alinhado no merge. As rodadas de paridade confirmadas à mão antes do merge (17/09) foram
+  contra `v0.4.1` — a paridade contra `v0.5.0` (`lat`/`lon` em `float`, `cod_setor` em `int64`) ainda
+  depende do `python-parity.yaml` verde na `main`. **Por quê:** o cast `double → float` do v0.5.0 muda a
+  6ª–7ª casa decimal e o teste compara coordenadas com `abs_tol = 1e-6`; se um lado ler um release e o
+  outro ler outro, a divergência aparece como falha de paridade e não como release errado. O workflow
+  compara as duas constantes antes de rodar justamente por isso — ao mudar `data_release`, mudar nos dois.
 
-- `[LEARN:geocode]` O transporte do resultado pelo `callr` (saveRDS sem compressão no filho +
-  readRDS no pai, 6,9 GB em 43,9M) custava ~160 s, mais ~100 s do `dbGetQuery` que materializava
-  as 43,9M linhas no filho. `COPY (<mesmo SELECT ... ORDER BY>) TO '<tmp>.parquet'` no DuckDB +
-  `arrow::read_parquet()` no pai (com `arrow.use_altrep = FALSE`): 880 → 738 s ponta a ponta.
-  Tipos que NÃO sobrevivem ao parquet e precisam de restauração no pai (`restaura_classes_input()`):
-  `factor` (volta como character; o caminho antigo devolvia factor não-ordenado com os níveis
-  originais), `POSIXct` (o driver antigo sempre rotulava `tzone = "UTC"`), `difftime` (DuckDB
-  INTERVAL → FIXED_SIZE_BINARY(12) → `blob` no arrow, e ainda quebrava `resultado_sf`; resolvido
-  com `epoch()` no SELECT + `as.difftime(units = "secs")`). Trade-off: pico do pai 9 → 18 GB
-  (o arrow materializa a tabela antes de converter). **Por quê:** `identical()` só fechou depois
-  de uma matriz de tipos (factor ordenado, POSIXct com 3 tz, integer64, lógico com NA, "" vs NA).
+- `[LEARN:paridade]` O critério de paridade R ↔ Python para coordenadas é `abs_tol = 1e-6` grau, **não**
+  `identical()` — pela mesma razão da entrada `[LEARN:testes]` sobre a média ponderada do desempate
+  acumular em ordem dependente do paralelismo (diferenças de ~1e-14). Colunas não numéricas, schema,
+  contagem de linhas e distribuição de `tipo_resultado` são comparadas de forma exata. Uma divergência
+  em `tipo_resultado` ou em célula de texto é sempre bug de paridade; uma divergência de coordenada só é
+  bug se passar de 1e-6. **Por quê:** evita perseguir ruído de ulp como se fosse regressão, e evita
+  aceitar como "arredondamento" uma diferença de candidato de rua (que é de metros, não de nanômetros).
 
-- `[LEARN:enderecobr]` Os construtores de aviso/erro do enderecobr (0.6.1) inspecionam a pilha por
-  deslocamento fixo — `sys.call(-15)` em `warning_conversao_invalida()`, `sys.call(-10)` nos
-  `erro_cep_*`. Chamar `padronizar_numeros()`/`padronizar_ceps()` etc. **direto** de outro ponto
-  da pilha faz o construtor falhar com "cannot coerce type 'closure' to vector of type
-  'character'", transformando o aviso benigno de número não-convertível em erro fatal dentro do
-  `callr`. `padronizar_dedup()` (utils.R) por isso chama `padronizar_enderecos()` sobre uma
-  `data.table` de 1 coluna com os valores únicos — mesma profundidade de pilha, avisos/erros
-  idênticos (índices de erro de CEP preservados por rerun no vetor inteiro em caso de erro).
-  Padronizar sobre `unique()` + `chmatch()`: 118 → 24 s em 43,9M, `identical()` TRUE.
+- `[LEARN:python]` No Windows, `python.exe` usa o heap NT legado, e o DuckDB multithread degrada nele:
+  `geocode()` fica mais lento **e piora a cada chamada na mesma sessão** (duckdb/duckdb#24027;
+  `quality_reports/diagnoses/2026-09-04_geocode-deterioracao-python-diagnostico.md`). Nenhuma configuração
+  do Windows (`__COMPAT_LAYER=SEGMENTHEAP`, registro) resolve, porque o heap do startup já foi criado; só o
+  interpretador com manifesto patcheado (`python -m geocodebr._heap_patch`) resolve. Sem ele, o pacote
+  limita a `min(4, núcleos)` threads. **Por quê:** ao comparar tempo R vs Python no Windows, um Python
+  "lento" ou "que piora" provavelmente é o heap, não o porte — controlar por isso antes de atribuir ao código.
 
-- `[LEARN:duckdb]` A refutação de agosto do "dedup do Jaro" (5-18× mais lento) era sobre o
-  **mecanismo** (TEMP TABLE + `UNIQUE` + `ON CONFLICT` por chamada), não sobre a ideia. Dedup
-  puro em CTE — `SELECT DISTINCT (chave, logradouro_input)` → `jaro_similarity` contra
-  `SELECT DISTINCT (chave, logradouro)` dos candidatos → `FIRST(... ORDER BY similarity DESC,
-  logradouro_cnefe)` + `MAX(similarity)` com `GROUP BY ALL` → `UPDATE ... FROM` com o filtro de
-  elegibilidade REPETIDO no `WHERE` — deu 250 → 107 s em 43,9M (`pl02` 140 → 23 s, `pn02` 57 →
-  28 s) com `identical()` TRUE. Mas **perde** nas etapas cuja chave já inclui cep E localidade
-  (`pn01` 6 → 29 s): ali quase não há repetição e o join-back por 4 colunas de texto custa mais
-  que o Jaro por linha. Solução: híbrido por etapa (`usa_dedup` em `string_dist.R`). A causa da
-  explosão em `pn02`/`pl02`: ao soltar `localidade`, o conjunto de candidatos por linha cresce
-  10,6× (Σk² de logradouros por (muni, cep) = 783M vs 74M por (muni, cep, localidade)), e a
-  `unique_logr_*` criada em `pn01` repete cada logradouro uma vez por localidade do CEP (2,1× pares
-  a mais, rank-1 duplicado engolido em silêncio pelo `UPDATE`). **Por quê:** "já foi refutado" só
-  vale para o mecanismo medido; ler o relatório antes de descartar a ideia.
+- `[LEARN:paridade]` Primeira comparação de output `geocode()` R vs Python em escala (CadÚnico, 43,9 M
+  de linhas, 21/09): motor em paridade — `tipo_resultado`, `endereco_encontrado`, `cod_setor`,
+  `desvio_metros`, `contagem_cnefe`, `empate` e coordenadas (≤ 1,4e-13 grau) iguais em tudo menos 80
+  linhas. As duas causas reais: (1) **Python grava `similaridade_logradouro = 1` em todo match
+  probabilístico** — `pl.lit(None)` em `geocode.py` tem dtype `Null`, que o DuckDB materializa como
+  `INTEGER`, e o `UPDATE` com o Jaro (0,85–0,99) arredonda para 1; fix é `pl.lit(None, dtype=pl.Float64)`.
+  (2) **`numero` acima de 2^31−1**: R vira `NA` (`as.integer` no enderecobr) e cai em `dl`/`pl`; Python
+  mantém `Int64` e interpola um número absurdo com `desvio_metros = 6`. 3.294 linhas assim no CadÚnico,
+  78 divergem. Relatório: `quality_reports/diagnoses/2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M.md`.
+  **Resolvido em 22/09 (rodada 2, §6 do relatório):** com o Python corrigido e o mesmo input nos dois
+  lados, as 43.882.020 linhas são idênticas em todas as colunas — `tipo_resultado`, `similaridade_logradouro`
+  (Jaro igual valor a valor), `empate`, tudo — e a única diferença restante são 25.753 coordenadas em
+  `da*`/`pa*` com desvio ≤ 1,8e-13 grau (ordem de acumulação da média ponderada, não lógica). Esse é o
+  **baseline de paridade em escala**: qualquer mudança futura em um dos pacotes pode ser validada
+  refazendo essa comparação e exigindo 0 divergências fora do ruído de 1e-13.
+  **Por quê:** o teste de paridade (`test_r_python_parity.py`) não compara colunas numéricas fora de
+  `lat`/`lon`/`distancia_metros`, então (1) passou despercebido; e nenhum fixture tem número > int32,
+  então (2) também. Ao comparar outputs, sempre incluir as colunas numéricas de saída e um caso de
+  overflow — as duas lacunas do teste continuam abertas mesmo com os bugs corrigidos.
 
-- `[LEARN:geocode]` Nas etapas `pl0k`, linhas com `numero` preenchido nunca encontram candidato:
-  já foram testadas em `pn0k` (mesma chave de lookup, mesma `unique_logr_*`, mesmo corte) e
-  `similaridade_logradouro` só é setada, nunca limpa. Filtrar `numero IS NULL` em `pl01/pl02/pl03`
-  (4 linhas): Jaro 250 → 178 s, 0 acertos perdidos (verificado em 20k e `identical()` em 1M/43,9M).
-  Mesmo princípio de `match_types_jaro_redundante`.
+- `[LEARN:python]` Coluna criada com `pl.lit(None)` (sem `dtype`) e registrada no DuckDB vira `INTEGER`
+  após `CREATE TABLE AS SELECT *` — qualquer `UPDATE` posterior com `DOUBLE`/`NUMERIC` é arredondado em
+  silêncio. Reproduzido com Arrow `null` → DuckDB: `DESCRIBE` mostra `INTEGER`, `UPDATE ... = 0.956` lê
+  `1`. Toda coluna de trabalho que nasce nula no polars precisa de `dtype` explícito
+  (`pl.lit(None, dtype=pl.Float64)`), espelhando o `NA_real_` do R. **Por quê:** o SQL é idêntico ao do
+  R e o bug só aparece no tipo da coluna, então uma revisão de código linha a linha não pega.
 
-- `[LEARN:workflow]` `TaskStop` numa fila `bash` em background mata só o `Rscript` corrente; o
-  `bash` sobrevive e passa para o próximo item — resultado: duas filas de benchmark concorrentes
-  gravando nos mesmos arquivos. Para filas longas (> 10 min): lançar destacado via PowerShell
-  `Start-Process -FilePath 'C:\Program Files\Git\usr\bin\bash.exe' -ArgumentList ...` (o `bash`
-  não está no PATH do PowerShell; e o script precisa de `export PATH="/usr/bin:$PATH"` para
-  `date`), guardar o PID, e matar por PID (`Stop-Process -Id`) — `taskkill /F` no Git Bash vira
-  um path. Verificar `Get-Process Rscript,bash` com `StartTime` antes de relançar.
+- `[LEARN:testes]` Ao comparar dois outputs de `geocode()` por posição de linha, confirmar antes que os
+  inputs estavam na mesma ordem: os dois pacotes preservam a ordem do input, então dois outputs com
+  ordem diferente denunciam inputs diferentes (aqui: 43 linhas com `numero` distinto e uma coluna `id`
+  só de um lado). Parear por chave natural única (`co_familiar_fam`) e checar igualdade das colunas de
+  input coluna a coluna antes de atribuir qualquer diferença ao pacote. **Por quê:** o pareamento
+  posicional deu 43,87 M de "divergências" de input que eram só ordem.
 
-- `[LEARN:testes]` Ao fundir patches feitos por agentes em cópias separadas: (1) `devtools::test()`
-  apaga `tests/testthat/_snaps/download_cnefe.md` em cada cópia — restaurar do base antes de
-  fundir; (2) alguns agentes reescrevem arquivos com LF enquanto o repo usa CRLF, o que faz o
-  `git merge` ver o arquivo inteiro como conflito — normalizar tudo para LF num repo git
-  descartável (`git init` + um branch por patch + `git merge` sequencial) e só então resolver os
-  conflitos reais (19/09: P1×P8 na mesma query; P5×P10 no bloco de padronização). `git checkout
-  --ours` num conflito descarta também os hunks que já tinham sido auto-fundidos daquele arquivo —
-  conferir com `grep` e reaplicar.
+- `[LEARN:duckdb]` A deterioracao do `geocode()` sem `callr` no R e o mesmo problema de heap do Python
+  (duckdb/duckdb#24027), **nao** algo do geocodebr: `Rterm.exe`/`Rgui.exe`/`Rscript.exe` declaram
+  `SegmentHeap` no manifesto, o `rsession.exe` do RStudio **nao**. O `callr` sobe `R.home("bin")/Rterm`,
+  entao troca o heap alem de zerar o processo. A/B de 24/09 (large_sample, 8 rodadas, Rterm com so a linha
+  do heap removida): NT em processo 11,6 -> 18,1 s (1,55x); SegmentHeap em processo plano em ~8 s (o mais
+  rapido); com callr, plano em ~11-12 s (overhead ~3,3 s/chamada); 4 threads so atenua (1,21x).
+  **Por que:** "o DuckDB degrada sem callr" leva a otimizar o lugar errado. Detalhes e opcoes em
+  `quality_reports/diagnoses/2026-09-24_geocode-callr-deterioracao-heap.md`.
+  **Implementado em 27/09** (plano v3): `usar_callr()` em `R/geocode.R` decide; `callr` so no Windows sem
+  Segment Heap. Linux/macOS medidos planos em processo (Actions, 25/09). Efeito colateral: o custo de
+  +9,5 s do `load_all` no filho (entrada acima) so existe agora no RStudio/Windows.
+
+- `[LEARN:paridade]` `similaridade_logradouro` com `resultado_completo = TRUE`: o R fazia
+  `UPDATE output_db2 SET ... = COALESCE(..., 1)` **antes** do `LEFT JOIN`, então input sem correspondência
+  saía `NA`; o "patch_merge" do Python moveu o `COALESCE` para a projeção **depois** do JOIN e passou a
+  devolver `1.0` nessas linhas. O `pytest -m r_parity` não pegou porque os fixtures geocodificam 100% das
+  linhas. Em 24/09 o R trocou o `UPDATE` pela projeção já com `CASE WHEN y.tempidgeocodebr IS NULL THEN
+  NULL ELSE COALESCE(...) END` (mantém `NA`); a correção do Python ficou para os mantenedores do porte,
+  via issue no GitHub — até ela ser mesclada, a paridade nesse ponto segue quebrada. **Por quê:** mover um
+  `UPDATE` pré-JOIN para a projeção pós-JOIN muda o valor das linhas sem match; e fixture sem linha
+  não encontrada é ponto cego do teste de paridade.

@@ -15,3 +15,10 @@
 ^codemeta\.json$
 ^vignettes/\.quarto$
 ^vignettes/.*_files$
+^quality_reports$
+^\.claude$
+^CLAUDE\.md$
+^MEMORY\.md$
+^templates$
+^\.pre-commit-config\.yaml$
+^\.idea$

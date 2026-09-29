@@ -413,6 +413,18 @@
     },
     "18": {
       "@type": "SoftwareApplication",
+      "identifier": "ps",
+      "name": "ps",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=ps"
+    },
+    "19": {
+      "@type": "SoftwareApplication",
       "identifier": "purrr",
       "name": "purrr",
       "provider": {
@@ -423,7 +435,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=purrr"
     },
-    "19": {
+    "20": {
       "@type": "SoftwareApplication",
       "identifier": "rlang",
       "name": "rlang",
@@ -435,7 +447,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=rlang"
     },
-    "20": {
+    "21": {
       "@type": "SoftwareApplication",
       "identifier": "sf",
       "name": "sf",
@@ -447,7 +459,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=sf"
     },
-    "21": {
+    "22": {
       "@type": "SoftwareApplication",
       "identifier": "sfheaders",
       "name": "sfheaders",
@@ -459,7 +471,7 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=sfheaders"
     },
-    "22": {
+    "23": {
       "@type": "SoftwareApplication",
       "identifier": "tools",
       "name": "tools"

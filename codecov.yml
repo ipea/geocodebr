@@ -12,3 +12,28 @@ coverage:
         target: auto
         threshold: 1%
         informational: true
+
+# Flags correspondem ao parametro `flags:` usado nos uploads dos workflows
+# (.github/workflows/test-coverage.yaml e .github/workflows/python-check.yaml).
+#
+# Os paths sao comparados com os filenames como ficam GRAVADOS no relatorio
+# apos processamento, sempre relativos a raiz do repo:
+#   - Python: o job de cobertura roda pytest a partir da raiz, e o
+#     coverage.xml grava "python-package/geocodebr/<modulo>.py".
+#   - R: o cobertura.xml do covr grava <source> = pasta r-package/ e
+#     filenames "R/<arquivo>.R"; o Codecov junta os dois, resultando em
+#     "r-package/R/<arquivo>.R".
+#
+# O carryforward mantem no Codecov a ultima cobertura conhecida de cada flag
+# quando o workflow dela nao roda (ex.: PR que muda so o python-package nao
+# gera relatorio novo do R, e vice-versa) — sem isso a flag "some" do commit
+# e a cobertura agregada cai.
+flags:
+  r:
+    paths:
+      - r-package/
+    carryforward: true
+  python:
+    paths:
+      - python-package/
+    carryforward: true

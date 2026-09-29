@@ -32,6 +32,7 @@ Authors:
 
 Other contributors:
 \itemize{
+  \item Camila G. de Brito \email{camila.brito@ipea.gov.br} [contributor]
   \item Arthur Bazolli \email{baz.arthur@gmail.com} [contributor]
   \item Pedro Milreu Cunha \email{pedro.cunha@ipea.gov.br} [contributor]
   \item ITpS - Instituto Todos pela Saúde [funder]

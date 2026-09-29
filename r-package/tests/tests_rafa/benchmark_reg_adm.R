@@ -1,6 +1,7 @@
 # possivel local de mlehora:
 # - a funcao register_cnefe_table ser seletiva nas colunas q registra a depender de resultatado_completo F 
 # devtools::load_all('.')
+# devtools::load_all("./r-package/")
 
 library(ipeadatalake)
 library(dplyr)
@@ -13,9 +14,6 @@ library(enderecobr)
 # options(scipen = 999)
 # mapview::mapviewOptions(platform = 'leafgl')
 set.seed(42)
-
-2+2
-# stop()
 
 
 
@@ -58,7 +56,7 @@ df <- cad_con |>
          cep,
          bairro) |>
   dplyr::compute() |>
-  # dplyr::slice_sample(n = sample_size) |> # sample 20K
+  dplyr::slice_sample(n = sample_size) |> # sample 20K
   dplyr::collect()
 
 df$id <- 1:nrow(df)
@@ -77,16 +75,20 @@ stop()
 
 gc(T,T,T)
 
-bench::system_time(
-# bench::mark(iterations = 1,
-  cadgeo <- geocode(
+#bench::system_time(
+bench::mark(iterations = 1,
+  # cadgeo_novo <- geocodebr:::geocode_core(
+  cadgeo_novo <- geocode(
     enderecos  = df,
     campos_endereco = campos,
-    n_cores = NULL, # 7
+    n_cores = 7, # 7
     verboso = T,
-    resultado_completo = F,
+    resultado_completo = T,
+    resultado_sf = F,
     resolver_empates = T,
-    padronizar_enderecos = T
+    padronizar_enderecos = T,
+    h3_res = NULL,
+    cache = T
     )
   )
 
@@ -94,6 +96,8 @@ bench::system_time(
 #                    process    real
 # v0.6.4 CRAN          3.17m  14.45m
 # v0.7.0 devendbr2      2.2m     15m
+#   expression            min median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc total_time result memory     time       gc      
+# devEndbr2 claude      12.7m  12.7m   0.00132     8.5GB  0.00132     1     1      12.7m <df>   <Rprofmem> <bench_tm> <tibble>
 
 
 2+2
@@ -104,7 +108,11 @@ bench::system_time(
 # v0.4.0 CRAN      33.5m  33.5m  0.000497    8.06GB  0.00746     1    15      33.5m <NULL> <Rprofmem>
 # v0.5.0 CRAN      6.04m  6.04m   0.00276     916MB  0.00276     1     1      6.04m <df>   <Rprofmem> <bench_tm> <tibble>
 # v0.6.4 CRAN      5.04m  5.04m   0.00331    1016MB        0     1     0      5.04m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 devendbr2 4.66m  4.66m   0.00357     916MB  0.00715     1     2      4.66m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2        4.61m  4.61m   0.00362     992MB  0.00362     1     1      4.61m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2 claude 3.59m  3.59m   0.00465     992MB        0     1     0      3.59m <df>   <Rprofmem> <bench_tm> <tibble>
+
+#claude core null  2.65m  2.65m   0.00628     992MB        0     1     0      2.65m <df>   <Rprofmem> <bench_tm> <tibble>
+#plus claude-core 21.90m  21.9m  0.000761    4.95GB  0.00457     1     6      21.9m <df>   <Rprofmem> <bench_tm> <tibble>
 
 
 # 43 milhoes
@@ -114,9 +122,9 @@ bench::system_time(
 # v0.4.0 CRAN       3.3h   3.3h 0.0000843    34.5GB  0.00244     1    29       3.3h <dt>   <Rprofmem> <bench_tm> <tibble>
 # v0.5.0 CRAN      24.9m  24.9m  0.000670    4.12GB  0.00134     1     2      24.9m <df>
 # v0.6.4 CRAN      18.7m  18.7m  0.000891    3.92GB  0.00178     1     2      18.7m <df>   <Rprofmem> <bench_tm> <tibble>
-# v0.7.0 dev       16.7m  16.7m  0.000997    4.12GB 0.000997     1     1      16.7m <df>   <Rprofmem>
-# v0.7.0 devendbr2 16.0m    16m   0.00104    5.52GB  0.00208     1     2        16m <df>   <Rprofmem> <bench_tm> <tibble>
+# devEndbr2        15.55
 
+#claude core null  12.7m  12.7m   0.00132     8.5GB  0.00132     1     1      12.7m <df>   <Rprofmem> <bench_tm> <tibble>
 
 # encontra setor censitario para % do cad unico
 1- sum(is.na(cadgeo$cod_setor)) / nrow(cadgeo)

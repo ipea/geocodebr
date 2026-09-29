@@ -1,0 +1,30 @@
+exe: C:\Program Files\Python313\python.exe
+python: ['3.13.7', '(tags/v3.13.7:bcee1c3,', 'Aug', '14', '2025,', '14:15:11)', '[MSC', 'v.1944', '64', 'bit', '(AMD64)]']
+manifest do exe declara SegmentHeap: False
+__COMPAT_LAYER no env do pai: <ausente>
+
+=== threads=8 · 3 rodadas intercaladas · 8.000.000 linhas ===
+  nt threads= 8 | joins=  37.19s (1º=1.5, último=13.6) | close=1.30s | commit=0.89 GB
+  sh threads= 8 | joins=  35.73s (1º=1.5, último=11.9) | close=1.14s | commit=0.89 GB
+  sh threads= 8 | joins=  31.29s (1º=1.4, último=11.7) | close=1.04s | commit=0.89 GB
+  nt threads= 8 | joins=  37.01s (1º=1.5, último=11.2) | close=1.30s | commit=0.89 GB
+  nt threads= 8 | joins=  41.08s (1º=1.4, último=13.1) | close=1.33s | commit=0.89 GB
+  sh threads= 8 | joins=  32.52s (1º=1.4, último=9.1) | close=1.10s | commit=0.89 GB
+
+=== threads=24 · 3 rodadas intercaladas · 8.000.000 linhas ===
+  nt threads=24 | joins=  38.85s (1º=1.1, último=12.8) | close=1.29s | commit=0.90 GB
+  sh threads=24 | joins=  34.39s (1º=1.0, último=11.4) | close=1.25s | commit=0.89 GB
+  sh threads=24 | joins=  33.60s (1º=1.0, último=10.9) | close=1.26s | commit=0.91 GB
+  nt threads=24 | joins=  41.16s (1º=1.0, último=14.1) | close=1.80s | commit=0.90 GB
+  nt threads=24 | joins=  31.35s (1º=1.0, último=10.3) | close=1.18s | commit=0.91 GB
+  sh threads=24 | joins=  30.69s (1º=1.1, último=9.9) | close=1.13s | commit=0.90 GB
+
+=== startup (mediana de 3 imports duckdb+polars+pandas) ===
+  nt: 2.21s
+  sh: 2.11s
+
+=== resumo ===
+threads=8: NT mediana=37.19s (n=3) | SH mediana=32.52s (n=3) | gap=1.14x -> sem efeito
+threads=24: NT mediana=38.85s (n=3) | SH mediana=33.60s (n=3) | gap=1.16x -> sem efeito
+
+VEREDITO: layer sem efeito — primária passa a ser o exe cópia patcheado (plano Fase 2).

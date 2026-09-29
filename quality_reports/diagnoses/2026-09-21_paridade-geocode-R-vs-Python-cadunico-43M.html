@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>paridade-geocode-r-vs-python-cadunico-43m</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/clipboard/clipboard.min.js"></script>
+<script src="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/quarto-html/popper.min.js"></script>
+<script src="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/quarto-html/anchor.min.js"></script>
+<link href="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M_files/libs/bootstrap/bootstrap-215b371544c282197b31c8aa00ce3677.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+
+<section id="diagnóstico-paridade-do-geocode-r-vs-python-sobre-o-cadúnico-439-m-de-endereços" class="level1">
+<h1>Diagnóstico — paridade do <code>geocode()</code> R vs Python sobre o CadÚnico (43,9 M de endereços)</h1>
+<p><strong>Data:</strong> 2026-09-21 <strong>Arquivos comparados:</strong> - R: <code>sample_data/cadunico_43M_202312_R.parquet</code> (2,46 GB) - Python: <code>sample_data/cad_unico_pyhton.parquet</code> (2,22 GB)</p>
+<p><strong>Escopo:</strong> só o output. Comparação de código R ↔︎ Python fica para uma rodada futura. <strong>Ferramenta:</strong> DuckDB via R, sem materializar nada na memória; tabela comparativa em <code>scratchpad/cmp.duckdb</code> (43.882.020 linhas pareadas por <code>co_familiar_fam</code>). Scripts <code>01_schema.R</code> a <code>05_final.R</code> no scratchpad da sessão.</p>
+<hr>
+<section id="veredito" class="level2">
+<h2 class="anchored" data-anchor-id="veredito">1. Veredito</h2>
+<p><strong>A paridade está quase perfeita em coordenadas e categorias, e quebrada numa coluna.</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Dimensão</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Linhas</td>
+<td>43.882.020 nos dois lados; 0 <code>NA</code> em <code>lat</code>/<code>lon</code> nos dois lados</td>
+</tr>
+<tr class="even">
+<td>Schema</td>
+<td>Idêntico, exceto coluna <code>id</code> extra no output do R (veio do input)</td>
+</tr>
+<tr class="odd">
+<td><code>tipo_resultado</code></td>
+<td>Igual em 43.881.940 linhas; <strong>80 divergem (0,00018 %)</strong></td>
+</tr>
+<tr class="even">
+<td><code>precisao</code></td>
+<td>Idem (80 linhas)</td>
+</tr>
+<tr class="odd">
+<td>Coordenadas (mesmo <code>tipo_resultado</code>)</td>
+<td>43.854.179 bit-a-bit iguais; 27.763 diferem em ≤ 1,4e-13 grau; <strong>0 acima de 1e-6</strong></td>
+</tr>
+<tr class="even">
+<td><code>endereco_encontrado</code>, <code>cod_setor</code>, <code>desvio_metros</code>, <code>contagem_cnefe</code>, <code>*_encontrado</code> (mesmo tipo)</td>
+<td><strong>100 % iguais</strong></td>
+</tr>
+<tr class="odd">
+<td><code>empate</code></td>
+<td>5 linhas divergem, todas dentro das 80</td>
+</tr>
+<tr class="even">
+<td><code>similaridade_logradouro</code></td>
+<td><strong>Divergente em 4.987.296 linhas</strong> — todo match probabilístico. R traz o Jaro real (0,851–0,99); Python traz 1,0 em todas</td>
+</tr>
+</tbody>
+</table>
+<p>Duas causas-raiz, uma de cada lado, mais uma diferença de input:</p>
+<ol type="1">
+<li><strong>Python — <code>similaridade_logradouro</code> sempre 1,0</strong> (bug do porte, coluna inteira inútil).</li>
+<li><strong>Números acima do limite de inteiro de 32 bits</strong> — R descarta (<code>NA</code>), Python mantém (<code>Int64</code>). Explica 78 das 80 divergências de categoria.</li>
+<li><strong>Os inputs não eram idênticos</strong>: 43 linhas com <code>numero</code> diferente e ordem de linhas diferente. Explica as 2 divergências restantes. Não é problema dos pacotes.</li>
+</ol>
+<hr>
+</section>
+<section id="método" class="level2">
+<h2 class="anchored" data-anchor-id="método">2. Método</h2>
+<ol type="1">
+<li>Schema e contagem via <code>parquet_schema()</code> / <code>parquet_metadata()</code>.</li>
+<li>Chave de pareamento: <code>co_familiar_fam</code> é única nos dois arquivos (43.882.020 distintos). O pareamento posicional <strong>não</strong> serve — só 10.543 linhas coincidem na mesma posição (os dois pacotes preservam a ordem do input, logo os inputs estavam em ordens diferentes).</li>
+<li>Tabela <code>cmp</code> com as duas saídas lado a lado + flags <code>IS NOT DISTINCT FROM</code> por coluna.</li>
+<li>Coordenadas comparadas por diferença absoluta em graus e por haversine em metros.</li>
+<li>Causas confirmadas no código e por reprodução mínima (seção 4).</li>
+</ol>
+<hr>
+</section>
+<section id="achados" class="level2">
+<h2 class="anchored" data-anchor-id="achados">3. Achados</h2>
+<section id="colunas-de-input" class="level3">
+<h3 class="anchored" data-anchor-id="colunas-de-input">3.1 Colunas de input</h3>
+<p>Pareando por <code>co_familiar_fam</code>: <code>abbrev_state</code>, <code>code_muni</code>, <code>logradouro</code>, <code>cep</code>, <code>bairro</code> idênticos em 100 % das linhas. <strong><code>numero</code> difere em 43 linhas</strong>: o arquivo do R traz o valor original (<code>SN</code>, <code>S/N</code>, <code>51</code>, <code>133</code>, <code>1511</code>…) e o do Python traz <code>0</code>. Como <code>geocode()</code> devolve as colunas de input intocadas, isso significa que <strong>os dois lados receberam inputs ligeiramente diferentes</strong> — não é transformação do pacote. Em 41 dessas 43 linhas o resultado coincide mesmo assim (caíram em <code>dc02</code>/<code>dm01</code>, sem uso do número); em 2 diverge:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><code>co_familiar_fam</code></th>
+<th><code>numero</code> R</th>
+<th><code>numero</code> Py</th>
+<th>tipo R</th>
+<th>tipo Py</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1968851321</td>
+<td>21</td>
+<td>0</td>
+<td><code>pn02</code></td>
+<td><code>pl02</code></td>
+</tr>
+<tr class="even">
+<td>496186361</td>
+<td>1511</td>
+<td>0</td>
+<td><code>pa02</code></td>
+<td><code>pl02</code></td>
+</tr>
+</tbody>
+</table>
+<p>Ou seja: com o número, R achou o número; sem ele, Python caiu para logradouro. Comportamento correto dos dois lados dado o input de cada um.</p>
+<p><strong>Ação:</strong> conferir a proveniência dos dois inputs (o do R tem também uma coluna <code>id</code> que o do Python não tem). Para a próxima rodada de paridade, gerar os dois outputs a partir do <strong>mesmo arquivo parquet</strong>.</p>
+</section>
+<section id="tipo_resultado-80-divergências-78-com-a-mesma-causa" class="level3">
+<h3 class="anchored" data-anchor-id="tipo_resultado-80-divergências-78-com-a-mesma-causa">3.2 <code>tipo_resultado</code>: 80 divergências, 78 com a mesma causa</h3>
+<p>Matriz das divergências:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>R</th>
+<th>Python</th>
+<th>n</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>dl02</code></td>
+<td><code>da02</code></td>
+<td>31</td>
+</tr>
+<tr class="even">
+<td><code>dl01</code></td>
+<td><code>da01</code></td>
+<td>19</td>
+</tr>
+<tr class="odd">
+<td><code>pl01</code></td>
+<td><code>pa01</code></td>
+<td>10</td>
+</tr>
+<tr class="even">
+<td><code>pl02</code></td>
+<td><code>pa02</code></td>
+<td>8</td>
+</tr>
+<tr class="odd">
+<td><code>dl04</code></td>
+<td><code>da04</code></td>
+<td>5</td>
+</tr>
+<tr class="even">
+<td><code>dl03</code></td>
+<td><code>da03</code></td>
+<td>3</td>
+</tr>
+<tr class="odd">
+<td><code>dl01</code></td>
+<td><code>da04</code></td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td><code>pl03</code></td>
+<td><code>pa03</code></td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><code>pn02</code></td>
+<td><code>pl02</code></td>
+<td>1 (input, §3.1)</td>
+</tr>
+<tr class="even">
+<td><code>pa02</code></td>
+<td><code>pl02</code></td>
+<td>1 (input, §3.1)</td>
+</tr>
+</tbody>
+</table>
+<p>Padrão: <strong>R devolve “logradouro sem número” (<code>dl</code>/<code>pl</code>), Python devolve “número aproximado” (<code>da</code>/<code>pa</code>)</strong>. Nas 78 linhas, o <code>numero</code> de input é um valor absurdo acima de 2.147.483.647 — ex.: <code>0000003000524637</code>, <code>0000002875524304</code>, <code>0000999999999999</code>.</p>
+<ul>
+<li><p><strong>R:</strong> <code>enderecobr::padronizar_numeros(formato = "integer")</code> faz <code>as.integer()</code>, que devolve <code>NA</code> (com aviso) acima de <code>.Machine$integer.max</code>. Reproduzido: <code>padronizar_numeros(c("0000003000524637","2147483647","2147483648"), formato="integer")</code> → <code>NA 2147483647 NA</code>. O endereço segue o laço sem número e cai em <code>dl</code>/<code>pl</code>.</p></li>
+<li><p><strong>Python:</strong> <code>standardize.py::_padronizar_numero_expr()</code> usa <code>padronizar_numeros_para_int</code> com <code>return_dtype=pl.Int64</code> (ou <code>cast(pl.Int64)</code> para input numérico). O número sobrevive, o laço entra em <code>da</code>/<code>pa</code> e a interpolação <code>1/ABS(numero - numero_cnefe)</code> escolhe o maior número da rua. O output fica assim:</p>
+<blockquote class="blockquote">
+<p><code>AVENIDA PRIMEIRO DE JANEIRO, 3000524637 (aprox) - CENTRO, JOAO COSTA - PI, 64765-000</code>, <code>precisao = numero_aproximado</code>, <code>desvio_metros = 6</code>, <code>contagem_cnefe = 1</code></p>
+</blockquote>
+<p>Isto é, o Python <strong>promete 6 m de desvio para um número que não existe</strong>, enquanto o R devolve o centróide do logradouro com <code>desvio_metros</code> honesto (84–8.733 m). O R está certo por acidente (o overflow vira <code>NA</code>), mas o resultado é o desejável.</p></li>
+</ul>
+<p>No input inteiro há <strong>3.294 linhas</strong> com <code>numero &gt; 2^31−1</code>. Em 3.216 delas os dois lados coincidem (caíram em <code>dc</code>/<code>dl</code>/<code>pl</code>/<code>db</code>/<code>dm</code> nos dois, porque a rua não tem números no CNEFE ou nem foi encontrada); as 78 restantes são as ruas numeradas, onde a diferença aparece.</p>
+<p>As <strong>5 divergências de <code>empate</code></strong> e as <strong>27 linhas com coordenada a mais de 100 m</strong> (máx. 23,6 km) estão todas dentro dessas 78 — são consequência, não causa separada.</p>
+<p><strong>Ação:</strong> decidir o contrato para números fora de faixa e aplicar nos dois pacotes. Opções, da mais simples à mais correta: 1. Python emula o R: <code>numero &gt; 2_147_483_647 → null</code> na padronização. Fecha a paridade hoje. 2. Os dois pacotes tratam como <code>NA</code> qualquer número acima de um teto plausível (ex.: 6 dígitos). Muda comportamento do R (hoje 2.147.483.647 é aceito) — precisa de NEWS e de teste. Melhor para o usuário, porque <code>0000999999999999</code> e <code>2147483647</code> são igualmente lixo. Fica para a rodada de comparação de código.</p>
+</section>
+<section id="similaridade_logradouro-python-grava-10-em-todo-match-probabilístico" class="level3">
+<h3 class="anchored" data-anchor-id="similaridade_logradouro-python-grava-10-em-todo-match-probabilístico">3.3 <code>similaridade_logradouro</code>: Python grava 1,0 em todo match probabilístico</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Família</th>
+<th>Lado</th>
+<th>Valores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>d*</code> (38.894.665)</td>
+<td>R e Python</td>
+<td>1,00 em todas (preenchido por <code>COALESCE(…, 1)</code>, igual nos dois)</td>
+</tr>
+<tr class="even">
+<td><code>p*</code> (4.987.296)</td>
+<td>R</td>
+<td>0,851 a 0,99 — distribuição contínua, moda em 0,98</td>
+</tr>
+<tr class="odd">
+<td><code>p*</code> (4.987.296)</td>
+<td>Python</td>
+<td><strong>1,00 em 100 % das linhas</strong>; mínimo 1,00</td>
+</tr>
+</tbody>
+</table>
+<p>O SQL de <code>calculate_string_dist()</code> é o mesmo nos dois pacotes (<code>CAST(jaro_similarity(...) AS NUMERIC(5,3))</code> → <code>UPDATE input_padrao_db SET similaridade_logradouro = similarity</code>). A diferença está no <strong>tipo da coluna de trabalho</strong>:</p>
+<ul>
+<li>R (<code>geocode.R:452</code>): <code>input_padrao[, similaridade_logradouro := NA_real_]</code> → coluna <code>DOUBLE</code>.</li>
+<li>Python (<code>geocode.py:250</code>): <code>pl.lit(None).alias("similaridade_logradouro")</code> → dtype polars <code>Null</code> → Arrow <code>null</code> → <strong>DuckDB materializa como <code>INTEGER</code></strong> em <code>CREATE TEMP TABLE input_padrao_db AS SELECT *</code>. O <code>UPDATE</code> grava <code>0.956</code> numa coluna inteira e o valor vira <code>1</code>.</li>
+</ul>
+<p>Reprodução mínima (Arrow <code>null</code> → DuckDB, mesmo caminho que o polars usa):</p>
+<pre><code>DESCRIBE t                       →  similaridade_logradouro  INTEGER
+UPDATE t SET similaridade_logradouro = CAST(0.956 AS NUMERIC(5,3))
+SELECT …                         →  1</code></pre>
+<p>Como todo Jaro aceito é &gt; 0,85, tudo arredonda para 1 e a coluna fica indistinguível de um match determinístico. Nada mais é afetado: o corte <code>&gt; 0.85</code>/<code>&gt; 0.90</code> é aplicado sobre <code>similarity</code> na CTE, antes do <code>UPDATE</code>, e a escolha do logradouro (<code>temp_lograd_determ</code>) não passa pela coluna inteira — por isso <code>logradouro_encontrado</code> e coordenadas coincidem com o R.</p>
+<p><strong>Ação (1 linha):</strong> <code>pl.lit(None, dtype=pl.Float64).alias("similaridade_logradouro")</code> em <code>python-package/geocodebr/geocode.py:250</code>. Adicionar ao teste de paridade uma checagem de que <code>similaridade_logradouro &lt; 1</code> para <code>tipo_resultado LIKE 'p%'</code>.</p>
+<p><strong>Por que o teste de paridade não pegou:</strong> <code>test_r_python_parity.py::run_all_comparisons()</code> compara schema, linhas, <code>tipo_resultado</code>, coordenadas (<code>lat</code>/<code>lon</code>/<code>distancia_metros</code>, <code>atol=1e-6</code>) e células <strong>não numéricas</strong>. <code>similaridade_logradouro</code>, <code>contagem_cnefe</code> e <code>desvio_metros</code> são numéricas e ficam fora das duas listas — nunca são comparadas. Ver §5.</p>
+</section>
+<section id="coordenadas-ruído-de-ponto-flutuante-dentro-do-esperado" class="level3">
+<h3 class="anchored" data-anchor-id="coordenadas-ruído-de-ponto-flutuante-dentro-do-esperado">3.4 Coordenadas: ruído de ponto flutuante, dentro do esperado</h3>
+<p>Entre linhas com o mesmo <code>tipo_resultado</code>, nenhuma diferença de coordenada supera 1e-6 grau. As 27.763 linhas com diferença não nula (máx. 1,35e-13 grau ≈ 15 nm) são <strong>todas</strong> <code>da*</code>/<code>pa*</code> — as categorias que calculam média ponderada por <code>contagem_cnefe</code>, cuja ordem de acumulação depende do paralelismo do DuckDB. É o mesmo fenômeno já registrado em <code>MEMORY.md</code> (<code>[LEARN:testes]</code>, 26/08) entre duas execuções do <strong>mesmo</strong> pacote R. Não é divergência de lógica.</p>
+</section>
+<section id="distribuição-de-tipo_resultado" class="level3">
+<h3 class="anchored" data-anchor-id="distribuição-de-tipo_resultado">3.5 Distribuição de <code>tipo_resultado</code></h3>
+<p>Com exceção das 80 linhas, as 25 categorias têm contagens idênticas (<code>dn*</code>, <code>dc*</code>, <code>db01</code>, <code>dm01</code>, <code>pn01</code>, <code>pn03</code> batem exatamente; <code>da*</code>/<code>dl*</code>/<code>pa*</code>/<code>pl*</code> diferem só pelos deslocamentos de §3.2). Em <code>precisao</code>: <code>numero_aproximado</code> +77 no Python, <code>logradouro</code> −76, <code>numero</code> −1.</p>
+</section>
+<section id="ordem-das-linhas" class="level3">
+<h3 class="anchored" data-anchor-id="ordem-das-linhas">3.6 Ordem das linhas</h3>
+<p>O Python devolve as linhas em ordem quase crescente de <code>co_familiar_fam</code> (265 mil inversões em 43,9 M); o R, não (21,4 M inversões). Os dois códigos preservam a ordem do input (<code>ORDER BY tempidgeocodebr</code> no Python; <code>merge_results_to_input()</code> no R), então a diferença vem dos inputs, coerente com §3.1.</p>
+<hr>
+</section>
+</section>
+<section id="evidência-reproduzível" class="level2">
+<h2 class="anchored" data-anchor-id="evidência-reproduzível">4. Evidência reproduzível</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Achado</th>
+<th>Como reproduzir</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>int32 no R</td>
+<td><code>enderecobr::padronizar_numeros("0000003000524637", formato = "integer")</code> → <code>NA</code> + warning (enderecobr 0.6.1)</td>
+</tr>
+<tr class="even">
+<td>Int64 no Python</td>
+<td><code>standardize.py:68</code> e <code>:82-83</code> (<code>pl.Int64</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>Null</code> → <code>INTEGER</code></td>
+<td>Arrow <code>null</code> registrada no DuckDB + <code>CREATE TABLE AS</code> → <code>DESCRIBE</code> mostra <code>INTEGER</code>; <code>UPDATE</code> com 0,956 lê 1</td>
+</tr>
+<tr class="even">
+<td>Números</td>
+<td>tabela <code>cmp</code> em <code>scratchpad/cmp.duckdb</code>; queries em <code>03_analysis.R</code>, <code>04_followup.R</code>, <code>05_final.R</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="recomendações-em-ordem" class="level2">
+<h2 class="anchored" data-anchor-id="recomendações-em-ordem">5. Recomendações, em ordem</h2>
+<ol type="1">
+<li><strong>Corrigir o dtype em <code>geocode.py:250</code></strong> (<code>pl.Float64</code>). Bug isolado, fix de uma linha, sem efeito colateral. Rodar <code>pytest -m "not r_parity"</code> e conferir que <code>test_geocode</code> cobre <code>resultado_completo=True</code>.</li>
+<li><strong>Estender <code>run_all_comparisons()</code></strong> para comparar também as colunas numéricas de saída (<code>similaridade_logradouro</code> com <code>atol=1e-3</code>, <code>desvio_metros</code>, <code>contagem_cnefe</code>, <code>numero_encontrado</code> exatos). Hoje o teste é cego para esse tipo de bug.</li>
+<li><strong>Fixar o contrato de <code>numero</code> fora de faixa</strong> nos dois pacotes (§3.2). Enquanto não decidir, o Python deveria pelo menos emular o <code>NA</code> do R acima de 2^31−1, porque o output atual (<code>(aprox)</code> com <code>desvio_metros = 6</code>) é enganoso. Adicionar um caso com <code>numero = "3000524637"</code> a <code>small_sample.csv</code> ou ao teste de paridade.</li>
+<li><strong>Refazer a comparação com o mesmo input</strong> nos dois lados (§3.1) — os 43 números divergentes e a coluna <code>id</code> indicam que os arquivos de entrada não eram o mesmo objeto.</li>
+<li>Registrar em <code>NEWS</code>/docstring do Python que <code>similaridade_logradouro</code> era inválida na <code>0.1.0</code>.</li>
+</ol>
+<p>Fora isso, <strong>o motor de matching está em paridade</strong>: mesmas categorias, mesmos endereços, mesmos setores, mesmas coordenadas, mesmos desempates, em 43,9 milhões de linhas.</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

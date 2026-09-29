@@ -2,16 +2,19 @@
 
 **Projeto:** geocodebr — geolocalização de endereços brasileiros, baseado no CNEFE
 (Cadastro Nacional de Endereços para Fins Estatísticos), publicado pelo IBGE. Geocodificação em massa,
-sem limite de consultas, a partir de dados abertos. **Monorepo**: o pacote R vive em `r-package/`; um
-porte para Python está planejado em `python-package/` (hoje só um placeholder). Toda a documentação
-abaixo, salvo indicação contrária, se refere ao pacote R.
-**Mantenedor:** Rafael H. M. Pereira (aut, cre — Ipea) · **Autores:** Daniel Herszenhut, Gabriel Garcia
-de Almeida · **Contribuidores (ctb):** Arthur Bazolli, Pedro Milreu Cunha
+sem limite de consultas, a partir de dados abertos. **Monorepo com dois pacotes**: o pacote R vive em
+`r-package/` (estável, no CRAN) e o pacote **Python** em `python-package/` (versão de testes, `0.1.0`,
+ainda não publicado no PyPI). **Regra básica do projeto: paridade de resultado entre os dois pacotes** —
+aplicados à mesma base de input, R e Python devem produzir output idêntico (ver "Paridade R ↔ Python").
+Salvo indicação contrária, a documentação abaixo se refere ao pacote R; a seção "Pacote Python" cobre o porte.
+**Mantenedor:** Rafael H. M. Pereira (aut, cre — Ipea) · **Autores:** Daniel Herszenhut, Gabriel Garcia de Almeida
+· **Mantenedores do porte Python:** Camila Gonçalves de Brito, Jefferson Silva dos Anjos
 **Financiamento/copyright:** Ipea; ITpS — Instituto Todos pela Saúde
-**Repo:** https://github.com/ipeaGIT/geocodebr — mas atenção: os campos `URL`/`BugReports` da
-DESCRIPTION apontam para `ipea/geocodebr` · **Branch:** main · **Versão:** 0.6.4.901 (dev)
+**Repo:** https://github.com/ipeaGIT/geocodebr · **Branch:** main · **Versão R:** 0.6.4 (dev 0.6.4.900) ·
+**Versão Python:** 0.1.0 (alpha; mesclado na `main` em 21/09/2026 via PR #109, `416f006`)
 **Idioma:** `Language: pt` na DESCRIPTION — NEWS.md, blocos roxygen, mensagens de erro/aviso, vignettes e
-README são em **português**. Todo conteúdo voltado ao usuário deve seguir isso.
+README são em **português**. Todo conteúdo voltado ao usuário deve seguir isso — nos dois pacotes
+(docstrings, mensagens `cli`/`warnings` e README do Python também em pt-BR).
 
 ---
 
@@ -23,6 +26,11 @@ README são em **português**. Todo conteúdo voltado ao usuário deve seguir is
 - **O portão de release é `R CMD check --as-cran`** — 0 erros, 0 warnings, e toda NOTE restante justificada
   em `cran-comments.md`. Rodar via `/r-package-check` antes de qualquer release ou merge que toque
   `R/`, `tests/` ou `DESCRIPTION`
+- **Paridade R ↔ Python é invariante do projeto** — a mesma base de input tem que produzir o mesmo
+  output nos dois pacotes: mesmas colunas, mesmas linhas, mesmo `tipo_resultado`/`precisao`, mesmas
+  coordenadas. Toda mudança de lógica em `r-package/R/` precisa ser espelhada em
+  `python-package/geocodebr/` (e vice-versa) no mesmo PR, e `pytest -m r_parity` tem que passar.
+  Uma otimização que muda o resultado num pacote só **não** é aceitável até o outro acompanhar
 - **Português no que o usuário vê** — NEWS.md, roxygen, mensagens `cli`, vignettes e README em pt-BR.
   Comentários internos de código podem ser em pt ou en, mas siga o padrão do arquivo em que está mexendo
 - **`[LEARN]`** — quando corrigido, ou quando uma abordagem não óbvia for confirmada, gravar
@@ -44,18 +52,23 @@ subdiretório. Salvo indicação contrária, o resto deste arquivo se refere ao 
 geocodebr/
 ├── CLAUDE.md                     # Este arquivo
 ├── MEMORY.md                     # Aprendizados [LEARN] entre sessões
-├── README.md                     # Landing page curta do repo, aponta pra r-package/ e python-package/
+├── README.md                     # Landing page do repo: tabela de badges R | Python, instalação dos dois
 ├── LICENSE                       # Duplicado em r-package/LICENSE (CRAN exige relativo à raiz do pacote)
 ├── codecov.yml                   # Fica na raiz — é onde o backend do Codecov procura por padrão
-├── .pre-commit-config.yaml       # Um config por repo; os 3 hooks operam sobre arquivos de r-package/
-├── .github/workflows/            # check, check_as_cran, pkgdown, readme_rmd, rhub, test-coverage
-├── .claude/skills/               # 9 skills locais de DuckDB/dados (ver "Skills vivas aqui")
-├── docs/                         # Saída do pkgdown — GITIGNORADA, não versionar
+├── .github/workflows/            # R: check, check_as_cran, pkgdown, readme_rmd, rhub, test-coverage
+│                                  # Python: python-check, python-parity, python-deterioracao, python-publish-pypi
 ├── quality_reports/               # Planos, specs, logs de sessão, relatórios de merge, diagnoses
 │                                  #   único lugar certo; r-package/quality_reports/ é resíduo de uma
 │                                  #   sessão rodada com cwd em r-package/ (limpar)
 ├── templates/                    # Templates de log de sessão / spec / relatório de qualidade
-├── python-package/                # Apenas placeholder.txt — porte para Python ainda não começou
+├── python-package/                # O pacote Python geocodebr (ver "Pacote Python")
+│   ├── pyproject.toml / uv.lock   # hatchling; deps: duckdb, pyarrow, polars, enderecobr, h3, requests
+│   ├── README.md                  # README do pacote Python, em pt-BR
+│   ├── LICENSE.txt
+│   ├── geocodebr/                 # Fonte do pacote (mapa módulo ↔ arquivo R na seção "Pacote Python")
+│   ├── tests/                     # pytest; test_r_python_parity.py é o teste de paridade R ↔ Python
+│   ├── benchmarks/                # Scripts de deterioração/heap no Windows + resultados
+│   └── exemplos/                  # geocode_enderecos.py, busca_por_cep.py, geocode_reverso.py
 └── r-package/                     # O pacote R {geocodebr} — raiz de tudo que segue abaixo
     ├── DESCRIPTION / NAMESPACE    # Metadados / exports GERADOS (nunca editar NAMESPACE à mão)
     ├── NEWS.md                    # Changelog voltado ao usuário, em pt-BR (bump por release)
@@ -113,6 +126,25 @@ cd r-package && R CMD build . && R CMD check --as-cran geocodebr_*.tar.gz
 atualizar `r-package/cran-comments.md` com justificativa para cada NOTE restante, e então
 `devtools::release("r-package")` (só o mantenedor, não automatizado).
 
+### Pacote Python
+
+O pacote Python vive em `python-package/` e usa `uv` (lockfile `uv.lock`). Rode com `python-package`
+como diretório de trabalho.
+
+```bash
+cd python-package
+uv sync --frozen --extra geo            # instala deps (extra geo = geopandas, p/ geocode_reverso e resultado_gpd)
+uv run pytest -q -m "not r_parity"      # suíte unitária: parquets sintéticos, não baixa o CNEFE (~160 testes)
+uv run pytest -m r_parity -q            # PARIDADE R ↔ Python: exige Rscript no PATH, instala o pacote R local
+                                         # em lib temporária e pode baixar o CNEFE (>1 GB). Pulado sem Rscript
+uv run python exemplos/geocode_enderecos.py
+python -m geocodebr._heap_patch         # Windows: gera python-geocodebr-sh.exe com Segment Heap (ver README)
+```
+
+Não há `R CMD check` equivalente: o portão do Python é `pytest` unitário verde na matriz de CI
+(`python-check.yaml`: Ubuntu/macOS/Windows × Python 3.10–3.14) **e** `pytest -m r_parity` verde
+(`python-parity.yaml`). Publicação no PyPI via `python-publish-pypi.yaml` (ainda não usada).
+
 ---
 
 ## Hooks pre-commit deste repo
@@ -140,6 +172,9 @@ um config por repositório — mas os três hooks operam sobre os arquivos de `r
 | Cobertura (`covr`) | Nenhuma função exportada em 0% |
 | Docs roxygen | Toda função exportada: `@param` (todos os args), `@return`, `@examples` executável |
 | Matriz de CI | Windows, macOS e Ubuntu (devel/release/oldrel) verdes — `.github/workflows/check.yaml` |
+| **Paridade R ↔ Python** | `pytest -m r_parity` verde (`python-parity.yaml`) sempre que `r-package/R/**` ou `python-package/geocodebr/**` mudar |
+| Python: `pytest -m "not r_parity"` | Todos passando na matriz `python-check.yaml` (3 SOs × Python 3.10–3.14) |
+| Python: docstrings | Toda função pública com docstring em pt-BR cobrindo todos os argumentos e o retorno |
 
 Padrão completo: `r-package-conventions.md` (regra global, path-scoped para `R/**/*.R`, `tests/**/*.R`,
 `man/**/*.Rd`, `DESCRIPTION`, `NAMESPACE`, `NEWS.md` — esses globs continuam batendo com os arquivos
@@ -162,7 +197,9 @@ DuckDB/dados (`query`, `attach-db`, `read-file`, `convert-file`, `spatial`, `s3-
 `install-duckdb`, `read-memories` — ver `.claude/skills/README-duckdb-skills.md`), diretamente úteis aqui
 porque todo o motor do pacote é DuckDB + parquet. O que de fato opera:
 
-- **Desenvolvimento do pacote:** `/r-package-check` (o portão), `/code-review`, `/security-review`
+- **Desenvolvimento do pacote R:** `/r-package-check` (o portão), `/code-review`, `/security-review`
+- **Desenvolvimento do pacote Python:** não há skill dedicada; o portão é `pytest` (unitário + `r_parity`)
+  rodado à mão — ver "Pacote Python". `/code-review` e `/security-review` valem para os dois
 - **Workflow:** `/commit` (Steps 0/0b pulados — ver acima), `/diagnose`, `/checkpoint`, `/context-status`, `/deep-audit`
 - **Memória / aprendizado:** `/learn`, `/promote-memory`
 - **Meta:** `/permission-check`, `/new-skill`
@@ -189,9 +226,12 @@ Coordenadas de entrada e saída usam **SIRGAS 2000, EPSG 4674**.
 
 ## Arquitetura interna
 
-- **`geocode()` roda seu corpo dentro de `callr::r()`** (`R/geocode.R`) — processo R separado, por isolamento
-  de memória/DuckDB. Consequência prática ao depurar: `browser()` ou `print()` dentro do corpo não se comportam
-  como numa chamada comum. Para investigar, extraia a lógica ou chame as funções internas diretamente.
+- **`geocode()` só usa `callr::r()` no Windows com heap legado** (`R/geocode.R`, `usar_callr()`). Quando o exe
+  que hospeda a sessão não declara Segment Heap (ex.: `rsession.exe` do RStudio), o motor roda num processo
+  separado, porque ali o DuckDB degrada a cada chamada no mesmo processo. Em Linux, macOS e Windows sob
+  Rterm/Rgui/Rscript, roda na própria sessão (2–3 s mais rápido, medido). Ao depurar no caminho `callr`,
+  `browser()`/`print()` dentro do motor não se comportam como numa chamada comum: chame `geocode_core()` direto
+  ou mocke `usar_callr()`. Diagnóstico: `quality_reports/diagnoses/2026-09-24_geocode-callr-deterioracao-heap.md`.
 - **Backend DuckDB + Arrow/Parquet** — `R/create_geocodebr_db.R` cria a conexão; `R/register_cnefe_tables.R`
   registra as tabelas do CNEFE. Extensão espacial via `duckspatial`.
 - **Matching em camadas** — determinístico em `R/match_cases.R`; probabilístico por similaridade de **Jaro**
@@ -240,10 +280,12 @@ vários parâmetros são compartilhados por três ou mais funções exportadas.
 
 ### geocode()
 
-`geocode()` (`R/geocode.R`) é apenas um invólucro: todo o corpo roda dentro de `callr::r()`, num processo R
-separado. Isso isola a memória do DuckDB e — efeito colateral importante — **protege o objeto do usuário**,
-já que o motor usa `data.table::setDT()` e `:=` que modificariam `enderecos` por referência. O motor real é
-`geocode_core()`, no mesmo arquivo.
+`geocode()` (`R/geocode.R`) é apenas um invólucro. O motor real é `geocode_core()`, no mesmo arquivo, e roda
+em processo ou num subprocesso `callr`, conforme `usar_callr()` (ver "Arquitetura interna"). Nos dois caminhos
+o resultado sai do DuckDB para um parquet temporário e passa pelo mesmo pós-processamento, então o output é
+idêntico por construção. **O objeto do usuário precisa ser protegido**, porque o motor usa
+`data.table::setDT()` e `:=`, que modificariam `enderecos` por referência. No caminho `callr` isso vem de graça;
+em processo, `geocode()` passa `data.table::copy(enderecos)`. Não remover essa cópia (há teste de regressão).
 
 **Etapa 0 — validação e preparação do input.** `checkmate` valida os tipos; `check_clean_colnames()`
 (`R/utils.R`) faz duas rejeições: nomes de coluna com qualquer caractere fora de `[A-Za-z0-9_]`, **e**
@@ -399,9 +441,14 @@ como rede de segurança — o teste `dbIsValid()` é o que evita o aviso "Connec
    acontece porque a etapa exata consome esses casos antes. Reordenar `all_possible_match_types` sem
    respeitar isso quebra o cálculo silenciosamente.
 2. **`tempidgeocodebr`** é a única ligação entre input e output; nada pode reordenar ou reciclar esse id.
-3. **`data_release`** (`R/cache.R:1`) precisa casar com uma tag existente em `ipeaGIT/padronizacao_cnefe`.
+3. **`data_release`** (`R/cache.R:1`) precisa casar com uma tag existente em `ipeaGIT/padronizacao_cnefe`
+   **e** com `DATA_RELEASE` em `python-package/geocodebr/constants.py` — o workflow `python-parity.yaml`
+   compara as duas constantes e falha antes de rodar qualquer teste se divergirem.
 4. `man/roxygen/templates/precision_section.R` e `empates_section.R` são a documentação de usuário desse
    pipeline — mudou a lógica aqui, atualize lá.
+5. **Espelhamento no Python.** Qualquer mudança no laço de matching, no SQL dos `match_*()`, no desempate
+   ou na ordem de `all_possible_match_types` precisa ser replicada em `python-package/geocodebr/`
+   (`matching.py`, `match_types.py`, `string_dist.py`) — ver "Paridade R ↔ Python".
 
 ### geocode_reverso()
 
@@ -475,11 +522,123 @@ usuário veja o que não foi achado. Se *nenhum* CEP for encontrado, a função 
 
 | | `geocode()` | `geocode_reverso()` | `busca_por_cep()` |
 |---|---|---|---|
-| Isolamento em `callr` | Sim | Não | Não |
-| Tabelas CNEFE baixadas | Só as necessárias, de 1 a 8 (`tabelas_necessarias()`) | 1 (`municipio_logradouro_cep_localidade`) | 1 (a mesma) |
+| Isolamento em `callr` | Só no Windows com heap legado (RStudio) | Não | Não |
+| Tabelas CNEFE baixadas | 8 (todas) | 1 | 1 |
 | Extensão espacial DuckDB | Não | **Sim** | Não |
 | Como limita municípios | Colunas UF+município do input (obrigatórias) | Join espacial com bboxes | Não limita |
 | Linhas do input preservadas | Sim (`LEFT JOIN`, `NA` se não achou) | **Não** (`INNER JOIN`, descarta) | Não (dedup + 1:N) |
 | Desconecta o DuckDB | Sim (+ `on.exit` guardado) | Sim (+ `on.exit` guardado) | Sim (só via `on.exit`) |
+
+---
+
+## Pacote Python
+
+Porte do pacote R para Python, em `python-package/`, **DuckDB-first**: o input é registrado no DuckDB,
+todo o matching roda em SQL e o resultado só é materializado no final como `pyarrow.Table`
+(`.to_pandas()` fica a cargo do usuário). A única etapa fora do DuckDB é a padronização, feita em
+`polars` como ponte para os bindings Python do `enderecobr` — `pandas` não entra no pipeline interno.
+Estado atual: `0.1.0`, `Development Status :: 3 - Alpha`, PyPI planejado. Desenvolvido na branch
+`python_test` e mesclado na `main` em 21/09/2026 (PR #109, `416f006`); o merge não alterou `r-package/R/`.
+Revisão estrutural mais recente: `quality_reports/diagnoses/2026-09-17_revisao-port-python.md`.
+
+### API pública
+
+Mesmos nomes e semântica do R — `geocode()`, `geocode_reverso()`, `busca_por_cep()`, `definir_campos()`,
+`download_cnefe()`, `definir_pasta_cache()`, `deletar_pasta_cache()`, `listar_pasta_cache()`,
+`listar_dados_cache()` — mais `enderecobr_padronizar_enderecos()`, exposta publicamente. Diferenças de
+interface (não de resultado):
+
+| | R | Python |
+|---|---|---|
+| Input de `geocode()` | `data.frame` | `polars.DataFrame`, `pyarrow.Table`, ou caminho `.csv`/`.parquet` |
+| Retorno padrão | `data.frame` | `pyarrow.Table` |
+| Retorno espacial | `resultado_sf = TRUE` → `sf` | `resultado_gpd=True` → `geopandas.GeoDataFrame` (extra `geo`) |
+| Input de `geocode_reverso()` | `sf` de pontos, EPSG 4674 | `GeoDataFrame` de pontos, EPSG 4674 |
+| `definir_campos()` | vetor nomeado | `dict` |
+
+### Mapa módulo Python ↔ arquivo R
+
+| Python (`geocodebr/`) | R (`r-package/R/`) | Conteúdo |
+|---|---|---|
+| `geocode.py` | `geocode.R` | Pipeline do `geocode()`. **Sem subprocesso** — roda no processo do usuário; o input é materializado em `polars` (o objeto do usuário não é modificado por referência). No Windows sem Segment Heap, em vez do subprocesso que o R usa, limita as threads (`_heap.py`) |
+| `matching.py` | `match_cases.R`, `match_cases_probabilistic.R`, `match_weighted_cases.R`, `match_weighted_cases_probabilistic.R`, `match_helpers.R`, `trata_empates_geocode_duckdb.R` + `update_input_db`/`add_precision_col`/`merge_results_to_input`/`cria_col_logradouro_confusao` de `utils.R` | Os quatro `match_*()`, desempate, e as etapas SQL do laço |
+| `match_types.py` | `utils.R` (`all_possible_match_types`, `get_key_cols`, `get_reference_table`, `get_prob_match_cutoff`) | Módulo **puro** (sem DuckDB): a escada de 25 etapas e seus metadados |
+| `string_dist.py` | `string_dist.R` | Similaridade de Jaro no DuckDB |
+| `tables.py` | `register_cnefe_tables.R` | `CREATE TEMP TABLE ... FROM read_parquet(...)` sob demanda |
+| `db.py` | `create_geocodebr_db.R` | Conexão DuckDB em disco (`tempfile`), `SET threads`, extensão espacial |
+| `standardize.py` | (chamada a `enderecobr::padronizar_enderecos()` em `geocode.R`) | Ponte `polars` ↔ `enderecobr` |
+| `reverse.py` / `cep.py` | `geocode_reverso.R` / `busca_por_cep.R` | |
+| `cache.py` / `download_cnefe.py` / `constants.py` | `cache.R` / `download_cnefe.R` | `DATA_RELEASE` em `constants.py` ≡ `data_release` em `cache.R` |
+| `fields.py` / `errors.py` / `messages.py` / `geo.py` / `utils.py` | `definir_campos.R` / `error.R` / `message.R` / (H3 + `sf`) / validação | |
+| `_heap.py` / `_heap_patch.py` | — | Só Windows: detecção do Segment Heap e geração do interpretador patcheado |
+
+### Particularidades que não existem no R
+
+- **Windows + heap legado.** O `python.exe` padrão usa o heap NT legado, que degrada sob alocação
+  multithread do DuckDB: `geocode()` fica mais lento **e piora a cada chamada na mesma sessão**
+  (duckdb/duckdb#24027; diagnóstico em `quality_reports/diagnoses/2026-09-04_geocode-deterioracao-python-diagnostico.md`).
+  Mitigação: sem Segment Heap e sem `n_cores` explícito, o pacote limita o DuckDB a `min(4, núcleos)`
+  threads e avisa uma vez por sessão; a solução recomendada é o interpretador patcheado
+  (`python -m geocodebr._heap_patch`; 10M endereços: 11:47 → 3:08 min). Benchmarks em `benchmarks/`.
+  Ao medir performance do Python no Windows, controlar por isso antes de comparar com o R.
+- **Sem subprocesso.** Não há equivalente ao `callr::r()`; `browser()`-style debugging funciona normal.
+- **Workflow `python-deterioracao.yaml`** monitora a regressão de deterioração entre chamadas.
+
+---
+
+## Paridade R ↔ Python
+
+**A regra:** aplicados à mesma base de input, com os mesmos argumentos e o mesmo `data_release` do
+CNEFE, `geocode()`, `geocode_reverso()` e `busca_por_cep()` devem devolver o **mesmo resultado** nos
+dois pacotes. Isso é uma restrição de projeto, não uma meta: um PR que altera o resultado de um lado sem
+alterar o outro não é mesclável.
+
+**Como é verificada.** `python-package/tests/test_r_python_parity.py` (marker `r_parity`) gera um script
+R em tempo de execução, instala o pacote R local de `r-package/` numa biblioteca temporária, roda as três
+funções nos dois lados sobre `r-package/inst/extdata/small_sample.csv` e `large_sample.parquet` (com e
+sem `resultado_sf`/`resultado_gpd`), grava os outputs em parquet e compara em **5 níveis**: schema
+(colunas), contagem de linhas, distribuição de `tipo_resultado`, coordenadas (`lat`, `lon`,
+`distancia_metros`) e todas as células não numéricas. O critério para floats é
+`math.isclose(abs_tol=1e-6)` — **não** é `identical()` bit-a-bit, porque a média ponderada do desempate
+acumula em ordem dependente do paralelismo do DuckDB e diverge em ~1e-14 grau mesmo entre duas chamadas
+do mesmo pacote (ver `[LEARN:testes]` em MEMORY.md). Divergências conhecidas e aceitas (ex.: geometria
+achatada em `lon_geom`/`lat_geom` para comparar `geocode_reverso()` via parquet) ficam documentadas na
+docstring do próprio teste — é lá que uma nova exceção precisa entrar, com justificativa.
+
+**Quando roda.** `python-parity.yaml` dispara em push/PR para `main` que toque `r-package/R/**` ou
+`python-package/geocodebr/**`. Antes de qualquer setup, o workflow extrai `data_release` de
+`r-package/R/cache.R` e `DATA_RELEASE` de `python-package/geocodebr/constants.py` e **falha se
+divergirem**; o valor também é a chave do cache do CNEFE no CI (mudou o release, rebaixa).
+
+**Fluxo obrigatório ao mudar lógica de matching/desempate/padronização em qualquer um dos lados:**
+
+1. Aplicar a mudança nos dois pacotes no mesmo PR (mapa de arquivos na seção "Pacote Python").
+2. Rodar `uv run pytest -m r_parity -q` localmente (exige `Rscript` no PATH e o CNEFE em cache — usa a
+   pasta de cache padrão do pacote, não `tmp_path`, justamente para reaproveitar o download).
+3. Se a mudança for uma otimização do R (ver iniciativa em `MEMORY.md`), o critério de aceite
+   `identical()` R-antes vs R-depois continua valendo, e o teste de paridade garante que o Python não
+   ficou para trás.
+4. Se um bug corrigido de um lado revela que o outro lado tinha o mesmo bug, corrigir os dois; se
+   revela que o outro lado nunca teve o bug, a paridade estava quebrada antes — registrar em
+   `MEMORY.md` como `[LEARN:paridade]`.
+
+**Pendências conhecidas (setembro/2026):**
+
+- **Paridade em escala confirmada em 22/09** sobre 43,9 M de endereços do CadÚnico
+  (`quality_reports/diagnoses/2026-09-21_paridade-geocode-R-vs-Python-cadunico-43M.md`, §6): output
+  idêntico em todas as colunas, diferença máxima de 1,8e-13 grau nas coordenadas. A rodada 1 (21/09)
+  tinha achado dois bugs no Python (`similaridade_logradouro` fixa em 1 por dtype `Null` → `INTEGER`;
+  `numero > 2^31−1` mantido como `Int64` enquanto o R vira `NA`), ambos corrigidos. **Lacuna que
+  continua:** o teste de paridade não compara colunas numéricas além de `lat`/`lon`/`distancia_metros`
+  nem tem fixture com número > int32 — teria deixado os dois bugs passarem.
+- `DATA_RELEASE` do Python foi alinhado a `v0.5.0` no merge (PR #109); R e Python leem o mesmo release.
+  Falta confirmar que `python-parity.yaml` rodou verde na `main` contra os dados `v0.5.0` (`lat`/`lon` em
+  `float`, `cod_setor` em `int64`) — a última rodada confirmada à mão pela equipe (17/09) foi com `v0.4.1`.
+- As otimizações de `geocode()` já na `main` (P1, P3, P4, P6, P7 — ver `MEMORY.md`) foram feitas só no R;
+  precisam de contrapartida no Python ou de confirmação de que o resultado não mudou (a paridade só cobre
+  resultado, não tempo).
+- O teste de paridade não roda no ambiente de desenvolvimento atual (download do CNEFE via script R +
+  `arrow` compilado no R 4.5.3 — problema pré-existente, não do porte); os 8 casos foram confirmados
+  manualmente pela equipe em 17/09. Enquanto isso não for resolvido, a evidência de paridade local é o CI.
 
 

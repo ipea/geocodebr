@@ -16,9 +16,22 @@ r-package/vignettes/*_files/
 *.swp
 *.dll
 docs
-r-package/data_prep/data/*
-r-package/data_prep/data_raw/*
+/data_prep/data/*
+/data_prep/data_raw/*
+*.pyc
+__pycache__/
+.venv/
+# artefatos locais de pytest/coverage (Python)
+.coverage
+coverage.xml
+.pytest_cache/
 geocodebr.Rproj
 
 # Claude Code â config local de mÃ¡quina (nÃ£o versionada)
+# Sample de benchmark com microdados (hospedada em repo privada, não commitar)
+data/
+python-package/benchmarks/data/
+.cnefe-cache/
+
+# Claude Code — config local de máquina (não versionada)
 .claude/settings.local.json

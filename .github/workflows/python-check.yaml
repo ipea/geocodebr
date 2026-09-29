@@ -1,0 +1,91 @@
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - python-package/**
+      - .github/workflows/python-check.yaml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - python-package/**
+      - .github/workflows/python-check.yaml
+
+name: python-check
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-check:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    name: ${{ matrix.os }} (${{ matrix.python-version }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+
+    defaults:
+      run:
+        working-directory: python-package
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: python-package/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra geo
+
+      - name: Run unit tests
+        if: ${{ !(runner.os == 'Linux' && matrix.python-version == '3.12') }}
+        run: uv run --frozen pytest -m "not r_parity"
+
+      # Roda a partir da RAIZ do repo (e nao de python-package/) para que o
+      # coverage.xml grave filenames relativos a raiz
+      # (ex.: "python-package/geocodebr/geocode.py"), em sintonia com o
+      # paths da flag "python" no codecov.yml.
+      - name: Run unit tests with coverage
+        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.12' }}
+        working-directory: .
+        run: >
+          uv run --project python-package --frozen pytest
+          python-package/tests
+          -m "not r_parity"
+          --cov=geocodebr
+          --cov-report=xml
+          --cov-report=term-missing
+
+      - name: Upload coverage to Codecov
+        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.12' }}
+        uses: codecov/codecov-action@v4
+        with:
+          # Fail if error if not on PR, or if on PR and token is given
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' || secrets.CODECOV_TOKEN }}
+          file: coverage.xml
+          plugin: noop
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: python
+          name: codecov-python
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: ignore

@@ -1,0 +1,96 @@
+# Testes de paridade R vs Python (pytest -m r_parity). Comparam a saida do
+# pacote Python com a saida do pacote R local (instalado a partir de r-package/
+# pelo proprio teste). O objetivo e detectar divergencias entre os dois
+# motores quando a logica de qualquer um deles muda.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - r-package/R/**
+      - python-package/geocodebr/**
+      - .github/workflows/python-parity.yaml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - r-package/R/**
+      - python-package/geocodebr/**
+      - .github/workflows/python-parity.yaml
+
+name: python-parity
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    name: parity (R release / Python 3.12)
+
+    defaults:
+      run:
+        working-directory: python-package
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Extrai o data_release das duas fontes da verdade (r-package/R/cache.R
+      # e python-package/geocodebr/constants.py), falha se divergirem e
+      # disponibiliza o valor pro cache do CNEFE. Roda primeiro para falhar
+      # rapido, antes de qualquer setup caro.
+      - name: Verify data_release (R vs Python)
+        id: data_release
+        working-directory: .
+        run: |
+          py=$(sed -n 's/^DATA_RELEASE = "\(.*\)"$/\1/p' python-package/geocodebr/constants.py)
+          r=$(sed -n 's/^data_release <- "\(.*\)"$/\1/p' r-package/R/cache.R)
+          if [ -z "$py" ] || [ -z "$r" ]; then
+            echo "::error::Nao consegui extrair data_release (python='$py', r='$r')"
+            exit 1
+          fi
+          if [ "$py" != "$r" ]; then
+            echo "::error::data_release divergente: R (r-package/R/cache.R) = '$r', Python (constants.py) = '$py'. Sincronize as duas constantes."
+            exit 1
+          fi
+          echo "release=$py" >> "$GITHUB_OUTPUT"
+
+      # O teste de paridade instala o pacote R local via R CMD INSTALL, que
+      # exige as dependencias (Imports) do pacote R ja resolvidas.
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: r-package
+          dependencies: '"hard"'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+          cache-dependency-glob: python-package/uv.lock
+
+      # Os testes de paridade usam a pasta de cache padrao do pacote e podem
+      # baixar as tabelas nacionais do CNEFE (mais de 1 GB). O cache evita o
+      # re-download a cada run. A chave vem do passo "Verify data_release"
+      # (extraida do codigo), entao acompanha o release automaticamente e
+      # muda de chave — forcando download novo — quando o release muda.
+      - name: Restore CNEFE cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/geocodebr
+          key: cnefe-${{ runner.os }}-${{ steps.data_release.outputs.release }}
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --extra geo
+
+      - name: Run R/Python parity tests
+        run: uv run --frozen pytest -m r_parity -q

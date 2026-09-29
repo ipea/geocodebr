@@ -9,8 +9,8 @@ ncores <- 7
 
 
 campos <- geocodebr::definir_campos(
-  # logradouro = 'logradouro',
-  # numero = 'numero',
+  logradouro = 'logradouro',
+  numero = 'numero',
   cep = 'cep',
   localidade = 'bairro',
   municipio = 'municipio',
