@@ -14,10 +14,6 @@ geolocalizada como saída. No caso do R, esse input deve ser um
 Pandas `DataFrame` quanto o caminho para um arquivo com a tabela de
 endereços em formato `.csv` ou `.parquet`.
 
-Para demonstrar essa função, utilizamos no exemplo abaixo pequeno
-conjunto de dados que contém endereços com problemas comuns, como
-informações ausentes e campos digitados incorretamente.
-
 A geolocalização desses dados com **{geocodebr}** pode ser feita em
 apenas dois passos:
 
@@ -28,7 +24,7 @@ apenas dois passos:
     indicamos que coluna que contém a informação de logradouro se chama
     `"nm_logradouro"`, que a coluna de número se chama `"Numero"`, etc.
 
-> **Dica**
+> **Importante:**
 >
 > As colunas indicando o `estado` e o `municipio` são obrigatórias. Os
 > demais campos são opcionais.
@@ -81,7 +77,7 @@ campos = definir_campos(
 
 2.  O segundo passo é usar a função
     [`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
-    para encontrar as coordenadas geográficas dos dados de input.
+    para encontrar as coordenadas geográficas dos dados de *input*.
 
     R
 
@@ -133,7 +129,7 @@ longitude encontradas, bem como de colunas indicando o nível de precisão
 dos resultados e o endereço encontrado. Quando
 `resultado_completo = TRUE`, o output é acrescido de algumas colunas
 extras discriminando separadamente cada componente do endereço que teria
-sido encontrado.
+sido encontrado, o código do setor censitário encontrado, entre outras.
 
 ``` r
 
@@ -199,6 +195,38 @@ Cabe também destacar aqui outros três argumentos da função
 
 As coordendas espaciais do resultado usam o sistema de referência
 SIRGAS2000 (EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.
+
+## Utilização em Python
+
+A versão Python do {geocodebr} segue a mesma dinâmica de uso do pacote
+R, com os mesmos nomes de funções em português. As funções retornam, por
+padrão, um `pyarrow.Table` (convertível para `pandas` com
+`.to_pandas()`), ou um `geopandas.GeoDataFrame` no CRS SIRGAS 2000 (EPSG
+4674) com `resultado_gpd = TRUE`:
+
+Mais detalhes e exemplos na documentação completa da versão
+[Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
+
+### Windows e performance no Python
+
+No Windows, o
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
+da versão Python pode ser mais lento que em R e deteriorar a cada
+chamada na mesma sessão: o interpretador Python roda por padrão no heap
+NT legado, que degrada sob as alocações multithread do DuckDB. O pacote
+mitiga o problema de duas formas: limitando automaticamente as threads
+do DuckDB e oferecendo um comando (`python -m geocodebr._heap_patch`)
+que cria uma cópia do interpretador com o Segment Heap — em benchmarks
+internos com 10 milhões de endereços, o tempo total do
+[`geocode()`](https://ipea.github.io/geocodebr/dev/reference/geocode.md)
+caiu de 11:47 para 3:08 minutos. Mais detalhes na seção [Windows e
+performance](https://github.com/ipea/geocodebr/blob/main/python-package/README.md#windows-e-performance)
+do README da versão Python.
+
+> **Nota**
+>
+> Mais detalhes e exemplos na documentação completa da versão
+> [Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
 
 ## Processo de matching de endereços
 

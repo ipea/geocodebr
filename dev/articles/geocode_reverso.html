@@ -33,7 +33,6 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../articles/geocodebr.html">Primeiros passos</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Referência</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-artigos" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Artigos</button>
@@ -178,6 +177,16 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
 <p>A função <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code> requer que os dados do CNEFE estejam armazenados localmente. A primeira vez que a função é executada, ela baixa os dados do CNEFE e salva em um cache local na sua máquina. A <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code> utiliza uma única tabela do CNEFE, com cerca de 100 MB. Esses dados são salvos de forma persistente, logo eles são baixados uma única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados">aqui</a>.</p>
 </blockquote>
 </div>
+</section><section class="level2"><h2 id="utilização-em-python">Utilização em Python<a class="anchor" aria-label="anchor" href="#utiliza%C3%A7%C3%A3o-em-python"></a>
+</h2>
+<p>A versão Python do {geocodebr} segue a mesma dinâmica de uso do pacote R, com os mesmos nomes de funções em português. As funções retornam, por padrão, um <code>pyarrow.Table</code> (convertível para <code>pandas</code> com <code>.to_pandas()</code>), ou um <code>geopandas.GeoDataFrame</code> no CRS SIRGAS 2000 (EPSG 4674) com <code>resultado_gpd = TRUE</code>:</p>
+<p>Mais detalhes e exemplos na documentação completa da versão <a href="https://github.com/ipea/geocodebr/blob/main/python-package/README.md" class="external-link">Python</a>.</p>
+<div>
+<blockquote>
+<p><strong>Nota</strong></p>
+<p>Mais detalhes e exemplos na documentação completa da versão <a href="https://github.com/ipea/geocodebr/blob/main/python-package/README.md" class="external-link">Python</a>.</p>
+</blockquote>
+</div>
 </section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
@@ -261,7 +270,8 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
       }
     }
   });
-  </script></main>
+  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Índice"><h2>Nesta página</h2>
+    </nav></aside>
 </div>
 
 

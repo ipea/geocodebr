@@ -33,7 +33,6 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../articles/geocodebr.html">Primeiros passos</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Referência</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-artigos" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Artigos</button>
@@ -95,14 +94,13 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
 <section class="level2"><h2 id="geolocalização-de-endereços-para-coordenadas-espaciais">Geolocalização: de endereços para coordenadas espaciais<a class="anchor" aria-label="anchor" href="#geolocaliza%C3%A7%C3%A3o-de-endere%C3%A7os-para-coordenadas-espaciais"></a>
 </h2>
 <p>A principal função do pacote {geocodebr} é a <code><a href="../reference/geocode.html">geocode()</a></code>, que recebe uma tabela de endereços como entrada e retorna a mesma tabela geolocalizada como saída. No caso do R, esse input deve ser um <code>data.frame</code>. Já no Python, a função pode receber tanto um Polars ou Pandas <code>DataFrame</code> quanto o caminho para um arquivo com a tabela de endereços em formato <code>.csv</code> ou <code>.parquet</code>.</p>
-<p>Para demonstrar essa função, utilizamos no exemplo abaixo pequeno conjunto de dados que contém endereços com problemas comuns, como informações ausentes e campos digitados incorretamente.</p>
 <p>A geolocalização desses dados com <strong>{geocodebr}</strong> pode ser feita em apenas dois passos:</p>
 <ol type="1">
 <li>O primeiro passo é usar a função <code><a href="../reference/definir_campos.html">definir_campos()</a></code> para indicar os nomes das colunas na tabela de <em>input</em> que correspondem a cada campo dos endereços. No exemplo abaixo, nós indicamos que coluna que contém a informação de logradouro se chama <code>"nm_logradouro"</code>, que a coluna de número se chama <code>"Numero"</code>, etc.</li>
 </ol>
 <div>
 <blockquote>
-<p><strong>Dica</strong></p>
+<p><strong>Importante:</strong></p>
 <p>As colunas indicando o <code>estado</code> e o <code>municipio</code> são obrigatórias. Os demais campos são opcionais.</p>
 </blockquote>
 </div>
@@ -161,7 +159,7 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
 </div>
 </div>
 <ol start="2" type="1">
-<li>O segundo passo é usar a função <code><a href="../reference/geocode.html">geocode()</a></code> para encontrar as coordenadas geográficas dos dados de input.</li>
+<li>O segundo passo é usar a função <code><a href="../reference/geocode.html">geocode()</a></code> para encontrar as coordenadas geográficas dos dados de <em>input</em>.</li>
 </ol>
 <div class="columns r-py column-page">
 <div class="column" style="width:50%;">
@@ -208,7 +206,7 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
 <p>A função <code><a href="../reference/geocode.html">geocode()</a></code> requer que os dados do CNEFE estejam armazenados localmente. A primeita vez que a função é executada, ela baixa os dados do CNEFE e salva em um cache local na sua máquina. No total, esses dados somam cerca de 1.2 GB, o que pode fazer com que a primeira execução da função demore. Esses dados, no entanto, são salvos de forma persistente, logo eles são baixados uma única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados">aqui</a>.</p>
 </blockquote>
 </div>
-<p>O resultado fica como abaixo. Por padrão, a tabela de <em>output</em> é igual à tabela de input do usuário acrescida de colunas com a latitude e longitude encontradas, bem como de colunas indicando o nível de precisão dos resultados e o endereço encontrado. Quando <code>resultado_completo = TRUE</code>, o output é acrescido de algumas colunas extras discriminando separadamente cada componente do endereço que teria sido encontrado.</p>
+<p>O resultado fica como abaixo. Por padrão, a tabela de <em>output</em> é igual à tabela de input do usuário acrescida de colunas com a latitude e longitude encontradas, bem como de colunas indicando o nível de precisão dos resultados e o endereço encontrado. Quando <code>resultado_completo = TRUE</code>, o output é acrescido de algumas colunas extras discriminando separadamente cada componente do endereço que teria sido encontrado, o código do setor censitário encontrado, entre outras.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">ends_geo</span><span class="op">)</span></span>
@@ -258,7 +256,20 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
 <code>resultado_sf</code>: quando <code>TRUE</code>, o output é retornado como um objeto espacial de classe <code>sf</code> simple feature. Em Python, o argumento equivalente é <code>resultado_gpd</code>, que retorna um <code>geopandas.GeoDataFrame</code> (requer <code>pip install geocodebr[geo]</code>). Sem ele, o Python retorna um <code>pyarrow.Table</code>.</li>
 </ul>
 <p>As coordendas espaciais do resultado usam o sistema de referência SIRGAS2000 (EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.</p>
-</section><section class="level2"><h2 id="processo-de-matching-de-endereços">Processo de matching de endereços<a class="anchor" aria-label="anchor" href="#processo-de-matching-de-endere%C3%A7os"></a>
+</section><section class="level2"><h2 id="utilização-em-python">Utilização em Python<a class="anchor" aria-label="anchor" href="#utiliza%C3%A7%C3%A3o-em-python"></a>
+</h2>
+<p>A versão Python do {geocodebr} segue a mesma dinâmica de uso do pacote R, com os mesmos nomes de funções em português. As funções retornam, por padrão, um <code>pyarrow.Table</code> (convertível para <code>pandas</code> com <code>.to_pandas()</code>), ou um <code>geopandas.GeoDataFrame</code> no CRS SIRGAS 2000 (EPSG 4674) com <code>resultado_gpd = TRUE</code>:</p>
+<p>Mais detalhes e exemplos na documentação completa da versão <a href="https://github.com/ipea/geocodebr/blob/main/python-package/README.md" class="external-link">Python</a>.</p>
+<section class="level3"><h3 id="windows-e-performance-no-python">Windows e performance no Python<a class="anchor" aria-label="anchor" href="#windows-e-performance-no-python"></a>
+</h3>
+<p>No Windows, o <code><a href="../reference/geocode.html">geocode()</a></code> da versão Python pode ser mais lento que em R e deteriorar a cada chamada na mesma sessão: o interpretador Python roda por padrão no heap NT legado, que degrada sob as alocações multithread do DuckDB. O pacote mitiga o problema de duas formas: limitando automaticamente as threads do DuckDB e oferecendo um comando (<code>python -m geocodebr._heap_patch</code>) que cria uma cópia do interpretador com o Segment Heap — em benchmarks internos com 10 milhões de endereços, o tempo total do <code><a href="../reference/geocode.html">geocode()</a></code> caiu de 11:47 para 3:08 minutos. Mais detalhes na seção <a href="https://github.com/ipea/geocodebr/blob/main/python-package/README.md#windows-e-performance" class="external-link">Windows e performance</a> do README da versão Python.</p>
+<div>
+<blockquote>
+<p><strong>Nota</strong></p>
+<p>Mais detalhes e exemplos na documentação completa da versão <a href="https://github.com/ipea/geocodebr/blob/main/python-package/README.md" class="external-link">Python</a>.</p>
+</blockquote>
+</div>
+</section></section><section class="level2"><h2 id="processo-de-matching-de-endereços">Processo de matching de endereços<a class="anchor" aria-label="anchor" href="#processo-de-matching-de-endere%C3%A7os"></a>
 </h2>
 <p>As coordenadas incluídas no resultado da <code><a href="../reference/geocode.html">geocode()</a></code> são calculadas a partir da média das coordenadas dos endereços do CNEFE que correspondem a cada um dos endereços de <em>input</em>. Esse cálculo é feito em duas etapas, e retorna o ponto médio dos 95% pontos mais próximos entre si, evitando eventual distorção por devido a poucos pontos muito isolados.</p>
 <p>A correspondência entre os endereços de entrada e os do CNEFE pode ser feita com base em diferentes combinações de campos, impactando, assim, na precisão do resultado retornado. No caso mais rigoroso, a função encontra uma correspondência determinística para todos os campos do endereço (estado, município, logradouro, número, CEP e localidade). Pense, por exemplo, em um prédio com vários apartamentos, cuja única variação no endereço se dá a nível de apartamento: o resultado, nesse caso, é a média das coordenadas dos apartamentos, que podem diferir ligeiramente.</p>

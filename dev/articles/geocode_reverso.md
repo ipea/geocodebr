@@ -110,3 +110,19 @@ próximo dentro do raio de busca, o ponto não é incluído no *output*.
 > são salvos de forma persistente, logo eles são baixados uma única vez.
 > Mais informações sobre o cache de dados
 > [aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
+
+## Utilização em Python
+
+A versão Python do {geocodebr} segue a mesma dinâmica de uso do pacote
+R, com os mesmos nomes de funções em português. As funções retornam, por
+padrão, um `pyarrow.Table` (convertível para `pandas` com
+`.to_pandas()`), ou um `geopandas.GeoDataFrame` no CRS SIRGAS 2000 (EPSG
+4674) com `resultado_gpd = TRUE`:
+
+Mais detalhes e exemplos na documentação completa da versão
+[Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
+
+> **Nota**
+>
+> Mais detalhes e exemplos na documentação completa da versão
+> [Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
