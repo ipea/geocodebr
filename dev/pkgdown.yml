@@ -2,10 +2,12 @@ pandoc: 3.8.3
 pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
+  busca_por_cep: busca_por_cep.html
+  cache_dados: cache_dados.html
   geocode_reverso: geocode_reverso.html
   geocode: geocode.html
   geocodebr: geocodebr.html
-last_built: 2026-09-27T17:10Z
+last_built: 2026-09-29T01:49Z
 urls:
   reference: https://ipea.github.io/geocodebr/reference
   article: https://ipea.github.io/geocodebr/articles
