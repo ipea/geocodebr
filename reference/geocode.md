@@ -362,7 +362,6 @@ df <- geocodebr::geocode(
 #>  Casos processados: 2/2 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  100% - Fim! 
 #> 
 #> ℹ Preparando resultados
-#> 
 
 head(df)
 #>   id            nm_logradouro Numero       Cep     Bairro    nm_municipio

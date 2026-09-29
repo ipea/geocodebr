@@ -1,34 +1,45 @@
 # Geocode
 
+O {geocodebr} está disponível em R e em Python, com funções e argumentos
+equivalentes. Ao longo desta vignette, cada exemplo mostra o código em R
+(à esquerda) e em Python (à direita).
+
 ## Geolocalização: de endereços para coordenadas espaciais
 
 A principal função do pacote {geocodebr} é a
 [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md),
-que recebe uma tabela (`data.frame`) de endereços como entrada e retorna
-a mesma tabela geolocalizada como saída. Para demonstrar essa função,
-utilizamos no exemplo abaixo pequeno conjunto de dados que contém
-endereços com problemas comuns, como informações ausentes e campos
-digitados incorretamente.
+que recebe uma tabela de endereços como entrada e retorna a mesma tabela
+geolocalizada como saída. No caso do R, esse input deve ser um
+`data.frame`. Já no Python, a função pode receber tanto um Polars ou
+Pandas `DataFrame` quanto o caminho para um arquivo com a tabela de
+endereços em formato `.csv` ou `.parquet`.
 
 A geolocalização desses dados com **{geocodebr}** pode ser feita em
 apenas dois passos:
 
 1.  O primeiro passo é usar a função
     [`definir_campos()`](https://ipea.github.io/geocodebr/reference/definir_campos.md)
-    para indicar os nomes das colunas no seu `data.frame` que
+    para indicar os nomes das colunas na tabela de *input* que
     correspondem a cada campo dos endereços. No exemplo abaixo, nós
     indicamos que coluna que contém a informação de logradouro se chama
     `"nm_logradouro"`, que a coluna de número se chama `"Numero"`, etc.
 
-obs. Note que as colunas indicando o `"estado"` e `"município"` são
-obrigatórias.
+> **Importante:**
+>
+> As colunas indicando o `estado` e o `municipio` são obrigatórias. Os
+> demais campos são opcionais.
+
+    R
 
 ``` r
 
 library(geocodebr)
 
 # leitura de amostra de dados
-ends <- read.csv(system.file("extdata/small_sample.csv", package = "geocodebr"))
+ends <- read.csv(
+  system.file("extdata/small_sample.csv", 
+  package = "geocodebr")
+  )
 
 # definição dos campos de endereço
 campos <- definir_campos(
@@ -41,36 +52,86 @@ campos <- definir_campos(
 )
 ```
 
+    Python
+
+``` python
+import pandas as pd
+from geocodebr import definir_campos, geocode
+
+# leitura de amostra de dados
+ends = pd.read_csv(
+    "https://raw.githubusercontent.com/ipeaGIT/geocodebr/"
+    "main/r-package/inst/extdata/small_sample.csv"
+)
+
+# definição dos campos de endereço
+campos = definir_campos(
+    estado="nm_uf",
+    municipio="nm_municipio",
+    logradouro="nm_logradouro",
+    numero="Numero",
+    cep="Cep",
+    localidade="Bairro"
+)
+```
+
 2.  O segundo passo é usar a função
     [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
-    para encontrar as coordenadas geográficas dos dados de input.
+    para encontrar as coordenadas geográficas dos dados de *input*.
 
-**Nota:** A função
-[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
-requer que os dados do CNEFE estejam armazenados localmente. A primeita
-vez que a função é executada, ela baixa os dados do CNEFE e salva em um
-cache local na sua máquina. No total, esses dados somam cerca de 1.2 GB,
-o que pode fazer com que a primeira execução da função demore. Esses
-dados, no entanto, são salvos de forma persistente, logo eles são
-baixados uma única vez. Mais informações sobre o cache de dados
-[aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
+    R
 
 ``` r
 
-# geolicalização
+# geolocalização
 ends_geo <- geocode(
-  enderecos = ends, 
-  campos_endereco = campos, 
+  enderecos = ends,
+  campos_endereco = campos,
   resultado_completo = FALSE,
   resolver_empates = TRUE,
   h3_res = 9,
   resultado_sf = FALSE,
   verboso = FALSE
   )
-#> Warning message:
-#> In (function (numeros, formato = "character")  :
-#>   NAs introduced by coercion to integer range
-#> 
+```
+
+    Python
+
+``` python
+# geolocalização
+ends_geo = geocode(
+    enderecos=ends,
+    campos_endereco=campos,
+    resultado_completo=False,
+    resolver_empates=True,
+    h3_res=9,
+    resultado_gpd=False,
+    verboso=False
+)
+```
+
+> **Nota**
+>
+> A função
+> [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
+> requer que os dados do CNEFE estejam armazenados localmente. A
+> primeita vez que a função é executada, ela baixa os dados do CNEFE e
+> salva em um cache local na sua máquina. No total, esses dados somam
+> cerca de 1.2 GB, o que pode fazer com que a primeira execução da
+> função demore. Esses dados, no entanto, são salvos de forma
+> persistente, logo eles são baixados uma única vez. Mais informações
+> sobre o cache de dados
+> [aqui](https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados).
+
+O resultado fica como abaixo. Por padrão, a tabela de *output* é igual à
+tabela de input do usuário acrescida de colunas com a latitude e
+longitude encontradas, bem como de colunas indicando o nível de precisão
+dos resultados e o endereço encontrado. Quando
+`resultado_completo = TRUE`, o output é acrescido de algumas colunas
+extras discriminando separadamente cada componente do endereço que teria
+sido encontrado, o código do setor censitário encontrado, entre outras.
+
+``` r
 
 head(ends_geo)
 #>   id            nm_logradouro Numero       Cep               Bairro
@@ -110,19 +171,13 @@ head(ends_geo)
 #> 6 898b5131e0fffff
 ```
 
-Por padrão, a tabela de *output* é igual à tabela de input do usuário
-acrescida de colunas com a latitude e longitude encontradas, bem como de
-colunas indicando o nível de precisão dos resultados e o endereço
-encontrado. Quando `resultado_completo = TRUE`, o output é acrescido de
-algumas colunas extras discriminando separadamente cada componente do
-endereço que teria sido encontrado.
-
 Cabe também destacar aqui outros três argumentos da função
 [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md):
 
 - `h3_res` : que permite o usuário inserir uma coluna no output
   indicando o id da célula H3 na resolução espacial desejada. Detalhes
-  sobre as resoluções disponíveis em \code{;
+  sobre as resoluções disponíveis na [documentação do
+  H3](https://h3geo.org/docs/core-library/restable/);
 - `resolver_empates`: serve para indicar se o usuário quer que a função
   resolva automaticamente casos de empate, i.e. casos que o endereço de
   input do usuário pode se referir a diferentes localidades na cidade
@@ -133,10 +188,45 @@ Cabe também destacar aqui outros três argumentos da função
   para que o usuário possa inspecionar cada caso coluna
   ‘endereco_encontrado’.
 - `resultado_sf`: quando `TRUE`, o output é retornado como um objeto
-  espacial de classe `sf` simple feature.
+  espacial de classe `sf` simple feature. Em Python, o argumento
+  equivalente é `resultado_gpd`, que retorna um `geopandas.GeoDataFrame`
+  (requer `pip install geocodebr[geo]`). Sem ele, o Python retorna um
+  `pyarrow.Table`.
 
 As coordendas espaciais do resultado usam o sistema de referência
 SIRGAS2000 (EPSG 4674.), padrão adotado pelo IBGE em todo o Brasil.
+
+## Utilização em Python
+
+A versão Python do {geocodebr} segue a mesma dinâmica de uso do pacote
+R, com os mesmos nomes de funções em português. As funções retornam, por
+padrão, um `pyarrow.Table` (convertível para `pandas` com
+`.to_pandas()`), ou um `geopandas.GeoDataFrame` no CRS SIRGAS 2000 (EPSG
+4674) com `resultado_gpd = TRUE`:
+
+Mais detalhes e exemplos na documentação completa da versão
+[Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
+
+### Windows e performance no Python
+
+No Windows, o
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md) da
+versão Python pode ser mais lento que em R e deteriorar a cada chamada
+na mesma sessão: o interpretador Python roda por padrão no heap NT
+legado, que degrada sob as alocações multithread do DuckDB. O pacote
+mitiga o problema de duas formas: limitando automaticamente as threads
+do DuckDB e oferecendo um comando (`python -m geocodebr._heap_patch`)
+que cria uma cópia do interpretador com o Segment Heap — em benchmarks
+internos com 10 milhões de endereços, o tempo total do
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
+caiu de 11:47 para 3:08 minutos. Mais detalhes na seção [Windows e
+performance](https://github.com/ipea/geocodebr/blob/main/python-package/README.md#windows-e-performance)
+do README da versão Python.
+
+> **Nota**
+>
+> Mais detalhes e exemplos na documentação completa da versão
+> [Python](https://github.com/ipea/geocodebr/blob/main/python-package/README.md).
 
 ## Processo de matching de endereços
 
@@ -174,7 +264,7 @@ abaixo.
 ### Precisão
 
 A coluna `precisao` se refere ao nível de agregação das coordenadas do
-CNEFE utilizadas no processo de geolicalização. A função
+CNEFE utilizadas no processo de geolocalização. A função
 [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
 sempre retorna o resultado de maior precisão possível - ou seja, ela só
 vai procurar endereços com precisão `"numero_aproximado"` (ver a seguir)

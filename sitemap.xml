@@ -1,9 +1,10 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://ipea.github.io/geocodebr/404.html</loc></url>
 <url><loc>https://ipea.github.io/geocodebr/LICENSE-text.html</loc></url>
+<url><loc>https://ipea.github.io/geocodebr/articles/busca_por_cep.html</loc></url>
+<url><loc>https://ipea.github.io/geocodebr/articles/cache_dados.html</loc></url>
 <url><loc>https://ipea.github.io/geocodebr/articles/geocode.html</loc></url>
 <url><loc>https://ipea.github.io/geocodebr/articles/geocode_reverso.html</loc></url>
-<url><loc>https://ipea.github.io/geocodebr/articles/geocodebr.html</loc></url>
 <url><loc>https://ipea.github.io/geocodebr/articles/index.html</loc></url>
 <url><loc>https://ipea.github.io/geocodebr/authors.html</loc></url>
 <url><loc>https://ipea.github.io/geocodebr/index.html</loc></url>

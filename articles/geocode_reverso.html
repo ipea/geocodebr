@@ -10,7 +10,10 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Geocode reverso">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="geocode_reverso_files/libs/quarto-html/popper.min.js"></script><script src="geocode_reverso_files/libs/quarto-html/tippy.umd.min.js"></script><link href="geocode_reverso_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="geocode_reverso_files/libs/quarto-html/light-border.css" rel="stylesheet">
+<!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Geocode reverso">
+<meta property="og:image" content="https://ipea.github.io/geocodebr/logo.svg">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Avance para o conteúdo</a>
@@ -29,12 +32,13 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../articles/geocodebr.html">Primeiros passos</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Referência</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-artigos" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Artigos</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-artigos">
-<li><a class="dropdown-item" href="../articles/geocode_reverso.html">Geocode reverso</a></li>
+<li><a class="dropdown-item" href="../articles/busca_por_cep.html">Busca por CEP</a></li>
+    <li><a class="dropdown-item" href="../articles/cache_dados.html">Cache de dados</a></li>
+    <li><a class="dropdown-item" href="../articles/geocode_reverso.html">Geocode reverso</a></li>
     <li><a class="dropdown-item" href="../articles/geocode.html">Geocode</a></li>
   </ul>
 </li>
@@ -58,91 +62,216 @@
 
 
   </div>
-</nav><div class="container template-article">
-
-
-
-
+</nav><div class="container template-quarto">
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Geocode reverso</h1>
-            
-            <h4 data-toc-skip class="date">2026-09-24</h4>
-      
-      <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocode_reverso.Rmd" class="external-link"><code>vignettes/geocode_reverso.Rmd</code></a></small>
-      <div class="d-none name"><code>geocode_reverso.Rmd</code></div>
+
+
+
+
+      <small class="dont-index">Fonte: <a href="https://github.com/ipea/geocodebr/blob/main/vignettes/geocode_reverso.qmd" class="external-link"><code>vignettes/geocode_reverso.qmd</code></a></small>
+      <div class="d-none name"><code></code></div>
     </div>
 
-    
-    
-<div class="section level2">
-<h2 id="geolocalização-reversa-de-coordenadas-espaciais-para-endereços">Geolocalização reversa: de coordenadas espaciais para endereços<a class="anchor" aria-label="anchor" href="#geolocaliza%C3%A7%C3%A3o-reversa-de-coordenadas-espaciais-para-endere%C3%A7os"></a>
+
+
+
+
+
+    <style>
+/* Blocos R e Python lado a lado. O layout nao depende do CSS de colunas do
+   Quarto, para funcionar tambem quando o pkgdown renderiza a vignette. */
+div.columns.r-py { display: flex !important; gap: 1rem; align-items: flex-start; }
+div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 0; }
+@media (max-width: 767px) {
+  div.columns.r-py { flex-direction: column; }
+  div.columns.r-py > div.column { width: 100% !important; }
+}
+</style>
+<p>O {geocodebr} está disponível em R e em Python, com funções e argumentos equivalentes. Ao longo desta vignette, cada exemplo mostra o código em R (à esquerda) e em Python (à direita).</p>
+<section class="level2"><h2 id="geolocalização-reversa-de-coordenadas-espaciais-para-endereços">Geolocalização reversa: de coordenadas espaciais para endereços<a class="anchor" aria-label="anchor" href="#geolocaliza%C3%A7%C3%A3o-reversa-de-coordenadas-espaciais-para-endere%C3%A7os"></a>
 </h2>
-<p>A função <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code> permite fazer geolocalização
-reversa, isto é, a partir de um conjunto de coordenadas geográficas,
-encontrar os endereços correspondentes ou próximos. Essa funcionalidade
-pode ser útil, por exemplo, para identificar endereços próximos a pontos
-de interesse, como escolas, hospitais, ou locais de acidentes.</p>
-<p>A função recebe como <em>input</em> um objeto espacial
-<code>sf</code> com geometria do tipo <code>POINT</code>. O resultado é
-um <em>data frame</em> com o endereço encontrado mais próximo de cada
-ponto de <em>input</em>, onde a coluna <code>"distancia_metros"</code>
-indica a distância entre coordenadas originais e os endereços
-encontrados.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<p>A função <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code> permite fazer geolocalização reversa, isto é, a partir de um conjunto de coordenadas geográficas, encontrar os endereços correspondentes ou próximos. Essa funcionalidade pode ser útil, por exemplo, para identificar endereços próximos a pontos de interesse, como escolas, hospitais, ou locais de acidentes.</p>
+<p>A função recebe como <em>input</em> um objeto espacial com geometria do tipo <code>POINT</code> no sistema de referência SIRGAS 2000 (EPSG 4674): um objeto <code>sf</code> em R, ou um <code>geopandas.GeoDataFrame</code> em Python (requer <code>pip install geocodebr[geo]</code>). O resultado é uma tabela com o endereço encontrado mais próximo de cada ponto de <em>input</em>, onde a coluna <code>"distancia_metros"</code> indica a distância entre coordenadas originais e os endereços encontrados.</p>
+<div class="columns r-py column-page">
+<div class="column" style="width:50%;">
+<div class="cell">
+<div class="code-with-filename">
+<div class="code-with-filename-file">
+<pre><strong>R</strong></pre>
+</div>
+<div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ipea/geocodebr" class="external-link">geocodebr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-spatial.github.io/sf/" class="external-link">sf</a></span><span class="op">)</span></span>
-<span><span class="co">#&gt; Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE</span></span>
 <span></span>
 <span><span class="co"># amostra de pontos espaciais</span></span>
-<span><span class="va">pontos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/pontos.rds"</span>, package <span class="op">=</span> <span class="st">"geocodebr"</span><span class="op">)</span></span>
+<span><span class="va">pontos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_as_sf.html" class="external-link">st_as_sf</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span>
+<span>    lon <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">43.3523</span>, <span class="op">-</span><span class="fl">43.1763</span>, <span class="op">-</span><span class="fl">47.8825</span><span class="op">)</span>,</span>
+<span>    lat <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">22.8327</span>, <span class="op">-</span><span class="fl">22.9046</span>, <span class="op">-</span><span class="fl">15.7942</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  coords <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lon"</span>, <span class="st">"lat"</span><span class="op">)</span>,</span>
+<span>  crs <span class="op">=</span> <span class="fl">4674</span></span>
 <span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">pontos</span> <span class="op">&lt;-</span> <span class="va">pontos</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">20</span>,<span class="op">]</span></span>
 <span></span>
 <span><span class="co"># geocode reverso</span></span>
-<span><span class="va">df_enderecos</span> <span class="op">&lt;-</span> <span class="fu">geocodebr</span><span class="fu">::</span><span class="fu"><a href="../reference/geocode_reverso.html">geocode_reverso</a></span><span class="op">(</span></span>
+<span><span class="va">df_enderecos</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/geocode_reverso.html">geocode_reverso</a></span><span class="op">(</span></span>
 <span>  pontos <span class="op">=</span> <span class="va">pontos</span>,</span>
 <span>  dist_max <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  verboso <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="fl">1</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">df_enderecos</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Simple feature collection with 6 features and 7 fields</span></span>
+<span>  verboso <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+</div>
+<div class="column" style="width:50%;">
+<div class="code-with-filename">
+<div class="code-with-filename-file">
+<pre><strong>Python</strong></pre>
+</div>
+<div class="sourceCode" id="cb2" data-filename="Python"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> geopandas <span class="im">as</span> gpd</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> geocodebr <span class="im">import</span> geocode_reverso</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># amostra de pontos espaciais</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>pontos <span class="op">=</span> gpd.GeoDataFrame(</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"id"</span>: [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]},</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    geometry<span class="op">=</span>gpd.points_from_xy(</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        x<span class="op">=</span>[<span class="op">-</span><span class="fl">43.3523</span>, <span class="op">-</span><span class="fl">43.1763</span>, <span class="op">-</span><span class="fl">47.8825</span>],</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        y<span class="op">=</span>[<span class="op">-</span><span class="fl">22.8327</span>, <span class="op">-</span><span class="fl">22.9046</span>, <span class="op">-</span><span class="fl">15.7942</span>],</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    crs<span class="op">=</span><span class="st">"EPSG:4674"</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co"># geocode reverso</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>df_enderecos <span class="op">=</span> geocode_reverso(</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    pontos<span class="op">=</span>pontos,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    dist_max<span class="op">=</span><span class="dv">1000</span>,</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    verboso<span class="op">=</span><span class="va">False</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+</div>
+</div>
+<p>Assim fica o output no R como <code>sf</code>. No Python fica parecido como <code>GeoDataFrame</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">df_enderecos</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Simple feature collection with 3 features and 7 fields</span></span>
 <span><span class="co">#&gt; Geometry type: POINT</span></span>
 <span><span class="co">#&gt; Dimension:     XY</span></span>
-<span><span class="co">#&gt; Bounding box:  xmin: -40.7334 ymin: -20.44142 xmax: -39.92601 ymax: -18.69095</span></span>
+<span><span class="co">#&gt; Bounding box:  xmin: -47.8825 ymin: -22.9046 xmax: -43.1763 ymax: -15.7942</span></span>
 <span><span class="co">#&gt; Geodetic CRS:  SIRGAS 2000</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 8</span></span></span>
-<span><span class="co">#&gt;      id estado municipio  logradouro           cep   localidade distancia_metros</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>     1 ES     COLATINA   CORREGO BOA VISTA    2970… SAO JOAO …             50.3</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>     6 ES     VIANA      ESTRADA BOM JESUS    2913… BOM JESUS…            606. </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>     7 ES     COLATINA   FAZENDA SANTA LUCIA… 2970… FAZENDA S…            483. </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span>     8 ES     SAO MATEUS FAZENDA ESCADINHA    2994… ESCADINHA             540. </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span>    11 ES     SAO MATEUS RODOVIA ES-381       2994… KM 13                 239. </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span>    12 ES     SAO MATEUS LADEIRA DE DONA ANA  2994… KM 28                 773. </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 1 more variable: geometry &lt;POINT [°]&gt;</span></span></span></code></pre></div>
-<p>Por padrão, a função busca pelo endereço mais próximo num raio
-aproximado de 1000 metros. No entanto, o usuário pode ajustar esse valor
-usando o parâmetro <code>dist_max</code> para definir a distância máxima
-(em metros) de busca. Se um ponto de <em>input</em> não tiver nenhum
-endereço próximo dentro do raio de busca, o ponto não é incluído no
-<em>output</em>.</p>
-<p><strong>Nota:</strong> A função <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code> requer
-que os dados do CNEFE estejam armazenados localmente. A primeita vez que
-a função é executada, ela baixa os dados do CNEFE e salva em um cache
-local na sua máquina. No total, esses dados somam cerca de 3 GB, o que
-pode fazer com que a primeira execução da função demore. Esses dados, no
-entanto, são salvos de forma persistente, logo eles são baixados uma
-única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados">aqui</a>.</p>
+<span><span class="co">#&gt; # A tibble: 3 × 8</span></span>
+<span><span class="co">#&gt;      id estado municipio      logradouro       cep   localidade distancia_metros</span></span>
+<span><span class="co">#&gt;   &lt;int&gt; &lt;chr&gt;  &lt;chr&gt;          &lt;chr&gt;            &lt;chr&gt; &lt;chr&gt;                 &lt;dbl&gt;</span></span>
+<span><span class="co">#&gt; 1     1 RJ     RIO DE JANEIRO RUA PROFESSOR V… 2151… COELHO NE…            164. </span></span>
+<span><span class="co">#&gt; 2     2 RJ     RIO DE JANEIRO RUA SETE DE SET… 2005… CENTRO                 38.0</span></span>
+<span><span class="co">#&gt; 3     3 DF     BRASILIA       SCN RODOVIARIA … 7008… ZONA CIVI…             55.7</span></span>
+<span><span class="co">#&gt; # ℹ 1 more variable: geometry &lt;POINT [°]&gt;</span></span></code></pre></div>
 </div>
-  </main><aside class="col-md-3"><nav id="toc" aria-label="Índice"><h2>Nesta página</h2>
+<p>Por padrão, a função busca pelo endereço mais próximo num raio aproximado de 1000 metros. No entanto, o usuário pode ajustar esse valor usando o parâmetro <code>dist_max</code> para definir a distância máxima (em metros) de busca. Se um ponto de <em>input</em> não tiver nenhum endereço próximo dentro do raio de busca, o ponto não é incluído no <em>output</em>.</p>
+<div>
+<blockquote>
+<p><strong>Nota</strong></p>
+<p>A função <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code> requer que os dados do CNEFE estejam armazenados localmente. A primeira vez que a função é executada, ela baixa os dados do CNEFE e salva em um cache local na sua máquina. A <code><a href="../reference/geocode_reverso.html">geocode_reverso()</a></code> utiliza uma única tabela do CNEFE, com cerca de 100 MB. Esses dados são salvos de forma persistente, logo eles são baixados uma única vez. Mais informações sobre o cache de dados <a href="https://ipea.github.io/geocodebr/articles/geocodebr.html#cache-de-dados">aqui</a>.</p>
+</blockquote>
+</div>
+</section><section class="level2"><h2 id="utilização-em-python">Utilização em Python<a class="anchor" aria-label="anchor" href="#utiliza%C3%A7%C3%A3o-em-python"></a>
+</h2>
+<p>A versão Python do {geocodebr} segue a mesma dinâmica de uso do pacote R, com os mesmos nomes de funções em português. As funções retornam, por padrão, um <code>pyarrow.Table</code> (convertível para <code>pandas</code> com <code>.to_pandas()</code>), ou um <code>geopandas.GeoDataFrame</code> no CRS SIRGAS 2000 (EPSG 4674) com <code>resultado_gpd = TRUE</code>:</p>
+<p>Mais detalhes e exemplos na documentação completa da versão <a href="https://github.com/ipea/geocodebr/blob/main/python-package/README.md" class="external-link">Python</a>.</p>
+<div>
+<blockquote>
+<p><strong>Nota</strong></p>
+<p>Mais detalhes e exemplos na documentação completa da versão <a href="https://github.com/ipea/geocodebr/blob/main/python-package/README.md" class="external-link">Python</a>.</p>
+</blockquote>
+</div>
+</section><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'light-border',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config);
+    }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Índice"><h2>Nesta página</h2>
     </nav></aside>
 </div>
-
 
 
     <footer><div class="pkgdown-footer-left">
