@@ -61,6 +61,7 @@ dados do CNEFE estão salvos;
 - `deletar_pasta_cache()` - exclui a pasta de *cache*, bem como todos os
 arquivos que estavam armazenados dentro dela.
 
+
 ## Onde os dados estão salvos
 
 As funções `listar_pasta_cache()` e `listar_dados_cache()` permitem inspecionar
