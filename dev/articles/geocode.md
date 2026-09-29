@@ -97,43 +97,6 @@ ends_geo <- geocode(
   resultado_sf = FALSE,
   verboso = FALSE
   )
-
-head(ends_geo)
-#>   id            nm_logradouro Numero       Cep               Bairro
-#> 1  1 Rua Maria Lucia Pacifico     17 26042-730           Santa Rita
-#> 2  2      Rua Leopoldina Tome     46 25030-050           Centenario
-#> 3  3          Rua Dona Judite      0 23915-700          Caputera II
-#> 4  4     Rua Alexandre Amaral      0 23098-120           Santissimo
-#> 5  5                Avenida E    300 23860-000         Praia Grande
-#> 6  6      Rua Princesa Isabel    263           Estacao Experimental
-#>      nm_municipio code_muni nm_uf        lat       lon   precisao
-#> 1     Nova Iguacu   3303500    RJ -22.695509 -43.47116     numero
-#> 2 Duque de Caxias   3301702    RJ -22.779175 -43.31132     numero
-#> 3  Angra dos Reis   3300100    RJ -22.978800 -44.20847 logradouro
-#> 4  Rio de Janeiro   3304557    RJ -22.869116 -43.51140 logradouro
-#> 5     Mangaratiba   3302601    RJ -22.929865 -43.97214     numero
-#> 6      Rio Branco   1200401    AC  -9.963438 -67.83559     numero
-#>   tipo_resultado desvio_metros
-#> 1           dn01             8
-#> 2           dn01             6
-#> 3           dl01            59
-#> 4           dl01           300
-#> 5           dn01             6
-#> 6           dn03             6
-#>                                                           endereco_encontrado
-#> 1      RUA MARIA LUCIA PACIFICO, 17 - SANTA RITA, NOVA IGUACU - RJ, 26042-730
-#> 2       RUA LEOPOLDINA TOME, 46 - CENTENARIO, DUQUE DE CAXIAS - RJ, 25030-050
-#> 3               RUA DONA JUDITE - CAPUTERA II, ANGRA DOS REIS - RJ, 23915-700
-#> 4           RUA ALEXANDRE AMARAL - SANTISSIMO, RIO DE JANEIRO - RJ, 23098-120
-#> 5                  AVENIDA E, 300 - PRAIA GRANDE, MANGARATIBA - RJ, 23860-000
-#> 6 RUA PRINCESA ISABEL, 263 - ESTACAO EXPERIMENTAL, RIO BRANCO - AC, 69921-026
-#>             h3_09
-#> 1 89a8a39850fffff
-#> 2 89a8a06c55bffff
-#> 3 89a8a1c190fffff
-#> 4 89a8a066c47ffff
-#> 5 89a8a026c77ffff
-#> 6 898b5131e0fffff
 ```
 
     Python

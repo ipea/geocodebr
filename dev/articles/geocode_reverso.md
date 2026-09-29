@@ -70,8 +70,6 @@ df_enderecos = geocode_reverso(
     dist_max=1000,
     verboso=False
 )
-
-df_enderecos.head()
 ```
 
 Assim fica o output no R como `sf`. No Python fica parecido como
