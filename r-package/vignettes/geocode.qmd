@@ -132,7 +132,6 @@ ends_geo <- geocode(
   verboso = FALSE
   )
 
-head(ends_geo)
 ```
 :::
 
