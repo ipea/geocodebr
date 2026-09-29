@@ -150,12 +150,12 @@ def test_geocode_probabilistic_similarity_below_one(cnefe_cache):
     assert similaridade < 1
 
 
-def test_geocode_sem_candidato_jaro_nao_casa_logradouro_vazio(cnefe_cache):
-    # temp_lograd_determ comeca NULL (como no R), e nao '': o filtro
-    # "temp_lograd_determ IS NOT NULL" dos joins probabilisticos precisa tirar
-    # as linhas sem candidato do Jaro. Com '', um logradouro vazio no CNEFE
-    # casaria com todas elas como pn01. O release atual nao tem logradouro
-    # vazio (conferido em 27/09); o teste cria um para travar o comportamento.
+def test_geocode_no_jaro_candidate_does_not_match_empty_logradouro(cnefe_cache):
+    # temp_lograd_determ starts as NULL (as in R), not '': the
+    # "temp_lograd_determ IS NOT NULL" filter in the probabilistic joins must
+    # drop rows without a Jaro candidate. With '', an empty logradouro in the
+    # CNEFE would match all of them as pn01. The current release has no empty
+    # logradouro (checked on 27/09); the test creates one to lock the behavior.
     cnefe = pa.table(
         {
             "estado": ["DF"],
@@ -195,7 +195,7 @@ def test_geocode_sem_candidato_jaro_nao_casa_logradouro_vazio(cnefe_cache):
 
     out = geocode(addresses, fields, verboso=False)
 
-    # sem candidato no Jaro, cai para o match deterministico por cep + localidade
+    # without a Jaro candidate, falls back to the deterministic cep + localidade match
     assert out.column("tipo_resultado").to_pylist() == ["dc01"]
 
 

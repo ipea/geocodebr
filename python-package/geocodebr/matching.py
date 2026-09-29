@@ -106,7 +106,7 @@ def match_weighted_cases(
     key_cols = [col for col in original_key_cols if col != "numero"]
     join_condition = " AND ".join(f"{y}.{col} = {x}.{col}" for col in key_cols)
     ordem_first = "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
-    sel_livres, grp_livres = _cols_livres(y, key_cols)
+    sel_free, grp_free = _free_cols(y, key_cols)
     colunas_encontradas, additional_first, additional_second = _complete_weighted_columns(
         y, key_cols, resultado_completo, ordem_first
     )
@@ -118,7 +118,7 @@ def match_weighted_cases(
                  {x}.numero,
                  {y}.numero AS numero_cnefe,
                  {y}.lat, {y}.lon,
-                 {y}.endereco_completo{sel_livres},
+                 {y}.endereco_completo{sel_free},
                  {y}.desvio_metros,
                  {x}.log_causa_confusao,
                  {y}.n_casos AS contagem_cnefe {additional_first}
@@ -140,7 +140,7 @@ def match_weighted_cases(
           FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
           FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_second}
         FROM temp_db
-        GROUP BY tempidgeocodebr, numero {grp_livres}
+        GROUP BY tempidgeocodebr, numero {grp_free}
         """
     )
     return update_input_db(con, update_tb=x, reference_tb=output_tb, match_type=match_type)
@@ -221,7 +221,7 @@ def match_weighted_cases_probabilistic(
     join_condition = join_condition.replace("input_padrao_db.logradouro", "input_padrao_db.temp_lograd_determ")
     cols_not_null_match = cols_not_null.replace(".logradouro", ".temp_lograd_determ")
     ordem_first = "ORDER BY ABS(numero - numero_cnefe), numero_cnefe, lat, lon"
-    sel_livres, grp_livres = _cols_livres(y, key_cols)
+    sel_free, grp_free = _free_cols(y, key_cols)
     colunas_prefix = ""
     additional_prefix_first = ""
     additional_prefix_second = ""
@@ -245,7 +245,7 @@ def match_weighted_cases_probabilistic(
                  {x}.numero,
                  {y}.numero AS numero_cnefe,
                  {y}.lat, {y}.lon,
-                 {y}.endereco_completo{sel_livres},
+                 {y}.endereco_completo{sel_free},
                  {y}.desvio_metros,
                  {x}.log_causa_confusao,
                  {y}.n_casos AS contagem_cnefe {additional_first}
@@ -267,7 +267,7 @@ def match_weighted_cases_probabilistic(
           FIRST(log_causa_confusao {ordem_first}) AS log_causa_confusao,
           FIRST(contagem_cnefe {ordem_first}) AS contagem_cnefe {additional_second}
         FROM temp_db
-        GROUP BY tempidgeocodebr, numero {grp_livres}
+        GROUP BY tempidgeocodebr, numero {grp_free}
         """
     )
     return update_input_db(con, update_tb=x, reference_tb=output_tb, match_type=match_type)
@@ -291,16 +291,17 @@ def update_input_db(
     reference_tb: str = "output_db",
     match_type: str | None = None,
 ) -> int:
-    # so os ids inseridos NESTA etapa ainda estao em update_tb (as etapas
-    # anteriores ja apagaram os seus); filtrar por tipo_resultado evita varrer
-    # a output_db inteira -- que cresce a cada etapa -- 25 vezes. O DELETE ja
-    # devolve o numero de linhas apagadas. Espelha update_input_db() do R
-    filtro_etapa = f"WHERE tipo_resultado = {sql_string(match_type)}" if match_type else ""
+    # only the ids inserted in THIS step are still in update_tb (previous
+    # steps already deleted theirs); filtering by tipo_resultado avoids
+    # scanning the whole output_db -- which grows at every step -- 25 times.
+    # The DELETE already returns the number of deleted rows. Mirrors
+    # update_input_db() in R
+    step_filter = f"WHERE tipo_resultado = {sql_string(match_type)}" if match_type else ""
     return con.execute(
         f"""
         DELETE FROM {quote_ident(update_tb)}
         WHERE tempidgeocodebr IN (
-          SELECT tempidgeocodebr FROM {quote_ident(reference_tb)} {filtro_etapa}
+          SELECT tempidgeocodebr FROM {quote_ident(reference_tb)} {step_filter}
         )
         """
     ).fetchone()[0]
@@ -386,9 +387,9 @@ def merge_results_to_input(
             expr = f"{quote_ident(y)}.{quote_ident(col)}"
         y_exprs.append(f"{expr} AS {quote_ident(col)}")
     select_y = ", ".join(y_exprs)
-    # TABLE, nao VIEW: com VIEW o JOIN + ORDER BY rodam durante o fetch para o
-    # Arrow, e em bases grandes o processo fica com ~10 GB retidos apos o
-    # retorno (43,9 M linhas, Windows), sem reduzir o pico
+    # TABLE, not VIEW: with a VIEW the JOIN + ORDER BY run during the fetch to
+    # Arrow, and on large inputs the process keeps ~10 GB retained after
+    # returning (43.9 M rows, Windows), without reducing the peak
     con.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE geocodebr_result AS
@@ -807,20 +808,20 @@ def _build_found_columns(
     return colunas_encontradas, additional_cols
 
 
-def _cols_livres(y: str, key_cols: list[str]) -> tuple[str, str]:
-    """Colunas de ``y`` que compõem ``endereco_completo`` e não são fixadas pelo join.
+def _free_cols(y: str, key_cols: list[str]) -> tuple[str, str]:
+    """Columns of ``y`` that make up ``endereco_completo`` and are not fixed by the join.
 
-    É por elas que os candidatos de um mesmo ``tempidgeocodebr`` se separam em
-    endereços distintos. Espelha ``cols_livres`` de
-    ``r-package/R/match_weighted_cases.R``: a partição por
-    ``(tempidgeocodebr, numero, cols_livres)`` é a mesma que por
-    ``endereco_encontrado`` (a string é constante em cada grupo do CNEFE e
-    cep/localidade distintos geram strings distintas), mas com chave curta e o
-    regex rodando 1x por grupo, e não 1x por candidato.
+    They are what splits the candidates of a same ``tempidgeocodebr`` into
+    distinct addresses. Mirrors ``cols_livres`` in
+    ``r-package/R/match_weighted_cases.R``: partitioning by
+    ``(tempidgeocodebr, numero, free_cols)`` is the same as by
+    ``endereco_encontrado`` (the string is constant within each CNEFE group
+    and distinct cep/localidade produce distinct strings), but with a short
+    key and the regex running once per group rather than once per candidate.
     """
-    livres = [c for c in ("cep", "localidade") if c in y.split("_") and c not in key_cols]
-    sel = "".join(f", {y}.{c} AS {c}_cnefe" for c in livres)
-    grp = "".join(f", {c}_cnefe" for c in livres)
+    free_cols = [c for c in ("cep", "localidade") if c in y.split("_") and c not in key_cols]
+    sel = "".join(f", {y}.{c} AS {c}_cnefe" for c in free_cols)
+    grp = "".join(f", {c}_cnefe" for c in free_cols)
     return sel, grp
 
 

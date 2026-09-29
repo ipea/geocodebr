@@ -136,35 +136,35 @@ def tabelas_necessarias(campos_nao_declarados: list[str]) -> list[str]:
     return list(dict.fromkeys(get_reference_table(mt) for mt in ativos))
 
 
-def tabelas_ainda_necessarias(
-    match_types_restantes: list[str], campos_nao_declarados: list[str]
+def tables_still_needed(
+    remaining_match_types: list[str], campos_nao_declarados: list[str]
 ) -> set[str]:
-    """Tabelas temporárias que as etapas restantes do laço ainda vão usar.
+    """Temporary tables that the remaining steps of the loop will still use.
 
-    Espelha ``tabelas_ainda_necessarias()`` em ``r-package/R/utils.R``: as
-    tabelas de referência das etapas restantes ativas, mais as duas
-    ``unique_logr_*`` de ``register_unique_logradouros_table()`` (a base
-    delas depende só de o match_type ser ``*03`` ou não).
+    Mirrors ``tabelas_ainda_necessarias()`` in ``r-package/R/utils.R``: the
+    reference tables of the remaining active steps, plus the two
+    ``unique_logr_*`` tables from ``register_unique_logradouros_table()``
+    (their base depends only on whether the match_type is ``*03`` or not).
     """
-    ativos = [
+    active = [
         mt
-        for mt in match_types_restantes
+        for mt in remaining_match_types
         if not any(col in campos_nao_declarados for col in get_key_cols(mt))
     ]
-    tabs = {get_reference_table(mt) for mt in ativos}
+    tables = {get_reference_table(mt) for mt in active}
 
-    probabilisticos = [
+    probabilistic = [
         mt
-        for mt in ativos
+        for mt in active
         if mt in PROBABILISTIC_EXACT_TYPES
         | PROBABILISTIC_INTERPOLATION_TYPES
         | PROBABILISTIC_TYPES_NO_NUMBER
     ]
-    if any(mt in {"pn03", "pa03", "pl03"} for mt in probabilisticos):
-        tabs.add("unique_logr_municipio_logradouro_localidade")
-    if any(mt not in {"pn03", "pa03", "pl03"} for mt in probabilisticos):
-        tabs.add("unique_logr_municipio_logradouro_cep_localidade")
-    return tabs
+    if any(mt in {"pn03", "pa03", "pl03"} for mt in probabilistic):
+        tables.add("unique_logr_municipio_logradouro_localidade")
+    if any(mt not in {"pn03", "pa03", "pl03"} for mt in probabilistic):
+        tables.add("unique_logr_municipio_logradouro_cep_localidade")
+    return tables
 
 
 def get_prob_match_cutoff(match_type: str) -> float:

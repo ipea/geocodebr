@@ -22,23 +22,23 @@ def calculate_string_dist(
     min_cutoff = get_prob_match_cutoff(match_type)
     tbl = quote_ident(unique_logradouros_tbl)
 
-    # nas etapas sem numero (pl0k), as linhas com numero preenchido ja foram
-    # testadas na etapa pn0k correspondente -- mesma chave de lookup, mesma
-    # tabela unique_logr_* e mesmo corte -- e nao passaram: recalcular Jaro para
-    # elas e um no-op garantido. Se numero nao foi declarado, a coluna-fantasma
-    # e toda NULL e o filtro nao exclui nada
-    filtro_sem_numero = (
+    # in the steps without number (pl0k), rows with a filled numero were
+    # already tested in the matching pn0k step -- same lookup key, same
+    # unique_logr_* table and same cutoff -- and did not pass: recomputing Jaro
+    # for them is a guaranteed no-op. If numero was not declared, the ghost
+    # column is all NULL and the filter excludes nothing
+    no_number_filter = (
         "AND input_padrao_db.numero IS NULL"
         if match_type in PROBABILISTIC_TYPES_NO_NUMBER
         else ""
     )
 
-    # O Jaro depende so de (chave de lookup, logradouro), nao do
-    # tempidgeocodebr. Com chave curta, muitas linhas repetem a combinacao e
-    # compensa calcular uma vez por combinacao distinta e devolver por join.
-    # Com cep E localidade (pn01/pl01) quase nao ha repeticao e o join-back
-    # custa mais que o Jaro linha a linha: calcula direto por tempidgeocodebr.
-    # Espelha calculate_string_dist() de r-package/R/string_dist.R
+    # Jaro depends only on (lookup key, logradouro), not on tempidgeocodebr.
+    # With a short key, many rows repeat the combination and it pays off to
+    # compute once per distinct combination and join the result back. With
+    # cep AND localidade (pn01/pl01) there is almost no repetition and the
+    # join-back costs more than row-by-row Jaro: compute per tempidgeocodebr.
+    # Mirrors calculate_string_dist() in r-package/R/string_dist.R
     if not {"cep", "localidade"} <= set(lookup_cols):
         sel_cols = f"DISTINCT {key_cols_sql}, logradouro AS logradouro_input"
         grp_cols = f"{key_cols_sql}, logradouro_input"
@@ -46,8 +46,8 @@ def calculate_string_dist(
             [f"input_padrao_db.{col} = computed.{col}" for col in lookup_cols]
             + ["input_padrao_db.logradouro = computed.logradouro_input"]
         )
-        # a unique_logr_* e criada com a chave mais longa; numa chave mais curta
-        # o mesmo logradouro se repete e cada repeticao custaria um Jaro
+        # unique_logr_* is built with the longest key; with a shorter key the
+        # same logradouro repeats and each repetition would cost one Jaro
         cand_src = f"(SELECT DISTINCT {key_cols_sql}, logradouro FROM {tbl})"
     else:
         sel_cols = f"tempidgeocodebr, {key_cols_sql}, logradouro AS logradouro_input"
@@ -59,17 +59,17 @@ def calculate_string_dist(
 
     con.execute(
         f"""
-        -- linhas (ou combinacoes distintas de chave + logradouro) que ainda
-        -- nao tem similaridade
+        -- rows (or distinct key + logradouro combinations) that do not
+        -- have a similarity yet
         WITH to_compute AS (
           SELECT {sel_cols}
           FROM input_padrao_db
           WHERE input_padrao_db.similaridade_logradouro IS NULL
             AND input_padrao_db.log_causa_confusao = FALSE
             AND {cols_not_null}
-            {filtro_sem_numero}
+            {no_number_filter}
         ),
-        -- Jaro contra os logradouros candidatos da mesma chave
+        -- Jaro against the candidate logradouros with the same key
         pairs AS (
           SELECT
               t.*,
@@ -80,8 +80,8 @@ def calculate_string_dist(
             ON {join_condition_pairs}
           WHERE similarity > {min_cutoff}
         ),
-        -- melhor candidato por grupo: equivale a RANK() = 1 (o desempate por
-        -- logradouro_cnefe torna a ordem total), e agregar e mais barato
+        -- best candidate per group: equivalent to RANK() = 1 (the tie-break
+        -- on logradouro_cnefe makes the order total), and aggregating is cheaper
         computed AS (
           SELECT
               {grp_cols},
@@ -90,9 +90,9 @@ def calculate_string_dist(
           FROM pairs
           GROUP BY {grp_cols}
         )
-        -- devolve ao input. O filtro de elegibilidade e repetido porque na forma
-        -- com dedup o join por chave + logradouro alcancaria linhas ja
-        -- resolvidas ou com logradouro ambiguo
+        -- write back to the input. The eligibility filter is repeated because
+        -- in the dedup form the join on key + logradouro would reach rows
+        -- already resolved or with an ambiguous logradouro
         UPDATE input_padrao_db
           SET temp_lograd_determ = computed.logradouro_cnefe,
               similaridade_logradouro = computed.similarity

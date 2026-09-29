@@ -7,28 +7,28 @@ from .match_types import (
     ALL_POSSIBLE_MATCH_TYPES,
     get_key_cols,
     get_reference_table,
-    tabelas_ainda_necessarias,
+    tables_still_needed,
 )
 from .utils import quote_ident
 
 
-def dropa_tabelas_obsoletas(
+def drop_obsolete_tables(
     con: duckdb.DuckDBPyConnection,
-    match_types_restantes: list[str],
+    remaining_match_types: list[str],
     campos_nao_declarados: list[str],
 ) -> None:
-    """Apaga as tabelas temporárias que nenhuma etapa restante do laço usa.
+    """Drop the temporary tables that no remaining step of the loop uses.
 
-    O DuckDB libera a memória de uma TEMP TABLE no DROP; sem isso as tabelas de
-    referência maiores (~10 GB cada em escala nacional) ficariam vivas até o
-    fim do geocode(). Espelha ``dropa_tabelas_obsoletas()`` do R.
+    DuckDB frees the memory of a TEMP TABLE on DROP; without this, the largest
+    reference tables (~10 GB each at national scale) would stay alive until
+    the end of geocode(). Mirrors ``dropa_tabelas_obsoletas()`` in R.
     """
-    candidatas = {get_reference_table(mt) for mt in ALL_POSSIBLE_MATCH_TYPES} | {
+    candidates = {get_reference_table(mt) for mt in ALL_POSSIBLE_MATCH_TYPES} | {
         "unique_logr_municipio_logradouro_localidade",
         "unique_logr_municipio_logradouro_cep_localidade",
     }
-    necessarias = tabelas_ainda_necessarias(match_types_restantes, campos_nao_declarados)
-    for tb in sorted(candidatas - necessarias):
+    needed = tables_still_needed(remaining_match_types, campos_nao_declarados)
+    for tb in sorted(candidates - needed):
         con.execute(f"DROP TABLE IF EXISTS {quote_ident(tb)}")
 
 
@@ -48,19 +48,19 @@ def register_cnefe_table(
 
     path_to_parquet = caminho_parquet(cnefe_table_name, pasta_dados)
 
-    # colunas que nenhuma query le: code_muni e n_setor nunca; cod_setor so com
-    # resultado_completo. Espelha register_cnefe_table() do R (~10% menos
-    # memoria). A lista sai do schema do parquet porque EXCLUDE de coluna
-    # inexistente e erro no DuckDB
-    excluir = ["code_muni", "n_setor"] + ([] if resultado_completo else ["cod_setor"])
-    presentes = {
+    # columns that no query reads: code_muni and n_setor never; cod_setor only
+    # with resultado_completo. Mirrors register_cnefe_table() in R (~10% less
+    # memory). The list comes from the parquet schema because EXCLUDE of a
+    # nonexistent column is an error in DuckDB
+    exclude = ["code_muni", "n_setor"] + ([] if resultado_completo else ["cod_setor"])
+    present = {
         r[0]
         for r in con.execute(
             f"DESCRIBE SELECT * FROM read_parquet('{path_to_parquet}')"
         ).fetchall()
     }
-    excluir = [c for c in excluir if c in presentes]
-    projecao = f"* EXCLUDE ({', '.join(excluir)})" if excluir else "*"
+    exclude = [c for c in exclude if c in present]
+    projection = f"* EXCLUDE ({', '.join(exclude)})" if exclude else "*"
 
     con.execute(
         f"""
@@ -71,7 +71,7 @@ def register_cnefe_table(
         unique_states AS (
             SELECT DISTINCT estado FROM input_padrao_db
         )
-        SELECT {projecao}
+        SELECT {projection}
         FROM read_parquet('{path_to_parquet}') m
         WHERE m.estado IN (SELECT estado FROM unique_states)
           AND m.municipio IN (SELECT municipio FROM unique_munis)

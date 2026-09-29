@@ -34,7 +34,7 @@ from .matching import (
     select_match_function,
     trata_empates_geocode_duckdb,
 )
-from .tables import dropa_tabelas_obsoletas
+from .tables import drop_obsolete_tables
 from .messages import (
     message_looking_for_matches,
     message_preparing_output,
@@ -246,9 +246,9 @@ def geocode(
         original_columns = [col for col in input_columns] + ["tempidgeocodebr"]
         df_padrao = df_padrao.with_columns(df_input["tempidgeocodebr"])
         # Create temp `logradouro` columns to be used in probabilistic match.
-        # temp_lograd_determ comeca NULL (como o NA_character_ do R): o filtro
-        # "temp_lograd_determ IS NOT NULL" dos joins probabilisticos precisa
-        # excluir as linhas sem candidato do Jaro
+        # temp_lograd_determ starts as NULL (like R's NA_character_): the
+        # "temp_lograd_determ IS NOT NULL" filter in the probabilistic joins
+        # must exclude rows without a Jaro candidate
         df_padrao = df_padrao.with_columns(
             pl.lit(None, dtype=pl.Utf8).alias("temp_lograd_determ"),
             pl.lit(None, dtype=pl.Float64).alias("similaridade_logradouro"),
@@ -288,15 +288,15 @@ def geocode(
                     )
                     matched_rows += affected
                     pbar.update(affected)
-                    # libera as tabelas que as etapas restantes nao usam mais
-                    dropa_tabelas_obsoletas(
+                    # free the tables that the remaining steps no longer use
+                    drop_obsolete_tables(
                         con, ALL_POSSIBLE_MATCH_TYPES[i + 1:], campos_nao_declarados
                     )
                     if matched_rows == n_rows:
                         break
 
-        # nada apos o laco le input_padrao_db nem as tabelas de referencia
-        dropa_tabelas_obsoletas(con, [], campos_nao_declarados)
+        # nothing after the loop reads input_padrao_db or the reference tables
+        drop_obsolete_tables(con, [], campos_nao_declarados)
         con.execute("DROP TABLE IF EXISTS input_padrao_db")
 
         message_preparing_output(verboso)
@@ -304,8 +304,8 @@ def geocode(
             con, resultado_completo, resolver_empates, verboso
         )
         output_table_to_use = "output_db" if empates_resolvidos == 0 else "output_db2"
-        # tabelas de trabalho dos empates; output_db so sai se o resultado
-        # estiver em output_db2 (IF EXISTS cobre o ramo que a renomeia)
+        # tie-breaking work tables; output_db is only dropped if the result
+        # is in output_db2 (IF EXISTS covers the branch that renames it)
         con.execute("DROP TABLE IF EXISTS ids_empatados")
         con.execute("DROP TABLE IF EXISTS empates_classif")
         if output_table_to_use == "output_db2":
