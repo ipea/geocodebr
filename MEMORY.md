@@ -28,7 +28,8 @@ Os achados da revisão das três funções exportadas principais estão em
 [`quality_reports/diagnoses/`](quality_reports/diagnoses/), com evidência e reprodução de cada item.
 A lista priorizada de eficiência do `geocode()` — a referência viva para retomar o trabalho — é
 `2026-08-24_geocode-eficiencia-consolidado.md`; ela é atualizada a cada item concluído e é o primeiro
-lugar a checar no início de uma sessão nova. Status em 25/08 (ver essa lista para detalhes de cada um):
+lugar a checar no início de uma sessão nova. Status conferido contra o código em **18/09/2026**
+(ver essa lista para detalhes de cada um):
 
 | # | item | status |
 |---|---|---|
@@ -36,15 +37,39 @@ lugar a checar no início de uma sessão nova. Status em 25/08 (ver essa lista p
 | 2 | Jaro redundante em `pa01-03` | ✅ commitado (`282c302`) |
 | 3 | `FIRST()`/`QUALIFY` sem `ORDER BY` (não-determinismo) | ✅ commitado (`0592c83`) |
 | 4 | `TEMP VIEW` em vez de `TEMP TABLE` | ❌ testado e **refutado** — não retentar |
-| 5 | Baixar só as tabelas de referência necessárias | ⏳ aberto |
+| 5 | Baixar só as tabelas de referência necessárias | ✅ commitado (`fdf7a9e`) — `tabelas_necessarias()` em `R/utils.R` |
 | 6 | Dedup dos quatro `match_*()` | ✅ commitado (`889e331`) — `R/match_helpers.R` |
-| 7 | Código morto em `register_cnefe_tables.R` | ⏳ aberto |
+| 7 | Código morto em `register_cnefe_tables.R` | ⏳ **aberto** (único item pendente da lista) |
+
+Frentes concluídas depois dessa lista:
+
+- **Eficiência de `trata_empates_geocode_duckdb()`** — itens 1-5 em `28b0365`, bugfix do `\b` + `RUA QUATRO`
+  em `2cb0034`. Planos em `quality_reports/plans/2026-08-26_empates-*.md`.
+- **Registro do `input_padrao` no DuckDB** — `dbWriteTable()` direto em vez de converter para Arrow;
+  43M: 88,5 s → 17,6 s. Plano: `2026-08-27_registro-input-padrao.md`.
+- **`merge_results_to_input()`** — frente **revertida**; ver `2026-08-27_merge-results-otimizacao.md`.
+  Sobreviveu só a guarda de nomes reservados em `check_clean_colnames()`.
+- **Migração para o CNEFE `v0.5.0`** — feita em `9d03781`; `data_release` (`R/cache.R:1`) = `"v0.5.0"`.
+  Auditoria em `2026-09-15_cnefe-v041-vs-v050-auditoria.md`. Pendências ainda abertas: `n_setor` e
+  `code_muni` (colunas novas do v0.5.0) não são consumidas em lugar nenhum de `R/` — o único uso de
+  `code_muni` lê de `inst/extdata/munis_bbox_2022.parquet`. O mínimo do `{enderecobr}` já foi alinhado
+  (`>= 0.6.1`, commit `a993cf1`, 18/09).
+- **Namespace do subprocesso do `callr`** — `86cf874`; ver a entrada `[LEARN:testes]` sobre `package = FALSE`.
+- **`geocode_reverso()` passou a usar `municipio_logradouro_cep_localidade`** (`f4bf358`), a tabela sem
+  número — captura mais logradouros sem numeração, e em troca o output não tem coluna de número.
 
 Relatórios de diagnóstico mais antigos, ainda com contexto útil:
 
 - `2026-08-22_geocode-pipeline-achados.md` — `geocode()`
 - `2026-08-23_geocode-reverso-e-busca-por-cep-achados.md` — `geocode_reverso()` e `busca_por_cep()`
+- `2026-08-23_analise-pacote-desempenho-manutencao.md` — análise de manutenibilidade
 - `2026-08-24_geocode-revisao-critica.md` — rodada de acompanhamento do relatório de 22/08
+- `2026-09-15_perda-performance-v050.md` — hipótese de regressão de performance no v0.5.0 (refutada)
+
+**Ativos de benchmark:** `df_sample_empates.parquet` (1M linhas, ~17 MB, 84.238 empates) e
+`df_full_data.parquet` (43.882.020 linhas, ~658 MB) vivem hoje **na raiz do repo e não são rastreados no
+git** (`df_sample_empates.parquet` foi commitado em `28b0365` e removido em `f88f12d`). Se sumirem, pedir ao
+usuário — não tentar regenerar.
 
 ---
 
@@ -103,9 +128,11 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   dentro do mesmo CEP/bairro/municipio, e a media ponderada e o centroide que a `precisao` (`cep`,
   `localidade`, `municipio`) promete. O ramo "perdidos" existe para o problema oposto — logradouros
   homonimos espalhados pela cidade, onde a media cai num ponto que nao e nenhum dos candidatos.
-  **Por que:** hoje essas categorias ficam de fora por propagacao de `NULL` em
-  `NOT REGEXP_MATCHES(logradouro_encontrado, ...)`, o que parece bug e convida a um `COALESCE`
-  "corretivo" que seria regressao.
+  **Corrigido** (26/08, commit `2cb0034`): a exclusao agora e **explicita**, via
+  `AND logradouro_encontrado IS NOT NULL` no predicado do ramo E em `trata_empates_geocode_duckdb.R`.
+  **Por que:** antes elas ficavam de fora por acidente — propagacao de `NULL` em
+  `NOT REGEXP_MATCHES(logradouro_encontrado, ...)` — o que parecia bug e convidava a um `COALESCE`
+  "corretivo" que seria regressao. Nao remover a guarda explicita achando que e redundante.
 
 - `[LEARN:duckdb]` `shared_home` (e os demais argumentos de configuracao do driver) pertence ao construtor
   `duckdb::duckdb()`, **nao** ao `DBI::dbConnect()`. Passado ao `dbConnect()` ele e engolido pelo `...` sem
@@ -225,9 +252,15 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   "RUA QUINZE DE NOVEMBRO" empatada a <1 km cai no ramo "perdidos" (fica o candidato top) em vez de
   "salváveis" (média ponderada), contra a intenção documentada no próprio comentário. Repro mínimo:
   `REGEXP_MATCHES('RUA QUINZE DE NOVEMBRO', <padrão>)` → `FALSE` com `\\b` duplo no fonte, `TRUE` com
-  simples. Fix pendente (é mudança de comportamento; tratar junto com a unificação das listas de
-  logradouro ambíguo). **Por quê:** o mesmo padrão visual (`\\\\b`) funciona em outras engines que
-  processam escapes na string SQL, e o erro é silencioso — a cláusula simplesmente nunca filtra.
+  simples. **Corrigido** em 26/08 (commit `2cb0034`): o fonte hoje tem `'\\bDE (JANEIRO|…)\\b'` (escape
+  simples). O fix veio junto com uma **reestruturação do predicado** — viva, a exceção de datas era um
+  conjunto *top-level* e anularia até o critério `max_dist > 1000`; foi movida para dentro do braço do
+  regex de números por extenso, e o bug do `\b` estava mascarando essa falha estrutural. Também entrou
+  `QUATRO` na lista de logradouros ambíguos de `cria_col_logradouro_confusao()`. Caracterização em 1M:
+  43 linhas (0,004%) mudam. A unificação completa das duas listas de logradouro ambíguo foi **avaliada e
+  rejeitada** (o flag ancorado perderia números compostos) — não repropor sem evidência nova.
+  **Por quê:** o mesmo padrão visual (`\\\\b`) funciona em outras engines que processam escapes na string
+  SQL, e o erro é silencioso — a cláusula simplesmente nunca filtra.
 
 - `[LEARN:testes]` Em bases grandes com `n_cores` default, `identical()` bit-a-bit é critério
   **inatingível** para o caminho de empates: a média ponderada (`SUM(lat*contagem_cnefe) OVER (...)`)
@@ -243,7 +276,8 @@ Relatórios de diagnóstico mais antigos, ainda com contexto útil:
   ele já é filtrado a jusante. `match_weighted_cases_probabilistic.R` sempre calculava/agregava
   `similaridade_logradouro` mesmo com `resultado_completo = FALSE`, o que parecia um bug (a regra do
   pacote é: colunas extra só aparecem com `resultado_completo = TRUE`). Mas `merge_results_to_input()`
-  (`R/utils.R:147-170`) **já exclui** `similaridade_logradouro` da lista de colunas selecionadas quando
+  (`select_columns_y` em `merge_results_to_input()`, `R/utils.R`) **já exclui** `similaridade_logradouro`
+  da lista de colunas selecionadas quando
   `resultado_completo = FALSE`, então o valor nunca chegava ao usuário — confirmado com `identical()`
   antes/depois da "correção" (0 diferença nos dois casos). A mudança foi revertida por não ter efeito
   observável e adicionar complexidade sem necessidade. **Por quê:** um sintoma "essa coluna deveria ser

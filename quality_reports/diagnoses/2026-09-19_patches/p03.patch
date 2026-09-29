@@ -1,0 +1,27 @@
+diff --git a/R/geocode.R b/R/geocode.R
+index ccad269..d03b2a5 100644
+--- a/R/geocode.R
++++ b/R/geocode.R
+@@ -535,16 +535,12 @@ geocode_core <- function(
+   # bring original input back -----------------------------------------------
+ 
+   # output with all original columns
+-  duckdb::dbWriteTable(
+-    con,
+-    "input_db",
+-    enderecos,
+-    temporary = TRUE,
+-    overwrite = TRUE
+-  )
+-  # enderecos_arrw <- arrow::as_arrow_table(enderecos)
+-  # DBI::dbWriteTableArrow(con, name = "input_db", enderecos_arrw,
+-  #                        overwrite = TRUE, temporary = TRUE)
++  # registra o data.frame como view (zero copia) em vez de gravar uma tabela:
++  # input_db so e lido uma vez, pelo LEFT JOIN de merge_results_to_input(),
++  # nunca alterado. dbWriteTable() e exatamente register + CREATE TABLE AS,
++  # entao os tipos das colunas sao os mesmos -- sem a copia integral do input
++  # dentro do DuckDB nem o tempo de escrita. A view some no dbDisconnect().
++  duckdb::duckdb_register(con, "input_db", enderecos)
+ 
+   # systime write original input back 66666 ----------------
+   # timer$mark("Write original input back")

@@ -13,6 +13,8 @@
 ^pkgdown$
 ^README\.Rmd$
 ^codemeta\.json$
+^vignettes/\.quarto$
+^vignettes/.*_files$
 ^quality_reports$
 ^\.claude$
 ^CLAUDE\.md$

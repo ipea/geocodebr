@@ -1,9 +1,16 @@
+# vignette em quarto:
+#   Alternativa sem risco nenhum
+
+# Se o objetivo é só escrever em Quarto e mostrar no site, dá para pular a parte do CRAN: 
+#   colocar os .qmd em r-package/vignettes/articles/ (que é ignorado no build do pacote). 
+# O pkgdown renderiza como "articles", o CRAN nunca vê, a VignetteBuilder continua knitr, 
+# e o R CMD check não precisa do Quarto CLI. Faz sentido como passo intermediário — migrar 
+# um artigo novo primeiro e só depois converter as 3 vignettes existentes.
+
 #' proximos passos
 #' 0. padronizacao cnefe usado aprox linear para lidar com ruas curvas
-#' 1. add census tracts
 #' 2. check ground truth data for distance
 #' 3. more efficient string dist with cache
-#' 4. make solving ties more efficient
 #' 5. helper function to parallelize chuncks of the same size
 #' 6. targets to track the evolution of the package performance
 #'
