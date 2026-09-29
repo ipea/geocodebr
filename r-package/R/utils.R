@@ -551,56 +551,6 @@ exact_types_no_logradouro <- c(
   "dm01"
 )
 
-# Padroniza UM campo do endereco rodando `enderecobr::padronizar_enderecos()`
-# apenas sobre os valores distintos de `x`, e expande o resultado de volta para o
-# comprimento original via `chmatch()`.
-#
-# Duas economias em relacao a chamar `padronizar_enderecos()` uma vez sobre a
-# tabela inteira: o trabalho por campo passa a ser proporcional a cardinalidade
-# distinta da coluna (nas colunas de endereco, uma fracao pequena do total), e
-# nao se paga a copia integral do input que `padronizar_enderecos()` faz via
-# `as.data.table()`. As seis funcoes `padronizar_*` do enderecobr sao
-# element-wise puras (checkmate + um `.Call` em Rust), logo o resultado e
-# `identical()` ao da chamada sobre o vetor inteiro -- inclusive no tratamento de
-# NA, nos ramos numericos de `padronizar_numeros()` / `padronizar_ceps()` e em
-# input marcado como latin1.
-#
-# Por que chamar `padronizar_enderecos()` (e nao `padronizar_logradouros()` etc.
-# direto): os construtores de mensagem do enderecobr inspecionam a pilha de
-# chamadas por deslocamento fixo (`sys.call(-15)` em `warning_conversao_invalida()`,
-# `sys.call(-10)` nos `erro_cep_*`). Chamar as funcoes de campo diretamente muda a
-# profundidade da pilha e faz esses construtores falharem com
-# "cannot coerce type 'closure'" -- o que transforma um aviso benigno
-# (numero nao convertivel para integer) em erro fatal. Mantendo
-# `padronizar_enderecos()` na pilha, avisos e erros saem exatamente como hoje.
-padronizar_dedup <- function(x, campo, formato_estados = "sigla",
-                             formato_numeros = "integer") {
-  ux <- unique(x)
-  idx <- if (is.character(x)) data.table::chmatch(x, ux) else match(x, ux)
-
-  campos <- list()
-  campos[[campo]] <- "v"
-  campos <- do.call(enderecobr::correspondencia_campos, campos)
-  col_padr <- paste0(campo, "_padr")
-
-  padroniza <- function(v) {
-    enderecobr::padronizar_enderecos(
-      enderecos = data.table::data.table(v = v),
-      campos_do_endereco = campos,
-      formato_estados = formato_estados,
-      formato_numeros = formato_numeros
-    )[[col_padr]]
-  }
-
-  # se a padronizacao falhar (ex.: CEP com letra), reexecuta no vetor inteiro
-  # para que a mensagem de erro cite os indices originais, como hoje
-  y <- tryCatch(padroniza(ux), error = function(e) padroniza(x))
-
-  y[idx]
-}
-
-
-
 
 assert_and_assign_address_fields <- function(address_fields, addresses_table) {
   # nocov start

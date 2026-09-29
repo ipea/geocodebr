@@ -14,56 +14,15 @@ calculate_string_dist <- function(con, match_type, unique_logradouros_tbl) {
   # remove numero and logradouro from key cols to allow for the matching
   key_cols_string_dist <- key_cols[!key_cols %in% c("numero", "logradouro")]
 
-  # min cutoff for string match
-  min_cutoff <- get_prob_match_cutoff(match_type)
-
-  # nas etapas sem numero (pl0k), as linhas com numero preenchido ja foram
-  # testadas na etapa pn0k correspondente -- mesma chave de lookup, mesma
-  # tabela unique_logr_* e mesmo corte -- e nao passaram. similaridade_logradouro
-  # so e preenchida, nunca limpa, entao recalcular Jaro para elas aqui e um
-  # no-op garantido (mesmo principio de match_types_jaro_redundante em utils.R).
-  # So as linhas com numero NULL (que pn0k exclui via cols_not_null) restam.
-  # Se numero nao foi declarado, a coluna-fantasma e toda NULL e o filtro nao
-  # exclui nada.
-  filtro_sem_numero <- if (match_type %in% probabilistic_types_no_number) {
-    "AND input_padrao_db.numero IS NULL"
-  } else {
-    ""
-  }
-
-  #-----------------------------------------------------------------------------
-  # Jaro depende apenas de (key_cols_string_dist, logradouro) -- nao do
-  # tempidgeocodebr. Como muitas linhas do input compartilham essa combinacao,
-  # deduplicamos o input ANTES de calcular a similaridade e devolvemos o
-  # resultado por join. Dentro de cada grupo o candidato vencedor eh unico
-  # (a tabela de candidatos entra DISTINCT, e o desempate por logradouro_cnefe
-  # torna a ordenacao total), logo RANK() = 1 equivale a
-  # FIRST(... ORDER BY ...) + MAX(similarity) -- e agregacao eh mais barata que
-  # window function.
-
-  # colunas-chave qualificadas para cada lado do join
-  cols_to_compute <- paste(
-    glue::glue("t.{key_cols_string_dist}"),
-    collapse = ', '
-  )
   join_condition_lookup <- paste(
-    glue::glue("t.{key_cols_string_dist} = c.{key_cols_string_dist}"),
-    collapse = ' AND '
-  )
-  join_condition_update <- paste(
     glue::glue(
-      "input_padrao_db.{key_cols_string_dist} = computed.{key_cols_string_dist}"
+      "{unique_logradouros_tbl}.{key_cols_string_dist} = input_padrao_db.{key_cols_string_dist}"
     ),
     collapse = ' AND '
   )
-  key_cols_sql <- paste(key_cols_string_dist, collapse = ', ')
 
-  # Nas etapas cuja chave de lookup inclui cep E localidade (pn01/pl01) a
-  # combinacao (chave, logradouro) quase nao se repete no input e a tabela
-  # unique_logr_* ja e unica nessa chave: o caminho com dedup + join-back custa
-  # mais do que o Jaro linha a linha (medido em 43,9M: pn01 6 s -> 29 s). Nesses
-  # casos usa-se a forma direta, por tempidgeocodebr.
-  usa_dedup <- !all(c("cep", "localidade") %in% key_cols_string_dist)
+  # min cutoff for string match
+  min_cutoff <- get_prob_match_cutoff(match_type)
 
   # nas etapas sem numero (pl0k), as linhas com numero preenchido ja foram
   # testadas na etapa pn0k correspondente -- mesma chave de lookup, mesma
@@ -171,4 +130,36 @@ calculate_string_dist <- function(con, match_type, unique_logradouros_tbl) {
   )
 
   DBI::dbExecute(con, query_calc_dist)
+  #-----------------------------------------------------------------------------
+
+  # # query antigo
+  # query_lookup <- glue::glue(
+  #   "WITH ranked_data AS (
+  #       SELECT
+  #         input_padrao_db.tempidgeocodebr,
+  #         {unique_logradouros_tbl}.logradouro AS logradouro_cnefe,
+  #         CAST(jaro_similarity(input_padrao_db.logradouro, {unique_logradouros_tbl}.logradouro) AS NUMERIC(5,3)) AS similarity,
+  #         RANK() OVER (PARTITION BY input_padrao_db.tempidgeocodebr ORDER BY similarity DESC, logradouro_cnefe) AS rank
+  #       FROM input_padrao_db
+  #       JOIN {unique_logradouros_tbl}
+  #         ON {join_condition_lookup}
+  #      WHERE {cols_not_null}
+  #            AND input_padrao_db.log_causa_confusao is false
+  #            AND input_padrao_db.similaridade_logradouro IS NULL
+  #            AND similarity > {min_cutoff}
+  #     )
+  #
+  #     UPDATE input_padrao_db
+  #        SET temp_lograd_determ = ranked_data.logradouro_cnefe,
+  #            similaridade_logradouro = similarity
+  #      FROM ranked_data
+  #     WHERE input_padrao_db.tempidgeocodebr = ranked_data.tempidgeocodebr
+  #           AND ranked_data.similarity > {min_cutoff}
+  #           AND ranked_data.rank = 1;"
+  #     )
+  #
+  # DBI::dbExecute(con, query_lookup)
+
+  # a <- DBI::dbReadTable(con, 'input_padrao_db')
+  # sum(is.na(a$similaridade_logradouro))
 }

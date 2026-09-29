@@ -244,38 +244,6 @@ geocode <- function(
     h3_res = h3_res,
     resultado_sf = resultado_sf
   )
-
-  # le o resultado gravado pelo filho ------------------------------------------
-  # altrep desligado de proposito: com altrep as colunas voltam lazy e o custo de
-  # materializacao apenas migra para a primeira vez que cada coluna e tocada
-  # (inclusive dentro do setDT/H3 abaixo), o que torna o ganho ilusorio
-  old_altrep <- getOption("arrow.use_altrep")
-  options(arrow.use_altrep = FALSE)
-  on.exit(options(arrow.use_altrep = old_altrep), add = TRUE)
-
-  output_df <- tryCatch(
-    as.data.frame(arrow::read_parquet(resumo_filho$arquivo)),
-    error = function(e) {
-      cli::cli_abort(
-        c(
-          "Nao foi possivel ler o resultado intermediario do geocode().",
-          "x" = "Falha ao ler {.file {resumo_filho$arquivo}}: {conditionMessage(e)}"
-        ),
-        call = NULL
-      )
-    }
-  )
-
-  # factor, tzone de POSIXct e difftime nao sobrevivem ao parquet -- reconstroi
-  # usando o input original, que continua intacto neste processo, como gabarito
-  output_df <- restaura_classes_input(output_df, enderecos)
-
-  # pos-processamento que antes rodava dentro do filho
-  pos_processa_output(
-    output_df = output_df,
-    h3_res = h3_res,
-    resultado_sf = resultado_sf
-  )
 }
 
 
@@ -448,59 +416,39 @@ geocode_core <- function(
       message_standardizing_addresses()
     }
 
-    # padroniza campo a campo em vez de uma chamada unica a
-    # enderecobr::padronizar_enderecos() sobre a tabela inteira: cada coluna passa
-    # por padronizar_dedup() (ver R/utils.R), que padroniza so os valores
-    # distintos daquele campo e expande de volta com chmatch(). O resultado e
-    # identical() ao da chamada antiga, incluindo a ORDEM das colunas
-    # (logradouro, numero, cep, localidade, municipio, estado), que precisa ser
-    # preservada porque define o schema da tabela gravada no DuckDB.
-    input_padrao <- data.table::data.table(
-      logradouro = padronizar_dedup(
-        enderecos[[campos_endereco[["logradouro"]]]],
-        "logradouro"
+    input_padrao <- enderecobr::padronizar_enderecos(
+      enderecos = enderecos,
+      campos_do_endereco = enderecobr::correspondencia_campos(
+        logradouro = campos_endereco[["logradouro"]],
+        numero = campos_endereco[["numero"]],
+        cep = campos_endereco[["cep"]],
+        bairro = campos_endereco[["localidade"]],
+        municipio = campos_endereco[["municipio"]],
+        estado = campos_endereco[["estado"]]
       ),
-      numero = padronizar_dedup(
-        enderecos[[campos_endereco[["numero"]]]],
-        "numero"
-      ),
-      cep = padronizar_dedup(
-        enderecos[[campos_endereco[["cep"]]]],
-        "cep"
-      ),
-      localidade = padronizar_dedup(
-        enderecos[[campos_endereco[["localidade"]]]],
-        "bairro"
-      ),
-      municipio = padronizar_dedup(
-        enderecos[[campos_endereco[["municipio"]]]],
-        "municipio"
-      ),
-      estado = padronizar_dedup(
-        enderecos[[campos_endereco[["estado"]]]],
-        "estado"
-      )
+      formato_estados = "sigla",
+      formato_numeros = 'integer'
     )
   }
 
   if (isFALSE(padronizar_enderecos)) {
     input_padrao <- data.table::copy(enderecos)
+  }
 
-    # checa se input foi mesmo padronizado -- so faz sentido neste ramo, ja que
-    # no ramo TRUE as colunas padronizadas sao construidas aqui mesmo
-    all_cols_padr <- c(
-      "estado_padr",
-      "municipio_padr",
-      "logradouro_padr",
-      "numero_padr",
-      "cep_padr",
-      "bairro_padr"
-    )
-    check_padr <- all(all_cols_padr %in% names(input_padrao))
+  # checa se input foi mesmo padronizado
+  all_cols_padr <- c(
+    "estado_padr",
+    "municipio_padr",
+    "logradouro_padr",
+    "numero_padr",
+    "cep_padr",
+    "bairro_padr"
+  )
+  check_padr <- all(all_cols_padr %in% names(input_padrao))
 
-    if (isFALSE(check_padr)) {
-      error_input_nao_padronizado()
-    }
+  if (isFALSE(check_padr)) {
+    error_input_nao_padronizado()
+  }
 
   # keep and rename colunms of input_padrao to use the
   # same column names used in cnefe data set
