@@ -1,0 +1,33 @@
+diff --git a/R/string_dist.R b/R/string_dist.R
+index 463c481..46b8cbf 100644
+--- a/R/string_dist.R
++++ b/R/string_dist.R
+@@ -24,6 +24,20 @@ calculate_string_dist <- function(con, match_type, unique_logradouros_tbl) {
+   # min cutoff for string match
+   min_cutoff <- get_prob_match_cutoff(match_type)
+ 
++  # nas etapas sem numero (pl0k), as linhas com numero preenchido ja foram
++  # testadas na etapa pn0k correspondente -- mesma chave de lookup, mesma
++  # tabela unique_logr_* e mesmo corte -- e nao passaram. similaridade_logradouro
++  # so e preenchida, nunca limpa, entao recalcular Jaro para elas aqui e um
++  # no-op garantido (mesmo principio de match_types_jaro_redundante em utils.R).
++  # So as linhas com numero NULL (que pn0k exclui via cols_not_null) restam.
++  # Se numero nao foi declarado, a coluna-fantasma e toda NULL e o filtro nao
++  # exclui nada.
++  filtro_sem_numero <- if (match_type %in% probabilistic_types_no_number) {
++    "AND input_padrao_db.numero IS NULL"
++  } else {
++    ""
++  }
++
+   #-----------------------------------------------------------------------------
+ 
+   # query novo
+@@ -41,6 +55,7 @@ calculate_string_dist <- function(con, match_type, unique_logradouros_tbl) {
+       WHERE input_padrao_db.similaridade_logradouro IS NULL
+         AND input_padrao_db.log_causa_confusao = FALSE
+         AND {cols_not_null}
++        {filtro_sem_numero}
+         ),
+ 
+     -- STEP 2: calculate similarity only for missing pairs

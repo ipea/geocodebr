@@ -5,6 +5,10 @@
 .Ruserdata
 censobr_*.tar.gz
 r-package/vignettes/*.html
+
+# Quarto vignettes - arquivos intermediarios
+r-package/vignettes/.quarto/
+r-package/vignettes/*_files/
 .parquet
 .tmp
 *.o
@@ -23,6 +27,7 @@ coverage.xml
 .pytest_cache/
 geocodebr.Rproj
 
+# Claude Code â config local de mÃ¡quina (nÃ£o versionada)
 # Sample de benchmark com microdados (hospedada em repo privada, não commitar)
 data/
 python-package/benchmarks/data/

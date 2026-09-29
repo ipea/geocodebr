@@ -102,9 +102,6 @@ df <- geocodebr::geocode(
   resultado_sf = TRUE,
   verboso = FALSE
   )
-#> Warning message:
-#> In (function (numeros, formato = "character")  :
-#>   NAs introduced by coercion to integer range
 ```
 
 Os resultados do **{geocodebr}** são classificados em seis categorias

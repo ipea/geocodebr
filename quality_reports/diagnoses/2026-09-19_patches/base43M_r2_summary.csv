@@ -1,0 +1,2 @@
+"label","mode","n_input","n_output","t_total_callr","t_child_core","t_child_startup","t_transport_overhead","child_peak_wset_mb","child_peak_wset_poll_mb","parent_peak_wset_mb","parent_wset_before_mb","parent_wset_after_mb","result_size_mb","duckdb","started","n_na_lat","sum_lat","sum_lon","sum_desvio","n_tipos","hash_end"
+"base43M_r2","core",43882020,43882020,893.93,661.31,2.74,229.86,82543.9140625,72444.65234375,9311.609375,4317.87890625,9311.609375,6941.7989730835,"1.5.5","2026-09-19 09:52:17",0,-649710680.318785,-1970455237.42254,155141349708,25,2514010173
