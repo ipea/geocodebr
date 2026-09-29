@@ -100,7 +100,6 @@ df_enderecos = geocode_reverso(
     verboso=False
 )
 
-df_enderecos.head()
 ```
 :::
 ::::
