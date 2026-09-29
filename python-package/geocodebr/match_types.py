@@ -136,5 +136,36 @@ def tabelas_necessarias(campos_nao_declarados: list[str]) -> list[str]:
     return list(dict.fromkeys(get_reference_table(mt) for mt in ativos))
 
 
+def tables_still_needed(
+    remaining_match_types: list[str], campos_nao_declarados: list[str]
+) -> set[str]:
+    """Temporary tables that the remaining steps of the loop will still use.
+
+    Mirrors ``tabelas_ainda_necessarias()`` in ``r-package/R/utils.R``: the
+    reference tables of the remaining active steps, plus the two
+    ``unique_logr_*`` tables from ``register_unique_logradouros_table()``
+    (their base depends only on whether the match_type is ``*03`` or not).
+    """
+    active = [
+        mt
+        for mt in remaining_match_types
+        if not any(col in campos_nao_declarados for col in get_key_cols(mt))
+    ]
+    tables = {get_reference_table(mt) for mt in active}
+
+    probabilistic = [
+        mt
+        for mt in active
+        if mt in PROBABILISTIC_EXACT_TYPES
+        | PROBABILISTIC_INTERPOLATION_TYPES
+        | PROBABILISTIC_TYPES_NO_NUMBER
+    ]
+    if any(mt in {"pn03", "pa03", "pl03"} for mt in probabilistic):
+        tables.add("unique_logr_municipio_logradouro_localidade")
+    if any(mt not in {"pn03", "pa03", "pl03"} for mt in probabilistic):
+        tables.add("unique_logr_municipio_logradouro_cep_localidade")
+    return tables
+
+
 def get_prob_match_cutoff(match_type: str) -> float:
     return 0.85 if match_type in {"pn01", "pa01", "pl01"} else 0.9

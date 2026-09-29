@@ -8,7 +8,12 @@ from geocodebr.matching import (
     match_cases_probabilistic,
     match_weighted_cases,
     select_match_function,
+    update_input_db,
 )
+from geocodebr.db import create_geocodebr_db
+from geocodebr.string_dist import calculate_string_dist
+from geocodebr.match_types import tables_still_needed
+from geocodebr.tables import drop_obsolete_tables, register_cnefe_table
 
 
 def test_select_match_function_dispatches_each_family():
@@ -362,3 +367,211 @@ def test_match_probabilistic_excludes_confusion_flags(
 
     assert n == 0
     assert con.execute("SELECT COUNT(*) FROM output_db").fetchone()[0] == 0
+
+
+# ---------------------------------------------------------------------------
+# update_input_db
+# ---------------------------------------------------------------------------
+
+
+def _create_update_tables(con):
+    # output_db with ids from two steps; input_padrao_db already without the
+    # dn01 ids (deleted in the previous step) and with the dn02 ones still
+    # present, as in the loop
+    con.execute("CREATE TEMP TABLE input_padrao_db (tempidgeocodebr INTEGER)")
+    con.execute("INSERT INTO input_padrao_db VALUES (3), (4), (5)")
+    con.execute("CREATE TEMP TABLE output_db (tempidgeocodebr INTEGER, tipo_resultado TEXT)")
+    con.execute(
+        "INSERT INTO output_db VALUES (1, 'dn01'), (2, 'dn01'), (3, 'dn02'), (3, 'dn02'), (4, 'dn02')"
+    )
+
+
+@pytest.mark.parametrize("match_type", [None, "dn02"])
+def test_update_input_db_step_filter_deletes_same_rows(match_type):
+    # with or without the tipo_resultado filter, deletes the same ids and
+    # returns the number of input rows deleted (a tied id counts once)
+    con = create_geocodebr_db(db_path="memory")
+    try:
+        _create_update_tables(con)
+        n = update_input_db(con, "input_padrao_db", "output_db", match_type=match_type)
+        remaining = con.execute("SELECT tempidgeocodebr FROM input_padrao_db").fetchall()
+        assert n == 2
+        assert remaining == [(5,)]
+        # nothing left to delete: returns 0
+        assert update_input_db(con, "input_padrao_db", "output_db", match_type=match_type) == 0
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
+# lifecycle and projection of the reference tables
+# ---------------------------------------------------------------------------
+
+
+def test_tables_still_needed_after_da03():
+    # after da03 both *_numero_* tables still serve da04/pn*/pa*;
+    # municipio_logradouro_numero_cep_localidade goes away after pa02
+    after_da03 = ["da04", "pn01", "pn02", "pn03", "pa01", "pa02", "pa03"]
+    tables = tables_still_needed(after_da03, [])
+    assert "municipio_logradouro_numero_localidade" in tables
+    assert "municipio_logradouro_numero_cep_localidade" in tables
+    assert "municipio" not in tables
+    assert "unique_logr_municipio_logradouro_localidade" in tables
+    assert "unique_logr_municipio_logradouro_cep_localidade" in tables
+
+    tables = tables_still_needed(["pa03", "dm01"], [])
+    assert tables == {
+        "municipio_logradouro_numero_localidade",
+        "municipio",
+        "unique_logr_municipio_logradouro_localidade",
+    }
+    # a step whose field was not declared holds no table
+    assert tables_still_needed(["dc01"], ["cep"]) == set()
+    assert tables_still_needed([], []) == set()
+
+
+def test_drop_obsolete_tables_only_drops_unused():
+    con = create_geocodebr_db(db_path="memory")
+    try:
+        for tb in ["municipio", "municipio_cep", "output_db", "input_padrao_db"]:
+            con.execute(f"CREATE TEMP TABLE {tb} (x INTEGER)")
+        drop_obsolete_tables(con, ["dm01"], [])
+        alive = {r[0] for r in con.execute("SELECT table_name FROM duckdb_tables()").fetchall()}
+        # municipio still serves dm01; tables outside the candidates are never touched
+        assert alive == {"municipio", "output_db", "input_padrao_db"}
+    finally:
+        con.close()
+
+
+@pytest.mark.parametrize("resultado_completo", [True, False])
+def test_register_cnefe_table_projects_only_used_columns(
+    match_env, cnefe_cache, cnefe_table, resultado_completo
+):
+    # code_muni/n_setor are never materialized; cod_setor only with
+    # resultado_completo. The default fixture (without code_muni/n_setor) is
+    # also covered by the match_cases test above
+    cnefe_cache(cnefe_table(code_muni=[5300108], n_setor=[1]), "municipio")
+    match_env.insert_input([{"estado": "DF", "municipio": "BRASILIA"}])
+    register_cnefe_table(
+        match_env.con, "dm01", match_env.pasta_dados, resultado_completo=resultado_completo
+    )
+    cols = {r[0] for r in match_env.con.execute("DESCRIBE municipio").fetchall()}
+    assert "code_muni" not in cols
+    assert "n_setor" not in cols
+    assert ("cod_setor" in cols) is resultado_completo
+    assert {"estado", "municipio", "lat", "lon"} <= cols
+
+
+# ---------------------------------------------------------------------------
+# calculate_string_dist: dedup and no-number filter (mirror string_dist.R)
+# ---------------------------------------------------------------------------
+
+
+def _create_unique_logr(con):
+    # longest key (with localidade), like register_unique_logradouros_table:
+    # with a short key (without localidade) RUA MARCO appears repeated
+    con.execute("""
+        CREATE TEMP TABLE unique_logr_teste AS
+        SELECT * FROM (VALUES
+          ('DF', 'BRASILIA', '70000-000', 'CENTRO', 'RUA MARCO'),
+          ('DF', 'BRASILIA', '70000-000', 'ASA SUL', 'RUA MARCO'),
+          ('DF', 'BRASILIA', '70000-000', 'CENTRO', 'RUA MARTA')
+        ) t(estado, municipio, cep, localidade, logradouro)
+    """)
+
+
+def _jaro_state(con):
+    return con.execute(
+        "SELECT tempidgeocodebr, temp_lograd_determ, similaridade_logradouro "
+        "FROM input_padrao_db ORDER BY tempidgeocodebr"
+    ).fetchall()
+
+
+def test_calculate_string_dist_dedup_only_updates_eligible_rows(match_env):
+    # pn02 (key without localidade) uses the dedup form: rows with the same
+    # key + logradouro get the same result; the join-back does not reach rows
+    # with an ambiguous logradouro nor rows already resolved
+    con = match_env.con
+    base = {"estado": "DF", "municipio": "BRASILIA", "logradouro": "RUA MARCA",
+            "numero": 100, "cep": "70000-000"}
+    match_env.insert_input([
+        base,
+        {**base, "numero": 200},
+        {**base, "log_causa_confusao": True},
+        {**base, "temp_lograd_determ": "RUA VELHA", "similaridade_logradouro": 0.5},
+    ])
+    _create_unique_logr(con)
+
+    calculate_string_dist(con, "pn02", "unique_logr_teste")
+
+    state = _jaro_state(con)
+    assert [e[1] for e in state] == ["RUA MARCO", "RUA MARCO", None, "RUA VELHA"]
+    assert state[0][2] == pytest.approx(0.926, abs=1e-3)
+    assert state[1][2] == state[0][2]
+    assert state[2][2] is None
+    assert state[3][2] == 0.5
+
+
+def test_calculate_string_dist_pl_only_computes_rows_without_numero(match_env):
+    # in pl0k, a row with numero was already tested in the matching pn0k: it
+    # stays out of the computation; only the row without numero is computed.
+    # Distinct logradouros on purpose: as in R, the join-back of the dedup form
+    # does not repeat the numero filter, which is safe in the loop (the same
+    # key + logradouro already went through pn0k with no candidate above the
+    # cutoff), but it would mask the filter
+    con = match_env.con
+    base = {"estado": "DF", "municipio": "BRASILIA", "cep": "70000-000"}
+    match_env.insert_input([
+        {**base, "logradouro": "RUA MARTE", "numero": 100},
+        {**base, "logradouro": "RUA MARCA", "numero": None},
+    ])
+    _create_unique_logr(con)
+
+    calculate_string_dist(con, "pl02", "unique_logr_teste")
+
+    state = _jaro_state(con)
+    assert state[0][1:] == (None, None)
+    assert state[1][1] == "RUA MARCO"
+
+
+# ---------------------------------------------------------------------------
+# interpolation: GROUP BY on free columns and regex once per group
+# ---------------------------------------------------------------------------
+
+
+def test_match_weighted_cases_splits_candidates_by_localidade(
+    match_env, cnefe_cache, cnefe_table
+):
+    # da02 fixes cep but not localidade: candidates in two localidades become
+    # two groups (a tie), each with its own weighted mean and its own
+    # endereco_encontrado with the searched numero marked as approximate
+    cnefe_cache(
+        cnefe_table(
+            numero=[100, 200, 140],
+            localidade=["CENTRO", "CENTRO", "ASA SUL"],
+            lat=[-15.8, -15.9, -15.7],
+            endereco_completo=[
+                "RUA TESTE, 100 - CENTRO, BRASILIA - DF, 70000-000",
+                "RUA TESTE, 200 - CENTRO, BRASILIA - DF, 70000-000",
+                "RUA TESTE, 140 - ASA SUL, BRASILIA - DF, 70000-000",
+            ],
+        ),
+        "municipio_logradouro_numero_cep_localidade",
+    )
+    con = match_env.con
+    match_env.insert_input([
+        {"estado": "DF", "municipio": "BRASILIA", "logradouro": "RUA TESTE",
+         "numero": 150, "cep": "70000-000"},
+    ])
+
+    n = match_weighted_cases(con, match_type="da02", pasta_dados=match_env.pasta_dados)
+
+    assert n == 1
+    rows = con.execute(
+        "SELECT lat, endereco_encontrado FROM output_db ORDER BY endereco_encontrado"
+    ).fetchall()
+    assert len(rows) == 2
+    assert rows[0][0] == pytest.approx(-15.7)
+    assert rows[0][1] == "RUA TESTE, 150 (aprox) - ASA SUL, BRASILIA - DF, 70000-000"
+    assert rows[1][0] == pytest.approx(-15.85)  # weights 1/50 and 1/50
+    assert rows[1][1] == "RUA TESTE, 150 (aprox) - CENTRO, BRASILIA - DF, 70000-000"

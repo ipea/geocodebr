@@ -150,6 +150,55 @@ def test_geocode_probabilistic_similarity_below_one(cnefe_cache):
     assert similaridade < 1
 
 
+def test_geocode_no_jaro_candidate_does_not_match_empty_logradouro(cnefe_cache):
+    # temp_lograd_determ starts as NULL (as in R), not '': the
+    # "temp_lograd_determ IS NOT NULL" filter in the probabilistic joins must
+    # drop rows without a Jaro candidate. With '', an empty logradouro in the
+    # CNEFE would match all of them as pn01. The current release has no empty
+    # logradouro (checked on 27/09); the test creates one to lock the behavior.
+    cnefe = pa.table(
+        {
+            "estado": ["DF"],
+            "municipio": ["BRASILIA"],
+            "logradouro": [""],
+            "numero": [100],
+            "cep": ["70000-000"],
+            "localidade": ["CENTRO"],
+            "lon": [-47.9],
+            "lat": [-15.8],
+            "endereco_completo": [", 100 - CENTRO, BRASILIA - DF"],
+            "desvio_metros": [10],
+            "n_casos": [1],
+            "cod_setor": ["001"],
+        }
+    )
+    cnefe_cache(cnefe)
+
+    addresses = pa.table(
+        {
+            "uf": ["Distrito Federal"],
+            "cidade": ["Brasilia"],
+            "rua": ["Rua Zzzqqq"],
+            "num": ["100"],
+            "cep_in": ["70000-000"],
+            "bairro": ["Centro"],
+        }
+    )
+    fields = definir_campos(
+        estado="uf",
+        municipio="cidade",
+        logradouro="rua",
+        numero="num",
+        cep="cep_in",
+        localidade="bairro",
+    )
+
+    out = geocode(addresses, fields, verboso=False)
+
+    # without a Jaro candidate, falls back to the deterministic cep + localidade match
+    assert out.column("tipo_resultado").to_pylist() == ["dc01"]
+
+
 def test_geocode_rejects_invalid_n_cores():
     with pytest.raises(ValueError, match="n_cores"):
         geocode(pa.table({"a": [1]}), n_cores=0)
