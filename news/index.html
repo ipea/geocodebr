@@ -45,6 +45,14 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.7.0.9000" id="geocodebr-v0709000-dev">geocodebr v0.7.0.9000 (dev)<a class="anchor" aria-label="anchor" href="#geocodebr-v0709000-dev"></a></h2>
+<div class="section level3">
+<h3 id="mudanças-pequenas-minor-changes-0-7-0-9000">Mudanças pequenas (Minor changes)<a class="anchor" aria-label="anchor" href="#mudan%C3%A7as-pequenas-minor-changes-0-7-0-9000"></a></h3>
+<ul><li>A função <code><a href="../reference/geocode.html">geocode()</a></code> agora roda na própria sessão do R no Linux, no macOS e no Windows fora do RStudio (Rterm, Rgui, Rscript), o que a deixa significamente mais rápida na geolocalização de grandes bases de dados. No Windows, dentro do RStudio ou Positron, ela continua rodando num processo separado dentro do callr, o que evita a perda progressiva de desempenho do DuckDB em chamadas sucessivas.</li>
+<li>As vinhetas do pacote foram reorganizadas e passam a ser construídas com Quarto, com novas vinhetas sobre <code><a href="../reference/busca_por_cep.html">busca_por_cep()</a></code> e sobre o cache de dados.</li>
+</ul></div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.7.0" id="geocodebr-v070">geocodebr v0.7.0<a class="anchor" aria-label="anchor" href="#geocodebr-v070"></a></h2><p class="text-muted">Lançamento CRAN: 2026-09-23</p>
 <div class="section level3">
 <h3 id="mudanças-grandes-major-changes-0-7-0">Mudanças grandes (Major changes)<a class="anchor" aria-label="anchor" href="#mudan%C3%A7as-grandes-major-changes-0-7-0"></a></h3>
@@ -55,8 +63,7 @@
 </ul></div>
 <div class="section level3">
 <h3 id="mudanças-pequenas-minor-changes-0-7-0">Mudanças pequenas (Minor changes)<a class="anchor" aria-label="anchor" href="#mudan%C3%A7as-pequenas-minor-changes-0-7-0"></a></h3>
-<ul><li>A função <code><a href="../reference/geocode.html">geocode()</a></code> agora roda na própria sessão do R no Linux, no macOS e no Windows fora do RStudio (Rterm, Rgui, Rscript), o que a deixa de 2 a 3 segundos mais rápida por chamada. Com isso, mensagens e avisos da função podem ser capturados com <code><a href="https://rdrr.io/r/base/message.html" class="external-link">suppressMessages()</a></code> e <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings()</a></code>. No Windows, dentro do RStudio, ela continua rodando num processo separado, que evita a perda progressiva de desempenho do DuckDB em chamadas sucessivas.</li>
-<li>Otimização de diversas etapas da função <code><a href="../reference/geocode.html">geocode()</a></code>, deixando a função com menor uso de memória e aprox. 17% mais rápida em benchmarks com bases de dados de 10 e 43 milhões de endereços.</li>
+<ul><li>Otimização de diversas etapas da função <code><a href="../reference/geocode.html">geocode()</a></code>, deixando a função com menor uso de memória e aprox. 17% mais rápida em benchmarks com bases de dados de 10 e 43 milhões de endereços.</li>
 <li>A função <code><a href="../reference/geocode.html">geocode()</a></code> agora pula, sem custo, as etapas internas de busca que dependem de um campo de endereço não declarado em <code>campos_endereco</code> (por exemplo, se input do usuário não possui as colunas <code>logradouro</code> e <code>numero</code>, o geocode agora faz a busca só por CEP/bairro/município). Antes, essas etapas eram sempre executadas e materializavam a tabela de referência do CNEFE correspondente mesmo sabendo de antemão que nenhum resultado seria encontrado. Isso traz enorme ganho de performance nesses casos. O resultado retornado não muda.</li>
 <li>A documentação da função <code><a href="../reference/geocode.html">geocode()</a></code> agora descreve a etapa de resolução de empates entre candidatos separados por menos de 300 metros, que antes não estava documentada. Ver a seção “Lidando com casos de empate” em <code><a href="../reference/geocode.html">?geocode</a></code>.</li>
 <li>A função <code><a href="../reference/geocode.html">geocode()</a></code> agora baixa só as tabelas de referência do CNEFE que as etapas ativas do algoritmo de fato vão usar, em vez de baixar sempre as 8 tabelas disponíveis. No melhor caso (geocodificação só por CEP/bairro/município, sem logradouro/número), o volume baixado cai de ~1,5 GB para ~20 MB.</li>

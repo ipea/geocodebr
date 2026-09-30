@@ -46,9 +46,7 @@ python -m pip install "geocodebr[geo]"
 ## Funcionalidades
 
 O **{geocodebr}** possui três funções principais para geolocalização de
-dados. Os exemplos a seguir utilizam a versão em R do pacote; para a
-versão Python, consulte a seção [Utilização em
-Python](#utiliza%C3%A7%C3%A3o-em-python).
+dados:
 
 1.  [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
 
@@ -81,7 +79,7 @@ persistente num *cache* local. Mais informações e funções de apoio para
 gerenciar o *cache*
 [**aqui**](https://ipea.github.io/geocodebr/articles/cache_dados.html).
 
-## Nota [![IPEA](reference/figures/ipea_logo.png)](https://www.ipea.gov.br)
+## Nota [![IPEA](https://github.com/ipea/geocodebr/tree/main/r-package/man/figures/ipea_logo.png)](https://www.ipea.gov.br)
 
 Os dados originais do CNEFE são coletados pelo Instituto Brasileiro de
 Geografia e Estatística (IBGE). O **{geocodebr}** foi desenvolvido por
