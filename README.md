@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# geocodebr: Geolocalização de Endereços Brasileiros <img align="right" src="man/figures/logo.svg" alt="" width="180">
+# geocodebr: Geolocalização de Endereços Brasileiros <img align="right" src="r-package/man/figures/logo.svg" alt="" width="180">
 
 O **{geocodebr}** é um pacote computacional para geolocalização de
 endereços Brasileiros. O pacote oferece uma maneira simples e eficiente
@@ -48,9 +48,7 @@ python -m pip install "geocodebr[geo]"
 ## Funcionalidades
 
 O **{geocodebr}** possui três funções principais para geolocalização de
-dados. Os exemplos a seguir utilizam a versão em R do pacote; para a
-versão Python, consulte a seção [Utilização em
-Python](#utilização-em-python).
+dados:
 
 1.  `geocode()`
 
@@ -78,12 +76,12 @@ Na primeira vez que se utiliza uma das funções acima, o **{geocodebr}**
 baixa e salva os dados do CNEFE em um cache local na sua máquina. No
 total, esses dados somam cerca de 1.2 GB, o que pode fazer com que a
 primeira execução da função demore. No entanto, estes dados são baixados
-uma única vez, e salvos de forma\
+uma única vez, e salvos de forma  
 persistente num *cache* local. Mais informações e funções de apoio para
 gerenciar o *cache*
 [**aqui**](https://ipea.github.io/geocodebr/articles/cache_dados.html).
 
-## Nota <a href="https://www.ipea.gov.br"><img src="man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>
+## Nota <a href="https://www.ipea.gov.br"><img src="https://github.com/ipea/geocodebr/tree/main/r-package/man/figures/ipea_logo.png" alt="IPEA" align="right" width="300"/></a>
 
 Os dados originais do CNEFE são coletados pelo Instituto Brasileiro de
 Geografia e Estatística (IBGE). O **{geocodebr}** foi desenvolvido por

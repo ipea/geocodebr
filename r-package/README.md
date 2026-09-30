@@ -76,7 +76,7 @@ Na primeira vez que se utiliza uma das funções acima, o **{geocodebr}**
 baixa e salva os dados do CNEFE em um cache local na sua máquina. No
 total, esses dados somam cerca de 1.2 GB, o que pode fazer com que a
 primeira execução da função demore. No entanto, estes dados são baixados
-uma única vez, e salvos de forma\
+uma única vez, e salvos de forma  
 persistente num *cache* local. Mais informações e funções de apoio para
 gerenciar o *cache*
 [**aqui**](https://ipea.github.io/geocodebr/articles/cache_dados.html).
