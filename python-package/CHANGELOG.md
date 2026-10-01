@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Adicionado
+
+- Dados de exemplo embutidos no pacote, espelhando os arquivos
+  `inst/extdata` do pacote R (`small_sample.csv` e
+  `large_sample.parquet`). Acesse-os com as novas funções
+  `carregar_dados_exemplo()`, que devolve um `pyarrow.Table` pronto para o
+  `geocode()`, e `caminho_dados_exemplo()`, que devolve o caminho do
+  arquivo (equivalente ao `system.file()` do R).
+
 ### Corrigido
 
 - `geocode()`: a coluna interna usada na busca probabilística

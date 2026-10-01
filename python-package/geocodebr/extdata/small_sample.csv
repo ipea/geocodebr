@@ -1,0 +1,29 @@
+id,nm_logradouro,Numero,Cep,Bairro,nm_municipio,code_muni,nm_uf
+1,Rua Maria Lucia Pacifico,17,26042-730,Santa Rita,Nova Iguacu,3303500,RJ
+2,Rua Leopoldina Tome,46,25030-050,Centenario,Duque de Caxias,3301702,RJ
+3,Rua Dona Judite,0,23915-700,Caputera II,Angra dos Reis,3300100,RJ
+4,Rua Alexandre Amaral,0,23098-120,Santissimo,Rio de Janeiro,3304557,RJ
+5,Avenida E,300,23860-000,Praia Grande,Mangaratiba,3302601,RJ
+6,Rua Princesa Isabel,263,"",Estacao Experimental,Rio Branco,1200401,AC
+7,Caminho sem denominaca,2530,69980-000,Miritizal,Cruzeiro do Sul,1200203,AC
+8,Rua do Limão,268,"","",Rio Branco,1200401,AC
+9,Rua Geraldo Mesquita,0,69918-202,Nova Estacao,Rio Branco,1200401,AC
+10,Avenida Castelo Branco,3874,69925-000,Democracia,Senador Guiomard,1200450,AC
+11,Rua Lucio Marinho Crus,91,57180-000,Centro,Barra de Sao Miguel,2501708,AL
+12,Conjunto Gislene Mateus,12,57160-000,Taperagua,Marechal Deodoro,2704708,AL
+13,Rua Maria Lucia Pacifico,21,26042-730,"",Nova iguacu,3303500,RJ
+14,Rua Princesa Isabel,262,"",Estacao Experimental,Rio Branco,1200401,AC
+15,Rua Francisco de Holanda,9,57073-735,Cidade Universitaria,Maceio,2704302,AL
+16,Rua Maria Lucia Pacifico,20,26042-730,"",Nova iguacu,3303500,RJ
+17,Rua Lucio Marinho Crus,91,"","",Barra de Sao Miguel,2501708,AL
+18,"",,"","",Rio Branco,1200401,Acre
+19,Rua Rui Barbosa,109,"","",Rio Branco,1200401,Acre
+20,Rua Rui Barbosa,,"","",Rio Branco,1200401,Acre
+21,"",,"",Copacabana,Rio de Janeiro,3304557,Rio de Janeiro
+22,"",,22280-005,Botafogo,Rio de Janeiro,3304557,RJ
+23,"",,22280-005,"",Rio de Janeiro,3304557,RJ
+24,Rua Leopoldina Tome,,25030-050,Centenario,Duque de Caxias,3301702,RJ
+25,Rua Leopoldina Tome,46,25030-050,"",Duque de Caxias,3301702,RJ
+26,Conjunto Gislene Mateus,,57160-000,"",Marechal Deodoro,2704708,Alagoas
+27,Rua Maria Lucia Pacifico,,"",Santa rita,Nova Iguacu,3303500,RJ
+28,Rua Maria Lucia Pacifico,3000524637,26042-730,Santa Rita,Nova Iguacu,3303500,RJ

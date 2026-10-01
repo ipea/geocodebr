@@ -4,6 +4,7 @@ from .cache import (
     listar_dados_cache,
     listar_pasta_cache,
 )
+from .datasets import caminho_dados_exemplo, carregar_dados_exemplo
 from .download_cnefe import download_cnefe
 from .fields import definir_campos
 from .geocode import geocode
@@ -13,6 +14,8 @@ from .standardize import enderecobr_padronizar_enderecos
 
 __all__ = [
     "busca_por_cep",
+    "caminho_dados_exemplo",
+    "carregar_dados_exemplo",
     "definir_campos",
     "definir_pasta_cache",
     "deletar_pasta_cache",
