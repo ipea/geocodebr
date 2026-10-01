@@ -227,3 +227,44 @@ def test_merge_results_to_input_keeps_unmatched_rows():
         assert rows[1] == ("b", None)
     finally:
         con.close()
+
+
+def test_merge_results_to_input_similaridade_resultado_completo():
+    # match deterministico (similaridade NULL) sai como 1; probabilistico
+    # mantem o valor; linha sem correspondencia no LEFT JOIN continua NULL
+    # (paridade com o R)
+    con = create_geocodebr_db(db_path="memory")
+    try:
+        con.execute("CREATE TEMP TABLE input_db (tempidgeocodebr INTEGER, nome TEXT)")
+        con.execute("INSERT INTO input_db VALUES (1, 'a'), (2, 'b'), (3, 'c')")
+        con.execute("""
+            CREATE TEMP TABLE output_db (
+                tempidgeocodebr INTEGER, lat DOUBLE, lon DOUBLE, precisao TEXT,
+                tipo_resultado TEXT, desvio_metros INTEGER, endereco_encontrado TEXT,
+                logradouro_encontrado TEXT, numero_encontrado INTEGER,
+                cep_encontrado TEXT, localidade_encontrada TEXT,
+                municipio_encontrado TEXT, estado_encontrado TEXT,
+                similaridade_logradouro DOUBLE, contagem_cnefe INTEGER,
+                empate BOOLEAN, cod_setor BIGINT
+            )
+        """)
+        con.execute("""
+            INSERT INTO output_db VALUES
+            (1, -15.8, -47.9, 'numero', 'dn01', 10, 'a', 'RUA A', 1, '70000000',
+             'CENTRO', 'BRASILIA', 'DF', NULL, 5, false, 1),
+            (3, -15.9, -47.95, 'numero', 'pn01', 10, 'c', 'RUA C', 3, '70000000',
+             'CENTRO', 'BRASILIA', 'DF', 0.9, 5, false, 1)
+        """)
+        merge_results_to_input(
+            con,
+            x="input_db",
+            y="output_db",
+            select_columns=["nome"],
+            resultado_completo=True,
+        )
+        rows = con.execute(
+            "SELECT nome, similaridade_logradouro FROM geocodebr_result"
+        ).fetchall()
+        assert rows == [("a", 1.0), ("b", None), ("c", 0.9)]
+    finally:
+        con.close()

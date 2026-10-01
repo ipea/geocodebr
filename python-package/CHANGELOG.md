@@ -1,6 +1,15 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0] - 2026-10-01
+
+### Adicionado
+
+- Dados de exemplo embutidos no pacote, espelhando os arquivos
+  `inst/extdata` do pacote R (`small_sample.csv` e
+  `large_sample.parquet`). Acesse-os com as novas funções
+  `carregar_dados_exemplo()`, que devolve um `pyarrow.Table` pronto para o
+  `geocode()`, e `caminho_dados_exemplo()`, que devolve o caminho do
+  arquivo (equivalente ao `system.file()` do R).
 
 ### Corrigido
 
@@ -10,6 +19,12 @@
   sem candidato na busca por similaridade poderiam ser dados como encontrados
   nesse logradouro (`pn01`). O release atual do CNEFE não tem logradouro vazio,
   então o resultado com os dados atuais não muda.
+- `geocode()`: com `resultado_completo=True`, endereços não encontrados passam
+  a devolver `similaridade_logradouro` nula, como no pacote R. Antes essas
+  linhas vinham com valor 1: o preenchimento da similaridade dos matches
+  determinísticos (nula no banco, exibida como 1) era aplicado também às
+  linhas sem correspondência no `LEFT JOIN` com o resultado.
+  [Encerra #116](https://github.com/ipea/geocodebr/issues/116)
 
 ### Modificado
 

@@ -378,11 +378,16 @@ def merge_results_to_input(
     )
 
     # COALESCE na projeção substitui o UPDATE de tabela inteira (mesma
-    # semântica: match determinístico tem similaridade NULL, exibida como 1)
+    # semântica: match determinístico tem similaridade NULL, exibida como 1).
+    # O CASE mantém NULL nas linhas sem correspondência no LEFT JOIN, como o
+    # UPDATE (que agia antes do JOIN) mantinha
     y_exprs: list[str] = []
     for col in select_columns_y:
         if resultado_completo and col == "similaridade_logradouro":
-            expr = f"COALESCE({quote_ident(y)}.similaridade_logradouro, 1)"
+            expr = (
+                f"CASE WHEN {quote_ident(y)}.tempidgeocodebr IS NULL THEN NULL "
+                f"ELSE COALESCE({quote_ident(y)}.similaridade_logradouro, 1) END"
+            )
         else:
             expr = f"{quote_ident(y)}.{quote_ident(col)}"
         y_exprs.append(f"{expr} AS {quote_ident(col)}")
