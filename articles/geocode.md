@@ -10,9 +10,9 @@ A principal função do pacote {geocodebr} é a
 [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md),
 que recebe uma tabela de endereços como entrada e retorna a mesma tabela
 geolocalizada como saída. No caso do R, esse input deve ser um
-`data.frame`. Já no Python, a função pode receber tanto um Polars ou
-Pandas `DataFrame` quanto o caminho para um arquivo com a tabela de
-endereços em formato `.csv` ou `.parquet`.
+`data.frame`. Já no Python, a função pode receber um `pyarrow.Table`, um
+Polars ou Pandas `DataFrame`, ou ainda o caminho para um arquivo com a
+tabela de endereços em formato `.csv` ou `.parquet`.
 
 A geolocalização desses dados com **{geocodebr}** pode ser feita em
 apenas dois passos:
@@ -55,14 +55,10 @@ campos <- definir_campos(
     Python
 
 ``` python
-import pandas as pd
-from geocodebr import definir_campos, geocode
+from geocodebr import carregar_dados_exemplo, definir_campos, geocode
 
-# leitura de amostra de dados
-ends = pd.read_csv(
-    "https://raw.githubusercontent.com/ipeaGIT/geocodebr/"
-    "main/r-package/inst/extdata/small_sample.csv"
-)
+# leitura da amostra de dados embutida no pacote
+ends = carregar_dados_exemplo("small_sample.csv")
 
 # definição dos campos de endereço
 campos = definir_campos(
@@ -74,6 +70,19 @@ campos = definir_campos(
     localidade="Bairro"
 )
 ```
+
+A amostra de dados usada acima vem embutida nos dois pacotes, junto com
+um `large_sample.parquet` com mais endereços. Em R, esses arquivos ficam
+em `inst/extdata` e são lidos com
+[`system.file()`](https://rdrr.io/r/base/system.file.html). Em Python,
+eles são acessados com `carregar_dados_exemplo()`, que devolve o
+conteúdo em um `pyarrow.Table`, ou com `caminho_dados_exemplo()`, que
+devolve o caminho do arquivo para leitura com outra biblioteca. Como a
+[`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
+também aceita o caminho de um arquivo `.csv` ou `.parquet`, o exemplo
+acima pode ser resumido a uma única chamada, com
+`caminho_dados_exemplo("small_sample.csv")` passado direto em
+`enderecos`.
 
 2.  O segundo passo é usar a função
     [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)

@@ -92,7 +92,7 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
 <p>O {geocodebr} está disponível em R e em Python, com funções e argumentos equivalentes. Ao longo desta vignette, cada exemplo mostra o código em R (à esquerda) e em Python (à direita).</p>
 <section class="level2"><h2 id="geolocalização-de-endereços-para-coordenadas-espaciais">Geolocalização: de endereços para coordenadas espaciais<a class="anchor" aria-label="anchor" href="#geolocaliza%C3%A7%C3%A3o-de-endere%C3%A7os-para-coordenadas-espaciais"></a>
 </h2>
-<p>A principal função do pacote {geocodebr} é a <code><a href="../reference/geocode.html">geocode()</a></code>, que recebe uma tabela de endereços como entrada e retorna a mesma tabela geolocalizada como saída. No caso do R, esse input deve ser um <code>data.frame</code>. Já no Python, a função pode receber tanto um Polars ou Pandas <code>DataFrame</code> quanto o caminho para um arquivo com a tabela de endereços em formato <code>.csv</code> ou <code>.parquet</code>.</p>
+<p>A principal função do pacote {geocodebr} é a <code><a href="../reference/geocode.html">geocode()</a></code>, que recebe uma tabela de endereços como entrada e retorna a mesma tabela geolocalizada como saída. No caso do R, esse input deve ser um <code>data.frame</code>. Já no Python, a função pode receber um <code>pyarrow.Table</code>, um Polars ou Pandas <code>DataFrame</code>, ou ainda o caminho para um arquivo com a tabela de endereços em formato <code>.csv</code> ou <code>.parquet</code>.</p>
 <p>A geolocalização desses dados com <strong>{geocodebr}</strong> pode ser feita em apenas dois passos:</p>
 <ol type="1">
 <li>O primeiro passo é usar a função <code><a href="../reference/definir_campos.html">definir_campos()</a></code> para indicar os nomes das colunas na tabela de <em>input</em> que correspondem a cada campo dos endereços. No exemplo abaixo, nós indicamos que coluna que contém a informação de logradouro se chama <code>"nm_logradouro"</code>, que a coluna de número se chama <code>"Numero"</code>, etc.</li>
@@ -136,27 +136,24 @@ div.columns.r-py > div.column { flex: 1 1 0; width: auto !important; min-width: 
 <div class="code-with-filename-file">
 <pre><strong>Python</strong></pre>
 </div>
-<div class="sourceCode" id="cb2" data-filename="Python"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> geocodebr <span class="im">import</span> definir_campos, geocode</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># leitura de amostra de dados</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>ends <span class="op">=</span> pd.read_csv(</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">"https://raw.githubusercontent.com/ipeaGIT/geocodebr/"</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"main/r-package/inst/extdata/small_sample.csv"</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># definição dos campos de endereço</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>campos <span class="op">=</span> definir_campos(</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    estado<span class="op">=</span><span class="st">"nm_uf"</span>,</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    municipio<span class="op">=</span><span class="st">"nm_municipio"</span>,</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    logradouro<span class="op">=</span><span class="st">"nm_logradouro"</span>,</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    numero<span class="op">=</span><span class="st">"Numero"</span>,</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    cep<span class="op">=</span><span class="st">"Cep"</span>,</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    localidade<span class="op">=</span><span class="st">"Bairro"</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb2" data-filename="Python"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> geocodebr <span class="im">import</span> carregar_dados_exemplo, definir_campos, geocode</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># leitura da amostra de dados embutida no pacote</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>ends <span class="op">=</span> carregar_dados_exemplo(<span class="st">"small_sample.csv"</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># definição dos campos de endereço</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>campos <span class="op">=</span> definir_campos(</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    estado<span class="op">=</span><span class="st">"nm_uf"</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    municipio<span class="op">=</span><span class="st">"nm_municipio"</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    logradouro<span class="op">=</span><span class="st">"nm_logradouro"</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    numero<span class="op">=</span><span class="st">"Numero"</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    cep<span class="op">=</span><span class="st">"Cep"</span>,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    localidade<span class="op">=</span><span class="st">"Bairro"</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 </div>
 </div>
+<p>A amostra de dados usada acima vem embutida nos dois pacotes, junto com um <code>large_sample.parquet</code> com mais endereços. Em R, esses arquivos ficam em <code>inst/extdata</code> e são lidos com <code><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file()</a></code>. Em Python, eles são acessados com <code>carregar_dados_exemplo()</code>, que devolve o conteúdo em um <code>pyarrow.Table</code>, ou com <code>caminho_dados_exemplo()</code>, que devolve o caminho do arquivo para leitura com outra biblioteca. Como a <code><a href="../reference/geocode.html">geocode()</a></code> também aceita o caminho de um arquivo <code>.csv</code> ou <code>.parquet</code>, o exemplo acima pode ser resumido a uma única chamada, com <code>caminho_dados_exemplo("small_sample.csv")</code> passado direto em <code>enderecos</code>.</p>
 <ol start="2" type="1">
 <li>O segundo passo é usar a função <code><a href="../reference/geocode.html">geocode()</a></code> para encontrar as coordenadas geográficas dos dados de <em>input</em>.</li>
 </ol>

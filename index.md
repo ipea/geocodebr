@@ -49,24 +49,19 @@ O **{geocodebr}** possui três funções principais para geolocalização de
 dados:
 
 1.  [`geocode()`](https://ipea.github.io/geocodebr/reference/geocode.md)
-
-- Faz geolocalização de uma tabela de endereços para coordenadas
-  espaciais. Mais detalhes e exemplos de uso na [**vignette
-  “geocode”**](https://ipea.github.io/geocodebr/articles/geocode.html).
-
+    - Faz geolocalização de uma tabela de endereços para coordenadas
+      espaciais. Mais detalhes e exemplos de uso na [**vignette
+      “geocode”**](https://ipea.github.io/geocodebr/articles/geocode.html).
 2.  [`geocode_reverso()`](https://ipea.github.io/geocodebr/reference/geocode_reverso.md)
-
-- Permite a geolocalização reversa, ou seja, a busca de endereços
-  próximos a um conjunto de coordenadas geográficas. Mais detalhes na
-  [**vignette “geocode
-  reverso”**](https://ipea.github.io/geocodebr/articles/geocode_reverso.html).
-
+    - Permite a geolocalização reversa, ou seja, a busca de endereços
+      próximos a um conjunto de coordenadas geográficas. Mais detalhes
+      na [**vignette “geocode
+      reverso”**](https://ipea.github.io/geocodebr/articles/geocode_reverso.html).
 3.  [`busca_por_cep()`](https://ipea.github.io/geocodebr/reference/busca_por_cep.md)
-
-- Permite fazer consultas de CEPs para encontrar endereços associados a
-  cada CEP e suas coordenadas espaciais. Mais detalhes na [**vignette
-  sobre “busca por
-  cep”**](https://ipea.github.io/geocodebr/articles/busca_por_cep.html).
+    - Permite fazer consultas de CEPs para encontrar endereços
+      associados a cada CEP e suas coordenadas espaciais. Mais detalhes
+      na [**vignette sobre “busca por
+      cep”**](https://ipea.github.io/geocodebr/articles/busca_por_cep.html).
 
 ## Cache de dados
 
@@ -79,7 +74,7 @@ persistente num *cache* local. Mais informações e funções de apoio para
 gerenciar o *cache*
 [**aqui**](https://ipea.github.io/geocodebr/articles/cache_dados.html).
 
-## Nota [![IPEA](https://github.com/ipea/geocodebr/tree/main/r-package/man/figures/ipea_logo.png)](https://www.ipea.gov.br)
+## Nota [![IPEA](reference/figures/ipea_logo.png)](https://www.ipea.gov.br)
 
 Os dados originais do CNEFE são coletados pelo Instituto Brasileiro de
 Geografia e Estatística (IBGE). O **{geocodebr}** foi desenvolvido por
