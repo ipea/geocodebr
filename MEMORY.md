@@ -505,3 +505,14 @@ usuário — não tentar regenerar.
 - `[LEARN:duckdb]` `ASOF JOIN` contra a tabela nacional (50 M linhas) ordena a referência inteira a cada chamada
   (~70 s, 27 GB); mesmo filtrada, foi mais lenta que join + `GROUP BY` com `arg_max(...) FILTER (...)`, que dá a
   mesma resposta para vizinho inferior/superior.
+- `[LEARN:python]` Chamar de `data/` a pasta de dados embutidos do pacote Python → usar
+  `geocodebr/extdata/`. O padrão solto `data/` do `.gitignore` da raiz (linha 32, destinado ao
+  sample de benchmark que não é commitado) casa com **qualquer** diretório `data` em qualquer
+  nível, e o hatchling exclui do wheel os arquivos cobertos por regras do VCS: os samples
+  ficariam de fora do commit e do wheel **sem nenhum erro ou aviso**. `extdata/` espelha
+  `inst/extdata` do R e não colide (`git check-ignore` vazio); a igualdade entre as duas cópias
+  é guardada por checksum em `tests/test_dados_exemplo.py`, pulado fora do checkout do monorepo
+  (ex.: testes contra o wheel do PyPI). Acesso em Python sempre via `importlib.resources`
+  (`caminho_dados_exemplo()`/`carregar_dados_exemplo()` em `geocodebr/datasets.py`), nunca path
+  relativo. **Por quê:** a falha é duplamente silenciosa — o git não reclama de arquivo
+  ignorado e o build não reclama de arquivo ausente; o único fator de risco é o nome da pasta.
