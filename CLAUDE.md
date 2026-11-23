@@ -358,7 +358,7 @@ para uma etapa que só encontraria `NULL`; (c) escolhe-se uma das 4 funções de
 | Família | Função | O que faz |
 |---|---|---|
 | `dn01`–`dn04` | `match_cases()` | Join determinístico exato, número incluído |
-| `da01`–`da04` | `match_weighted_cases()` | Join sem o número; interpola por `1/ABS(numero - numero_cnefe)` |
+| `da01`–`da04` | `match_weighted_cases()` | Join sem o número; interpola por `1/ABS(numero - numero_cnefe)^4` (IDW, expoente 4) |
 | `pn01`–`pn03` | `match_cases_probabilistic()` | Jaro no logradouro, depois join determinístico |
 | `pa01`–`pa03` | `match_weighted_cases_probabilistic()` | Interpolação por número; **não** recalcula Jaro (ver abaixo) |
 | `dl01`–`dl04`, `pl01`–`pl03` | idem acima | Sem número (`S/N`) |

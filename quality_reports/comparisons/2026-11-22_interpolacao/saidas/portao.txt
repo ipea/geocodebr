@@ -1,0 +1,2 @@
+Portão A (override B0 ≡ produção, large_sample): PASSOU — max 0.368 m em 4532 linhas interpoladas
+Portão B (B0 isolado ≡ geocode() com holdout, 200 alvos): PASSOU — max 5.91e-09 m; tipos: da01 200

@@ -1,5 +1,16 @@
 # Changelog
 
+## [Não publicado]
+
+### Alterado
+
+- `geocode()`: na precisão `"numero_aproximado"` (`da*` e `pa*`), a
+  interpolação do número ausente passa a ponderar os números vizinhos do CNEFE
+  por `1/|Δn|^4`, em vez de `1/|Δn|`, como no pacote R. Em testes de validação
+  cruzada com números removidos do CNEFE, o erro mediano caiu de 34 m para
+  17 m, com custo de tempo desprezível
+  ([issue #36](https://github.com/ipea/geocodebr/issues/36)).
+
 ## [0.2.0] - 2026-10-01
 
 ### Adicionado

@@ -131,9 +131,10 @@ def match_weighted_cases(
           tempidgeocodebr, lat, lon, endereco_encontrado, tipo_resultado,
           desvio_metros, log_causa_confusao, contagem_cnefe {colunas_encontradas}
         )
+        -- peso IDW 1/|numero - numero_cnefe|^4 (mesmo expoente do pacote R)
         SELECT tempidgeocodebr,
-          SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
-          SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
+          SUM((1 / POW(ABS(numero - numero_cnefe), 4) * lat)) / SUM(1 / POW(ABS(numero - numero_cnefe), 4)) AS lat,
+          SUM((1 / POW(ABS(numero - numero_cnefe), 4) * lon)) / SUM(1 / POW(ABS(numero - numero_cnefe), 4)) AS lon,
           REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,
@@ -258,9 +259,10 @@ def match_weighted_cases_probabilistic(
           tempidgeocodebr, lat, lon, endereco_encontrado, tipo_resultado,
           desvio_metros, log_causa_confusao, contagem_cnefe {colunas_encontradas}
         )
+        -- peso IDW 1/|numero - numero_cnefe|^4 (mesmo expoente do pacote R)
         SELECT tempidgeocodebr,
-          SUM((1 / ABS(numero - numero_cnefe) * lat)) / SUM(1 / ABS(numero - numero_cnefe)) AS lat,
-          SUM((1 / ABS(numero - numero_cnefe) * lon)) / SUM(1 / ABS(numero - numero_cnefe)) AS lon,
+          SUM((1 / POW(ABS(numero - numero_cnefe), 4) * lat)) / SUM(1 / POW(ABS(numero - numero_cnefe), 4)) AS lat,
+          SUM((1 / POW(ABS(numero - numero_cnefe), 4) * lon)) / SUM(1 / POW(ABS(numero - numero_cnefe), 4)) AS lon,
           REGEXP_REPLACE(FIRST(endereco_completo {ordem_first}), ', \\d+ -', CONCAT(', ', numero, ' (aprox) -')) AS endereco_encontrado,
           '{match_type}' AS tipo_resultado,
           AVG(desvio_metros) AS desvio_metros,

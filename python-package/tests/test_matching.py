@@ -118,14 +118,14 @@ def test_match_cases_multiple_candidates_produce_multiple_rows(
 
 
 # ---------------------------------------------------------------------------
-# match_weighted_cases (interpolação 1/ABS(numero - numero_cnefe))
+# match_weighted_cases (interpolação 1/ABS(numero - numero_cnefe)^4)
 # ---------------------------------------------------------------------------
 
 
 def test_match_weighted_interpolates_by_distance(
     match_env, cnefe_cache, cnefe_table
 ):
-    # candidatos a distancia 1 e 2 do numero inputado: pesos 1 e 0.5
+    # candidatos a distancia 1 e 2 do numero inputado: pesos 1 e 1/2^4 = 0.0625
     lat1, lat2 = -15.8, -15.9
     cnefe_cache(
         cnefe_table(
@@ -147,7 +147,7 @@ def test_match_weighted_interpolates_by_distance(
     lat, endereco = con.execute(
         "SELECT lat, endereco_encontrado FROM output_db"
     ).fetchone()
-    assert lat == pytest.approx((lat1 * 1 + lat2 * 0.5) / 1.5)
+    assert lat == pytest.approx((lat1 * 1 + lat2 * 0.0625) / 1.0625)
     assert "50 (aprox)" in endereco
 
 

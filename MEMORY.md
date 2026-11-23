@@ -480,6 +480,31 @@ usuário — não tentar regenerar.
   `UPDATE` pré-JOIN para a projeção pós-JOIN muda o valor das linhas sem match; e fixture sem linha
   não encontrada é ponto cego do teste de paridade.
 
+- `[LEARN:duckdb]` `SELECT ... FROM t WHERE cond USING SAMPLE n ROWS` → amostra **antes** do `WHERE` (devolve
+  menos que n linhas); certo: `SELECT * FROM (SELECT ... WHERE cond) USING SAMPLE n ROWS`. **Por quê:** a
+  cláusula de amostragem se aplica ao resultado do `FROM`; mordeu na montagem dos sintéticos de 21/11.
+- `[LEARN:geocode]` Logradouro de input **sem tipo** (`PRESIDENTE KENNEDY`, `HADOCK LOBO`) quase nunca passa
+  do nível CEP/bairro: 11,9% da `large_sample` (RJ+AL) e 96,7% desses ficam em `dc`/`db`. Ver comparação com o
+  Geocenarios (`quality_reports/diagnoses/2026-11-21_comparacao-geocenarios.md`, lição 1). **Por quê:** o Jaro
+  compara o logradouro inteiro, e a falta de "RUA "/"AVENIDA " derruba a similaridade abaixo de 0,85.
+- `[LEARN:interpolacao]` A interpolação de número ausente (`da*`/`pa*`, média `1/|Δn|` sobre todos os números
+  da rua) é o pior de 8 métodos em leave-one-out na tabela mais completa: mediana 34 m (P1) / 58 m (P2) vs 14 / 23 m
+  da interpolação linear entre os vizinhos do mesmo lado (paridade), sem trava. Em ruas curvas a média cai dentro da
+  curva (14–18 m do eixo). Ver `quality_reports/diagnoses/2026-11-22_interpolacao-numero-ausente.md`. **Por quê:**
+  números distantes ainda pesam (`1/d` decai devagar) e a média de muitos pontos sai do traçado.
+  Elevar o peso a `1/|Δn|³` (issue #36) já leva ~80% do ganho (17 / 29 m) por +15–30% de tempo na etapa isolada e
+  nenhuma memória extra — a lentidão relatada na issue não se reproduz com o SQL atual. Varredura k = 2…11:
+  platô nos internos a partir de k = 3, pontas/P0 melhoram até o nível do vizinho mais próximo; k = 4–5 equilibra;
+  o tempo não depende de k. **Decisão (23/11):** adotado k = 4 nos dois pacotes (R e Python), não o M1n.
+- `[LEARN:cnefe]` "Sinuosidade" calculada pelo percurso dos pontos **na ordem dos números** mede a desordem da
+  numeração (números que vão e voltam numa rua reta), não a curva — 77% das ruas longas saíam "curvas". Errado:
+  path/corda na ordem do número; certo: flecha p90 ÷ extensão em torno do eixo principal (PCA, sem pontos isolados),
+  com a desordem como atributo separado. **Por quê:** o CNEFE tem muita numeração não monotônica.
+- `[LEARN:desvio]` Nos casos interpolados, `desvio_metros` = média dos desvios dos pontos usados (mediana 6 m) e cobre
+  só 3–8% dos erros reais do método atual. Não usar como incerteza da interpolação sem recalibrar.
+- `[LEARN:duckdb]` `ASOF JOIN` contra a tabela nacional (50 M linhas) ordena a referência inteira a cada chamada
+  (~70 s, 27 GB); mesmo filtrada, foi mais lenta que join + `GROUP BY` com `arg_max(...) FILTER (...)`, que dá a
+  mesma resposta para vizinho inferior/superior.
 - `[LEARN:python]` Chamar de `data/` a pasta de dados embutidos do pacote Python → usar
   `geocodebr/extdata/`. O padrão solto `data/` do `.gitignore` da raiz (linha 32, destinado ao
   sample de benchmark que não é commitado) casa com **qualquer** diretório `data` em qualquer
