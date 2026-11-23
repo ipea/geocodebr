@@ -1,0 +1,9 @@
+B0       n=99990 determinístico=FALSE (max |Δ| 2.13e-14 grau)
+B1       n=99990 determinístico=TRUE (max |Δ| 0 grau)
+B2       n=99990 determinístico=TRUE (max |Δ| 0 grau)
+M1       n=99990 determinístico=TRUE (max |Δ| 0 grau)
+M2       n=99990 determinístico=TRUE (max |Δ| 0 grau)
+M4       n=99990 determinístico=TRUE (max |Δ| 0 grau)
+M1_asof  n=99990 determinístico=TRUE (max |Δ| 0 grau)
+M1_asof_f n=99990 determinístico=TRUE (max |Δ| 0 grau)
+M1_asof vs M1: 99990/99990 linhas; max |Δ| 0 grau

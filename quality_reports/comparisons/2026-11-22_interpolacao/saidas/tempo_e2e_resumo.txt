@@ -1,0 +1,6 @@
+          base metodo   seg
+1 large_sample     B0  7.83
+2          P0b     B0 19.40
+3 large_sample    M1n  8.75
+4          P0b    M1n 20.11
+large_sample: 4507 de 20028 linhas mudam de coordenada (22.5%); todas interpoladas: TRUE

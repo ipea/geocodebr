@@ -2,6 +2,12 @@
 
 ## Mudanças pequenas (Minor changes)
 
+- Na precisão `"numero_aproximado"` (`da*` e `pa*`), a interpolação do número
+ausente passa a ponderar os números vizinhos do CNEFE por `1/|Δn|^4`, em vez de
+`1/|Δn|`, dando mais peso aos números mais próximos. Em testes de validação
+cruzada com números removidos do CNEFE, o erro mediano caiu de 34 m para 17 m,
+com custo de tempo desprezível. Discussão na
+[issue #36](https://github.com/ipea/geocodebr/issues/36).
 - A função `geocode()` agora roda na própria sessão do R no Linux, no macOS e no
 Windows fora do RStudio (Rterm, Rgui, Rscript), o que a deixa significamente mais
 rápida na geolocalização de grandes bases de dados. No Windows, dentro do RStudio
